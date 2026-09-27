@@ -53,7 +53,7 @@ function TargetsForm({ uid, settings }) {
 
   return (
     <form className="card form" onSubmit={save}>
-      <p className="muted small">Your own daily targets. All optional; leave any blank to skip it. (AI-suggested targets come later, from your own model.)</p>
+      <p className="muted small">Your own daily targets. All optional; leave any blank to skip it. (AI suggested targets to come later, from our very own model.)</p>
       <div className="nutri-inputs">
         {NUTRIENTS.map((n) => (
           <label key={n.key}>{n.label} ({n.unit}/day)
