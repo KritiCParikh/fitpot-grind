@@ -1,0 +1,43 @@
+rules_version = '2';
+
+// FitPot Firestore security rules (starter).
+// Paste into Firebase console → Firestore → Rules, or deploy with the Firebase CLI.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function isMember(groupId) {
+      return signedIn() &&
+        exists(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid));
+    }
+
+    // Public profile (name + avatar). Only the owner writes it.
+    match /users/{uid} {
+      allow read: if signedIn();
+      allow write: if signedIn() && request.auth.uid == uid;
+    }
+
+    match /groups/{groupId} {
+      allow read: if isMember(groupId);
+      allow create: if signedIn();
+
+      // Joining: you may add only yourself.
+      match /members/{uid} {
+        allow read: if isMember(groupId);
+        allow create: if signedIn() && request.auth.uid == uid;
+      }
+
+      // Check-ins: whole group can read; you can only create your own, never edit.
+      match /checkins/{checkinId} {
+        allow read: if isMember(groupId);
+        allow create: if isMember(groupId) && request.resource.data.uid == request.auth.uid;
+        allow update, delete: if false;
+      }
+    }
+
+    // Private health data: owner only.
+    match /private/{uid}/{document=**} {
+      allow read, write: if signedIn() && request.auth.uid == uid;
+    }
+  }
+}
