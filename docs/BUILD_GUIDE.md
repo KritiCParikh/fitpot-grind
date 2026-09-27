@@ -5,6 +5,7 @@ A step-by-step record of how FitPot is built and deployed, from an empty GitHub 
 - **Repo:** https://github.com/KritiCParikh/fitpot-grind
 - **Live app:** https://kriticparikh.github.io/fitpot-grind/
 - **Firebase project:** `fitpot-grind` (Spark / free plan)
+- **What everything is and how it connects:** [HOW_IT_WORKS.md](HOW_IT_WORKS.md)
 
 | Phase | What | Status |
 |---|---|---|
@@ -12,10 +13,10 @@ A step-by-step record of how FitPot is built and deployed, from an empty GitHub 
 | 1 | Groups + passcode join | ✅ Done |
 | 2 | Daily check-in + calendar + streaks | ✅ Done |
 | 3 | Pot ledger, balances, board, rest days, penalty changes | ✅ Done |
-| 4 | Camera-only photos → Google Drive, photo wall | ✅ Built, ready to deploy |
-| 4.5 | Group rules: weekly workout target, photo-required check-in, undo | ✅ Built, ready to deploy |
-| 5 | Food logging (Open Food Facts) | ⏳ Next |
-| 6 | Vision model (scratch → fine-tune → browser) | |
+| 4 | Camera-only photos → Google Drive, photo wall | ✅ Done |
+| 4.5 | Group rules: weekly workout target, photo-required check-in, undo | ✅ Done |
+| 5 | Food logging: search (USDA + Open Food Facts), barcode, custom, AI plate scan, targets | ✅ Built, ready to deploy |
+| 6 | Vision model (scratch → fine-tune → browser) | ⏳ Next |
 | 7 | Language model nudges + push notifications | |
 
 ---
@@ -407,6 +408,97 @@ Groups created before this update default to **every day** (daily) and **photo r
 
 ---
 
+# Phase 5 — Me tab: food, targets, weight, progress photos
+
+Everything in **Me** is **optional** and **private**: only you can see it (Firestore `private/{you}/…`, owner-only). It never affects check-ins or the pot.
+
+### What was built
+- **New "Me" tab** (bottom bar: Today · Calendar · Wall · Board · **Me** · Group) with three sections:
+
+**🍽 Food**
+- Diary by **Breakfast / Lunch / Dinner / Snacks**, with **‹ ›** to see other days.
+- **Daily totals** (calories, protein, carbs, fat, fibre) with progress bars against your targets (calories turn orange when you go over).
+- **＋ Add** opens the food finder:
+  - **Recent**: foods you've logged, one tap to re-log with your last portion.
+  - **My foods & recipes**: your saved foods.
+  - **Search** across three databases, toggled with chips:
+    - 🇮🇳 **India**: Indian Nutrient Databank (INDB), 1,014 common Indian dishes, bundled in the app (instant, works offline).
+    - 🇺🇸 **USA**: USDA FoodData Central (generic foods, US brands, mixed dishes).
+    - 📦 **Packaged**: Open Food Facts (branded products worldwide, incl. Indian brands).
+  - **▦ Scan barcode**: packaged foods. If the product isn't found, you enter the label once and it's saved to My foods, so it scans instantly next time.
+  - **📷 Scan plate · soon**: placeholder for your own vision model (phase 6, no AI APIs).
+- **Portion**: amount × unit (g, 100 g, bowl/plate/piece/serving from the database), live nutrition preview, pick the meal, **Add**.
+- **⭐ Save to My foods** from any search result.
+- **My foods & recipes**: create your own food (per serving, e.g. from a label), or build a **recipe** from ingredients (e.g. "Chicken curry (home)", makes 4 servings), which is then logged like any food.
+
+**⚖️ Progress**
+- **Manual weight log**: weight + date (past dates allowed; logging a date again replaces it). kg or lb.
+- **Trend chart** (30 d / 90 d / 1 y / all), tap or hover for exact values, dashed line for your goal weight.
+- **Latest**, **7-day** and **30-day** change; full entry list with delete.
+- **📸 Progress photos (optional)**: saved to **your own Google Drive** in a `FitPot Progress` folder, never to the organiser's Drive, never visible to the group. Camera **or** gallery. Tap two photos to compare side by side. FitPot can only access files it created there, nothing else in your Drive.
+
+**🎯 Targets**
+- Your own daily calories, protein, carbs, fat, fibre (all optional), weight unit, goal weight. AI-suggested targets come later from your own model.
+
+### What you do
+
+**Step 22 — (Recommended) Get a free USDA key.** Without it, USA search uses a shared demo key that runs out after a few searches an hour.
+1. Go to **api.data.gov/signup** → fill in name + email → **Sign up**.
+2. The key arrives on screen and by email (a long string).
+3. GitHub repo → **Settings → Secrets and variables → Actions → New repository secret** → **Name:** `VITE_USDA_API_KEY` **Secret:** the key → **Add secret**.
+
+**Step 23 — (For progress photos) Create a Google sign-in client.** Your Firebase project is also a Google Cloud project; we add Drive access to it.
+1. Go to **console.cloud.google.com**. Top bar → project picker → choose **fitpot-grind**.
+2. **Turn on the Drive API:** ☰ menu → **APIs & Services → Library** → search **Google Drive API** → **Enable**.
+3. **Consent screen:** ☰ → **APIs & Services → OAuth consent screen** (may be called **Google Auth Platform**).
+   - If it says **Get started**: App name `FitPot`, your support email → **Audience: External** → contact email → agree → **Create**. (If Firebase already created one, just continue.)
+4. **Scope:** **Data Access** → **Add or remove scopes** → find `…/auth/drive.file` ("See, edit, create, and delete only the specific Google Drive files you use with this app") → tick → **Update → Save**.
+5. **Publish:** **Audience** → **Publish app** → confirm. `drive.file` is a non-sensitive scope, so no Google review is needed. (If you leave it in *Testing*, only people you list as test users can connect, and their access expires every 7 days.)
+6. **Client:** **Clients** (or **Credentials → Create credentials → OAuth client ID**) → **Application type: Web application** → Name `FitPot web` → **Authorized JavaScript origins → Add URI** → `https://kriticparikh.github.io` (and `http://localhost:5173` if you run it locally) → **Create**.
+7. Copy the **Client ID** (ends in `.apps.googleusercontent.com`). It's not a secret, but we store it like the others.
+8. GitHub → **New repository secret** → **Name:** `VITE_GOOGLE_CLIENT_ID` **Secret:** the Client ID → **Add secret**.
+
+**Step 24 — Let the build use the two new secrets.** Your `deploy.yml` was created by hand on GitHub, so add two lines to it:
+1. GitHub repo → open `.github/workflows/deploy.yml` → ✏️ **Edit**.
+2. Find the line `VITE_DRIVE_UPLOAD_URL: ${{ secrets.VITE_DRIVE_UPLOAD_URL }}`. Directly under it, with **exactly the same indentation**, add:
+   ```yaml
+             VITE_USDA_API_KEY: ${{ secrets.VITE_USDA_API_KEY }}
+             VITE_GOOGLE_CLIENT_ID: ${{ secrets.VITE_GOOGLE_CLIENT_ID }}
+   ```
+3. **Commit changes**. (Appendix A shows the full file.)
+
+**Step 25 — Upload the new code.** This update adds a library (barcode scanner) and a data file, so it includes more than usual. Drag in:
+`src`, `public`, `docs`, `package.json`, `package-lock.json`, `vite.config.js`, `README.md` → **Commit changes**.
+**No Firestore rules change** this time (the private area was already owner-only).
+
+### Check it worked
+1. Bottom bar shows **Me**.
+2. **Me → Targets** → set e.g. 2200 kcal, 120 g protein → **Save**.
+3. **Me → Food → Breakfast ＋ Add** → type `poha` → 🇮🇳 results appear → pick one → 1 bowl → **Add to Breakfast** → totals update.
+4. Type `oats` → 🇺🇸 and 📦 results appear too.
+5. **▦ Scan barcode** on any pack → it's found, or you're offered **Create food** with the barcode filled in.
+6. **Me → Progress** → save a weight → it appears; save another date → the chart draws.
+7. **Connect my Google Drive** → Google popup → allow → **＋ Add progress photo** → in your Drive: **FitPot Progress** folder with the photo.
+
+### Phase 5 fixes
+
+| Problem | Fix |
+|---|---|
+| 🇺🇸 shows "USDA search limit reached" | Add your own key (Step 22), then re-run the deploy. Also check Step 24 (the workflow lines). |
+| 📦 results slow or "search failed" | Open Food Facts is a free community service and is sometimes slow. Try again; 🇮🇳 and ⭐ results still work. |
+| Barcode not found | Common for Indian products. Tap **Create food**; next time it scans instantly from My foods. |
+| Scanner says camera denied | Allow camera for the site (see Phase 4 fixes). You can also type the barcode number. |
+| Progress photos say "aren't switched on yet" | `VITE_GOOGLE_CLIENT_ID` secret missing. Step 23, then re-run the deploy. |
+| Google popup: "Error 400: redirect_uri_mismatch" / "origin not allowed" | Step 23.6: the origin must be exactly `https://kriticparikh.github.io` (no path, no trailing slash). |
+| Google popup: "Access blocked: app has not completed verification" / only you can connect | Consent screen still in Testing. Step 23.5: **Publish app**. |
+| Popup blocked | Allow pop-ups for the site; the Google window must open from a tap. |
+| A dish's serving size looks off (e.g. a huge "plate") | Serving sizes come from the INDB dataset. Switch the unit to **g** and enter your own amount. |
+
+### About the Indian food data
+INDB is published with an open-access research paper and a public GitHub repo, but the repo doesn't state an explicit licence. It's credited in the app. If you ever take FitPot beyond a friend group, confirm the licence with the authors first. The data lives in one file (`public/data/indb.json`), so it's easy to swap.
+
+---
+
 ## Uploading an update (website method)
 
 Each update comes as a zip. To apply it:
@@ -459,6 +551,8 @@ jobs:
           VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
           VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
           VITE_DRIVE_UPLOAD_URL: ${{ secrets.VITE_DRIVE_UPLOAD_URL }}
+          VITE_USDA_API_KEY: ${{ secrets.VITE_USDA_API_KEY }}
+          VITE_GOOGLE_CLIENT_ID: ${{ secrets.VITE_GOOGLE_CLIENT_ID }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist          # 👉 fitpot/dist

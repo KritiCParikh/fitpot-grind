@@ -10,6 +10,7 @@ import Calendar from './screens/Calendar'
 import Group from './screens/Group'
 import Board from './screens/Board'
 import Wall from './screens/Wall'
+import Me from './screens/Me'
 
 function SetupNotice() {
   return (
@@ -59,6 +60,7 @@ function Shell({ user, group, members }) {
           <Route path="/calendar" element={<Calendar {...props} />} />
           <Route path="/wall" element={<Wall {...props} />} />
           <Route path="/board" element={<Board {...props} />} />
+          <Route path="/me" element={<Me {...props} />} />
           <Route path="/group" element={<Group {...props} />} />
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
@@ -68,6 +70,7 @@ function Shell({ user, group, members }) {
         <NavLink to="/calendar">Calendar</NavLink>
         <NavLink to="/wall">Wall</NavLink>
         <NavLink to="/board">Board</NavLink>
+        <NavLink to="/me">Me</NavLink>
         <NavLink to="/group">Group</NavLink>
       </nav>
     </div>

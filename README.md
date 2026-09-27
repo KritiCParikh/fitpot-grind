@@ -8,7 +8,7 @@ Fitness accountability for friend groups. Hit your group's workout target (e.g. 
 
 🧭 **How it works:** [docs/HOW_IT_WORKS.md](docs/HOW_IT_WORKS.md), covering every service, every file, core concepts with analogies, and how it all connects.
 
-**Stack (all free, Google-first):** React + Vite PWA · GitHub Pages · Firebase Auth (Google sign-in) · Firestore · Google Apps Script → Google Drive for photos · GitHub Actions · Colab for ML.
+**Stack (all free, Google-first):** React + Vite PWA · GitHub Pages · Firebase Auth (Google sign-in) · Firestore · Google Apps Script → Google Drive for workout photos · each person's own Drive for progress photos · Indian Nutrient Databank + USDA + Open Food Facts for food · GitHub Actions · Colab for ML (no AI APIs).
 
 ```
 fitpot/
@@ -116,7 +116,7 @@ Step-by-step in [docs/BUILD_GUIDE.md](docs/BUILD_GUIDE.md) → Phase 4 (Steps 13
 - [x] Phase 3 — pot ledger, balances, leaderboard, rest days
 - [x] Phase 4 — camera-only photos → Drive, photo wall
 - [x] Phase 4.5 — group rules: weekly workout target, photo-required check-in, undo
-- [ ] Phase 5 — food logging (Open Food Facts)
+- [x] Phase 5 — Me tab: food log (🇮🇳/🇺🇸/packaged/own foods & recipes, barcode), targets, weight log, private progress photos
 - [ ] Phase 6 — vision model (scratch → fine-tune → browser)
 - [ ] Phase 7 — language model nudges + push notifications
 
