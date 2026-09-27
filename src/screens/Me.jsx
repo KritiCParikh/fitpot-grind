@@ -78,7 +78,7 @@ function TargetsForm({ uid, settings }) {
         </label>
       </div>
       <button className="btn-primary">{saved ? 'Saved ✓' : 'Save targets'}</button>
-      <p className="muted small">🔒 Private to you.</p>
+      <p className="muted small">Private to you.</p>
     </form>
   )
 }
