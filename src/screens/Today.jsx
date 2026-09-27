@@ -4,6 +4,9 @@ import { todayInTz, prettyDay, addDays } from '../lib/dates'
 import { penaltyOn, isRestDay } from '../lib/ledger'
 import { useLedgerInputs, runLedger } from '../lib/useLedger'
 import Avatar from '../components/Avatar'
+import CameraCapture from '../components/CameraCapture'
+import { useDayDocs } from '../hooks'
+import { photosEnabled } from '../lib/photos'
 
 const money = (x) => `${x < 0 ? '−' : ''}$${Math.abs(x).toFixed(2)}`
 
@@ -15,6 +18,8 @@ export default function Today({ user, group, members }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [justDone, setJustDone] = useState(false)
+  const [camera, setCamera] = useState(false)
+  const todaysPhotos = useDayDocs(group.id, 'photos', today)
 
   if (!inputs) return <section><p className="muted">Loading…</p></section>
 
@@ -63,7 +68,12 @@ export default function Today({ user, group, members }) {
           {meDone ? 'Checked in. See you tomorrow.' : 'Tap after your workout. Closes at midnight.'}
         </p>
         {error && <p className="error small">{error}</p>}
+        {photosEnabled && todaysPhotos && !todaysPhotos.some((p) => p.uid === user.uid) && (
+          <button className={meDone ? 'btn-primary' : 'btn-ghost'} onClick={() => setCamera(true)}>📸 Add workout photo</button>
+        )}
+        {photosEnabled && todaysPhotos?.some((p) => p.uid === user.uid) && <p className="muted small">📸 Photo posted to the wall</p>}
       </div>
+      {camera && <CameraCapture user={user} group={group} onClose={() => setCamera(false)} />}
 
       <div className="stats-row">
         <div className="card stat">

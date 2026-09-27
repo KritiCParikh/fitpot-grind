@@ -149,3 +149,21 @@ h3.section-title { font-size: 0.95rem; font-weight: 700; color: var(--muted); ma
 .dot.rest { background: rgba(139, 149, 143, 0.5); }
 .stats-row .stat .stat-num { font-size: 1.6rem; }
 section > .cal-head { margin-bottom: 4px; }
+
+/* ---------- Phase 4 ---------- */
+.wide { width: 100%; margin-bottom: 12px; }
+.photo-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.photo-card { margin: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; }
+.photo-card img, .photo-placeholder { width: 100%; aspect-ratio: 3 / 4; object-fit: cover; display: block; }
+.photo-placeholder { display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 0.85rem; background: var(--bg); }
+.photo-card figcaption { display: flex; align-items: center; gap: 8px; padding: 8px 10px; font-size: 0.85rem; }
+.overlay { position: fixed; inset: 0; z-index: 50; background: rgba(0, 0, 0, 0.92); display: flex; align-items: center; justify-content: center; padding: 16px; }
+.overlay-close { position: absolute; top: calc(12px + env(safe-area-inset-top)); right: 12px; z-index: 2; }
+.camera { width: 100%; max-width: 520px; display: flex; flex-direction: column; gap: 12px; }
+.camera-view { width: 100%; max-height: 70dvh; object-fit: contain; border-radius: 16px; background: #000; }
+.camera-controls { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 72px; }
+.shutter { width: 72px; height: 72px; border-radius: 50%; border: 5px solid #fff; background: var(--lime); cursor: pointer; }
+.shutter:active { transform: scale(0.92); }
+.consent { max-width: 420px; display: flex; flex-direction: column; gap: 10px; }
+.consent h3 { margin: 0; }
+.consent ul { padding-left: 18px; margin: 0; display: flex; flex-direction: column; gap: 6px; }

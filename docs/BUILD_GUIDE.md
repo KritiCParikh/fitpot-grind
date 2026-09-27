@@ -11,9 +11,9 @@ A step-by-step record of how FitPot is built and deployed, from an empty GitHub 
 | 0 | Repo, PWA shell, Google sign-in, auto-deploy | ✅ Done |
 | 1 | Groups + passcode join | ✅ Done |
 | 2 | Daily check-in + calendar + streaks | ✅ Done |
-| 3 | Pot ledger, balances, board, rest days, penalty changes | ✅ Built, ready to deploy |
-| 4 | Camera-only photos → Google Drive, photo wall | ⏳ Next |
-| 5 | Food logging (Open Food Facts) | |
+| 3 | Pot ledger, balances, board, rest days, penalty changes | ✅ Done |
+| 4 | Camera-only photos → Google Drive, photo wall | ✅ Built, ready to deploy |
+| 5 | Food logging (Open Food Facts) | ⏳ Next |
 | 6 | Vision model (scratch → fine-tune → browser) | |
 | 7 | Language model nudges + push notifications | |
 
@@ -158,6 +158,7 @@ groups/{groupId}/members/{uid}     name, photoURL, joinedAt (server time)
 groups/{groupId}/checkins/{date_uid}   uid, date, createdAt (server time)
 groups/{groupId}/restdays/{date}       votes {uid: server time}        (phase 3)
 groups/{groupId}/penalties/{id}        penalty, effectiveDate, setBy, setAt (phase 3)
+groups/{groupId}/photos/{date_uid}     uid, date, fileId (Google Drive), createdAt (phase 4)
 ```
 
 ### Security built into the rules
@@ -260,6 +261,91 @@ Same as Phase 1 (Steps 9–10). Phases 1 and 2 ship together.
 | "Missing or insufficient permissions" when voting or changing the penalty | Rules not updated. Step 11. |
 | Balances are all $0.00 | Normal on day one. Balances cover finished days only (through yesterday). |
 | Settle-up is off by $0.01 | Cent rounding when a pot doesn't split evenly. |
+
+---
+
+# Phase 4 — Camera-only photos → Google Drive, photo wall
+
+### What was built
+- **📸 Add workout photo** button on Today (highlighted once you've checked in), and a **Wall** tab.
+- **Camera-only.** The app opens the live camera. There's no file picker anywhere, so gallery or old photos can't be posted. Works on phones and on laptops with a webcam. **Flip** switches front/back camera; **Retake** before posting.
+- **Watermark** burned into every photo: `FitPot · <name> · <date, time>`.
+- **Compressed** to about 300–500 KB (max 1080 px) before upload, so Drive space lasts years.
+- **One-time consent screen** before the first photo: shared with the whole group, saved in the organiser's Drive, time-stamped, no location.
+- **Saved to Google Drive** of whoever deploys the script: `FitPot/<member name>/<YYYY-MM>/<YYYY-MM-DD_HHmmss>.jpg`.
+- **Photo wall:** today's photos by default, **‹ ›** to browse earlier days. Each card shows the member and time.
+- Photos are **private in Drive**. The app fetches them through the script, which only hands them to members of the same group, and caches them on the phone so each downloads once.
+- One photo per person per day, today only, can't be edited or backdated (server time again).
+- Photos are **optional**. Check-in alone still counts.
+
+### How it works
+```
+Phone camera → watermark + compress → Apps Script (your Google account)
+   ↳ checks the Firebase login is real
+   ↳ checks, through Firestore's own rules, that the person is in the group
+   ↳ saves the JPEG into Drive: FitPot/<name>/<month>/
+   ↳ returns the Drive file id
+App → writes groups/{id}/photos/{date_uid} pointing at that file id
+Wall → asks the script for each photo → shown to group members only
+```
+
+### What you do
+
+**Step 13 — Update the Firestore rules.** Firebase → **Firestore Database → Rules** → select all → delete → paste the new `firestore.rules` → **Publish**. (Adds the `photos` collection.)
+
+**Step 14 — Create the Apps Script.** Use the Google account whose Drive should hold the photos.
+1. Go to **[script.google.com](https://script.google.com)** → **New project**.
+2. Click the title "Untitled project" at the top → rename it `FitPot Drive`.
+3. In the editor, `Code.gs` is open. Select all → delete → paste the full contents of `apps-script/Code.gs` from the repo → **Save** (💾 or Ctrl/Cmd + S).
+
+**Step 15 — Add the script properties.**
+1. Left sidebar → **⚙️ Project Settings**.
+2. Scroll to **Script Properties** → **Add script property**. Add three:
+
+| Property | Value |
+|---|---|
+| `FIREBASE_API_KEY` | same as your `VITE_FIREBASE_API_KEY` (the `apiKey` from Firebase) |
+| `FIREBASE_PROJECT_ID` | `fitpot-grind` |
+| `TIMEZONE` | `America/New_York` |
+
+3. **Save script properties**.
+
+**Step 16 — Deploy it as a web app.**
+1. Top right → **Deploy → New deployment**.
+2. Click the ⚙️ next to "Select type" → **Web app**.
+3. Description: `FitPot v1`. **Execute as:** `Me`. **Who has access:** `Anyone`.
+4. **Deploy** → **Authorize access** → pick your Google account.
+5. You'll see "Google hasn't verified this app". This is normal for your own script. Click **Advanced → Go to FitPot Drive (unsafe)** → **Allow**. (It's asking permission for *your* script to use *your* Drive.)
+6. Copy the **Web app URL** (ends in `/exec`).
+7. Test it: paste the URL into a browser tab. You should see `{"ok":true,"service":"fitpot-drive","configured":true}`. If `configured` is `false`, recheck Step 15.
+
+**Step 17 — Give the URL to the app.**
+1. GitHub repo → **Settings → Secrets and variables → Actions → New repository secret**.
+2. **Name:** `VITE_DRIVE_UPLOAD_URL` **Secret:** the `/exec` URL → **Add secret**.
+
+**Step 18 — Upload the new code** (see "Uploading an update"): drag in `src`, `docs`, `apps-script`, `firestore.rules`, `README.md` → commit. The deploy runs automatically and picks up the new secret.
+
+### Check it worked
+1. **Wall** tab no longer says "Photos aren't switched on yet".
+2. **Today** → **📸 Add workout photo** → consent screen → **I understand** → allow camera → take a photo → **Post to group**.
+3. The photo shows on the **Wall**, with the watermark at the bottom.
+4. In Google Drive: **FitPot → <your name> → <this month>** has the JPEG.
+5. A friend in the group sees your photo on their Wall.
+
+### Changing the script later
+Edit `Code.gs` → **Save** → **Deploy → Manage deployments** → ✏️ edit the existing deployment → **Version: New version** → **Deploy**. The URL stays the same, so nothing changes on GitHub. (A *new* deployment would give a new URL.)
+
+### Phase 4 fixes
+
+| Problem | Fix |
+|---|---|
+| Wall says "Photos aren't switched on yet" | `VITE_DRIVE_UPLOAD_URL` secret missing, or the deploy ran before you added it. Step 17, then **Actions → Run workflow**. |
+| "Camera permission was denied" | iPhone: **Settings → Safari → Camera → Allow**. Android Chrome: tap the 🔒 by the address → **Permissions → Camera → Allow**. Then reopen the app. |
+| "Not signed in (token rejected)" | `FIREBASE_API_KEY` script property is wrong. Step 15. |
+| "Not a member of this group" | `FIREBASE_PROJECT_ID` is wrong, or the Firestore rules weren't updated (Step 13). |
+| Upload fails / "Failed to fetch" | Deployment access isn't **Anyone**, or the URL doesn't end in `/exec`. Redo Step 16. |
+| Photo card says "Couldn't load" | Script was redeployed as a new deployment (new URL). Update the secret or edit the existing deployment instead. |
+| Browser URL test shows a Google sign-in page | **Who has access** isn't set to **Anyone**. |
 
 ---
 

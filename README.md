@@ -104,15 +104,15 @@ npm install
 npm run dev
 ```
 
-## Drive photo backend (later phase)
-See the header comment in `apps-script/Code.gs`.
+## Drive photo backend
+Step-by-step in [docs/BUILD_GUIDE.md](docs/BUILD_GUIDE.md) → Phase 4 (Steps 13–18).
 
 ## Roadmap
 - [x] Phase 0 — repo, PWA shell, Google sign-in, auto-deploy
 - [x] Phase 1 — groups + passcode join
 - [x] Phase 2 — daily check-in + calendar
 - [x] Phase 3 — pot ledger, balances, leaderboard, rest days
-- [ ] Phase 4 — camera-only photos → Drive, photo wall
+- [x] Phase 4 — camera-only photos → Drive, photo wall
 - [ ] Phase 5 — food logging (Open Food Facts)
 - [ ] Phase 6 — vision model (scratch → fine-tune → browser)
 - [ ] Phase 7 — language model nudges + push notifications

@@ -4,13 +4,14 @@ rules_version = '2';
 // Paste into Firebase console → Firestore Database → Rules → Publish.
 //
 // Data model
-//   users/{uid}                          name, photoURL, groupId
+//   users/{uid}                          name, photoURL, groupId, photoConsent
 //   passcodes/{code}                     groupId            (lookup for joining)
 //   groups/{gid}                         name, passcode, penalty, timezone, createdBy, createdAt
 //   groups/{gid}/members/{uid}           name, photoURL, passcode, joinedAt, joinedDate
 //   groups/{gid}/checkins/{date_uid}     uid, date, createdAt
 //   groups/{gid}/restdays/{date}         votes {uid: time}
 //   groups/{gid}/penalties/{id}          penalty, effectiveDate, setBy, setAt
+//   groups/{gid}/photos/{date_uid}       uid, date, fileId (Google Drive), createdAt
 service cloud.firestore {
   match /databases/{database}/documents {
 
@@ -87,6 +88,18 @@ service cloud.firestore {
           && (!(request.auth.uid in request.resource.data.votes)
               || request.resource.data.votes[request.auth.uid] == request.time);
         allow delete: if false;
+      }
+
+      // Workout photos: one per person per day. The image itself lives in Google
+      // Drive; this doc points to it. Stamped with server time, never edited.
+      match /photos/{photoId} {
+        allow read: if isMember(groupId);
+        allow create: if isMember(groupId)
+          && request.resource.data.uid == request.auth.uid
+          && photoId == request.resource.data.date + '_' + request.auth.uid
+          && request.resource.data.createdAt == request.time
+          && request.resource.data.fileId is string;
+        allow update, delete: if false;
       }
 
       // Penalty changes: permanent log. Each takes effect from effectiveDate.

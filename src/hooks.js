@@ -75,3 +75,14 @@ export function useSubcollection(groupId, name) {
   }, [groupId, name])
   return docs
 }
+
+// Docs in a group subcollection for a single day (e.g. photos).
+export function useDayDocs(groupId, name, day) {
+  const [docs, setDocs] = useState(undefined)
+  useEffect(() => {
+    if (!groupId || !day) return
+    const q = query(collection(db, 'groups', groupId, name), where('date', '==', day))
+    return onSnapshot(q, (s) => setDocs(s.docs.map((d) => ({ id: d.id, ...d.data() }))))
+  }, [groupId, name, day])
+  return docs
+}

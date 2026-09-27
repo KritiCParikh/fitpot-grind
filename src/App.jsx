@@ -9,6 +9,7 @@ import Today from './screens/Today'
 import Calendar from './screens/Calendar'
 import Group from './screens/Group'
 import Board from './screens/Board'
+import Wall from './screens/Wall'
 
 function SetupNotice() {
   return (
@@ -43,14 +44,6 @@ function Login() {
   )
 }
 
-function ComingSoon({ title, phase }) {
-  return (
-    <section>
-      <h2>{title}</h2>
-      <div className="card"><p className="muted">Coming in phase {phase}.</p></div>
-    </section>
-  )
-}
 
 function Shell({ user, group, members }) {
   const props = { user, group, members }
@@ -64,7 +57,7 @@ function Shell({ user, group, members }) {
         <Routes>
           <Route path="/" element={<Today {...props} />} />
           <Route path="/calendar" element={<Calendar {...props} />} />
-          <Route path="/wall" element={<ComingSoon title="Photo wall" phase={4} />} />
+          <Route path="/wall" element={<Wall {...props} />} />
           <Route path="/board" element={<Board {...props} />} />
           <Route path="/group" element={<Group {...props} />} />
           <Route path="*" element={<Navigate to="/" />} />
