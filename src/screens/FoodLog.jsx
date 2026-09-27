@@ -27,7 +27,7 @@ export default function FoodLog({ user, group }) {
         onClose={back}
         onCreate={() => setView({ name: 'create', meal: view.meal })}
         onBarcodeMissing={(code) => setView({ name: 'create', meal: view.meal, barcode: code })}
-        extraActions={<button className="btn-ghost" disabled title="Arrives with your own vision model (phase 6)">📷 Scan plate · soon</button>}
+        extraActions={<button className="btn-ghost" disabled title="Arrives with your own vision model (phase 6)"> Scan plate · soon</button>}
       />
     )
   }
