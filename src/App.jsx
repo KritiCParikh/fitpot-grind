@@ -1,7 +1,13 @@
 import { useEffect, useState } from 'react'
-import { HashRouter, Routes, Route, NavLink } from 'react-router-dom'
+import { HashRouter, Routes, Route, NavLink, Navigate } from 'react-router-dom'
 import { onAuthStateChanged, signInWithPopup, signOut } from 'firebase/auth'
 import { auth, googleProvider, isConfigured } from './firebase'
+import { useUserDoc, useGroup, useMembers } from './hooks'
+import { leaveGroupLocally } from './lib/group'
+import Onboarding from './screens/Onboarding'
+import Today from './screens/Today'
+import Calendar from './screens/Calendar'
+import Group from './screens/Group'
 
 function SetupNotice() {
   return (
@@ -9,11 +15,14 @@ function SetupNotice() {
       <h1 className="logo">FitPot</h1>
       <p className="muted">Firebase isn't configured yet.</p>
       <p className="muted small">
-        Copy <code>.env.example</code> to <code>.env.local</code> and add your Firebase web config.
-        See the README for the full setup.
+        Add the Firebase values as repository secrets and re-run the deploy. See docs/BUILD_GUIDE.md.
       </p>
     </main>
   )
+}
+
+function Loading() {
+  return <main className="center"><p className="muted">Loading…</p></main>
 }
 
 function Login() {
@@ -33,31 +42,17 @@ function Login() {
   )
 }
 
-function Today({ user }) {
-  const today = new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })
-  return (
-    <section>
-      <p className="muted">{today}</p>
-      <h2>Hey {user.displayName?.split(' ')[0] || 'there'}</h2>
-      <div className="card today-card">
-        <p className="muted small">Today's check-in</p>
-        <button className="checkin-btn" disabled>CHECK IN</button>
-        <p className="muted small">Check-ins arrive in the next build.</p>
-      </div>
-    </section>
-  )
-}
-
-function ComingSoon({ title }) {
+function ComingSoon({ title, phase }) {
   return (
     <section>
       <h2>{title}</h2>
-      <div className="card"><p className="muted">Coming in a later phase.</p></div>
+      <div className="card"><p className="muted">Coming in phase {phase}.</p></div>
     </section>
   )
 }
 
-function Shell({ user }) {
+function Shell({ user, group, members }) {
+  const props = { user, group, members }
   return (
     <div className="shell">
       <header className="topbar">
@@ -66,11 +61,12 @@ function Shell({ user }) {
       </header>
       <div className="content">
         <Routes>
-          <Route path="/" element={<Today user={user} />} />
-          <Route path="/calendar" element={<ComingSoon title="Calendar" />} />
-          <Route path="/wall" element={<ComingSoon title="Photo wall" />} />
-          <Route path="/board" element={<ComingSoon title="Leaderboard" />} />
-          <Route path="/group" element={<ComingSoon title="Group" />} />
+          <Route path="/" element={<Today {...props} />} />
+          <Route path="/calendar" element={<Calendar {...props} />} />
+          <Route path="/wall" element={<ComingSoon title="Photo wall" phase={4} />} />
+          <Route path="/board" element={<ComingSoon title="Leaderboard" phase={3} />} />
+          <Route path="/group" element={<Group {...props} />} />
+          <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </div>
       <nav className="tabbar">
@@ -84,6 +80,36 @@ function Shell({ user }) {
   )
 }
 
+function SignedIn({ user }) {
+  const profile = useUserDoc(user.uid)
+  if (profile === undefined) return <Loading />
+  if (!profile?.groupId) return <Onboarding user={user} />
+  // key: switching groups remounts and resets all group subscriptions.
+  return <GroupScope key={profile.groupId} user={user} groupId={profile.groupId} />
+}
+
+function GroupScope({ user, groupId }) {
+  const { group, error } = useGroup(groupId)
+  const members = useMembers(groupId)
+
+  if (error || group === null) {
+    return (
+      <main className="center">
+        <p className="muted">Couldn't open your group.</p>
+        <button className="btn-primary" onClick={() => leaveGroupLocally(user)}>Choose a group</button>
+      </main>
+    )
+  }
+  if (!group || !members) return <Loading />
+
+  // HashRouter keeps routing working on GitHub Pages (no server-side rewrites).
+  return (
+    <HashRouter>
+      <Shell user={user} group={group} members={members} />
+    </HashRouter>
+  )
+}
+
 export default function App() {
   const [user, setUser] = useState(undefined)
 
@@ -93,13 +119,7 @@ export default function App() {
   }, [])
 
   if (!isConfigured) return <SetupNotice />
-  if (user === undefined) return <main className="center"><p className="muted">Loading…</p></main>
+  if (user === undefined) return <Loading />
   if (!user) return <Login />
-
-  // HashRouter keeps routing working on GitHub Pages (no server-side rewrites).
-  return (
-    <HashRouter>
-      <Shell user={user} />
-    </HashRouter>
-  )
+  return <SignedIn key={user.uid} user={user} />
 }

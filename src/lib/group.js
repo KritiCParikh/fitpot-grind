@@ -1,0 +1,99 @@
+import {
+  doc, collection, getDoc, setDoc, writeBatch, serverTimestamp,
+} from 'firebase/firestore'
+import { db } from '../firebase'
+import { todayInTz, dayInTz } from './dates'
+
+// No 0/O/1/I/L so codes are easy to read out loud.
+const ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'
+function randomCode(len = 6) {
+  const bytes = crypto.getRandomValues(new Uint8Array(len))
+  return Array.from(bytes, (b) => ALPHABET[b % ALPHABET.length]).join('')
+}
+
+function profileOf(user) {
+  return {
+    name: user.displayName || user.email?.split('@')[0] || 'Friend',
+    photoURL: user.photoURL || '',
+  }
+}
+
+export async function createGroup(user, { name, penalty }) {
+  let code
+  for (let i = 0; i < 5; i++) {
+    code = randomCode()
+    if (!(await getDoc(doc(db, 'passcodes', code))).exists()) break
+  }
+  const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/New_York'
+  const groupRef = doc(collection(db, 'groups'))
+  const profile = profileOf(user)
+
+  const batch = writeBatch(db)
+  batch.set(groupRef, {
+    name: name.trim() || 'FitPot Crew',
+    passcode: code,
+    penalty: Number(penalty) || 0,
+    timezone,
+    createdBy: user.uid,
+    createdAt: serverTimestamp(),
+  })
+  batch.set(doc(db, 'passcodes', code), { groupId: groupRef.id })
+  batch.set(doc(db, 'groups', groupRef.id, 'members', user.uid), {
+    ...profile, passcode: code, joinedAt: serverTimestamp(), joinedDate: todayInTz(timezone),
+  })
+  batch.set(doc(db, 'users', user.uid), { ...profile, groupId: groupRef.id }, { merge: true })
+  await batch.commit()
+  return groupRef.id
+}
+
+export async function joinGroup(user, rawCode) {
+  const code = rawCode.trim().toUpperCase()
+  const snap = await getDoc(doc(db, 'passcodes', code))
+  if (!snap.exists()) throw new Error('No group with that passcode.')
+  const groupId = snap.data().groupId
+
+  // Already a member? (Reading the member doc is only allowed if you are one.)
+  let already = false
+  try { already = (await getDoc(doc(db, 'groups', groupId, 'members', user.uid))).exists() } catch { /* not a member */ }
+
+  const profile = profileOf(user)
+  const batch = writeBatch(db)
+  if (!already) {
+    // The member doc must exist before we can read the group's timezone,
+    // so the join date uses this device's timezone. Fine for friends in one area.
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/New_York'
+    batch.set(doc(db, 'groups', groupId, 'members', user.uid), {
+      ...profile, passcode: code, joinedAt: serverTimestamp(), joinedDate: todayInTz(tz),
+    })
+  }
+  batch.set(doc(db, 'users', user.uid), { ...profile, groupId }, { merge: true })
+  await batch.commit()
+  return groupId
+}
+
+export async function leaveGroupLocally(user) {
+  // Only clears which group this account opens; membership history stays for the ledger.
+  await setDoc(doc(db, 'users', user.uid), { groupId: null }, { merge: true })
+}
+
+export async function checkIn(user, group) {
+  const date = todayInTz(group.timezone)
+  await setDoc(doc(db, 'groups', group.id, 'checkins', `${date}_${user.uid}`), {
+    uid: user.uid,
+    date,
+    createdAt: serverTimestamp(),
+  })
+}
+
+// A check-in counts only if the SERVER time it was written falls on its date
+// in the group's timezone — so changing your phone's clock can't backdate one.
+export function isValidCheckin(c, timezone) {
+  if (!c.createdAt) return true // our own write, still pending
+  return dayInTz(c.createdAt.toDate(), timezone) === c.date
+}
+
+// The day someone joined, from the SERVER timestamp (the client-sent
+// joinedDate is only a fallback while the write is pending).
+export function joinDay(member, timezone) {
+  return member.joinedAt ? dayInTz(member.joinedAt.toDate(), timezone) : member.joinedDate
+}

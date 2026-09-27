@@ -4,6 +4,8 @@ Fitness accountability for friend groups. Check in every day or pay into the pot
 
 **Live:** https://kriticparikh.github.io/fitpot-grind/
 
+📘 **Full step-by-step build guide:** [docs/BUILD_GUIDE.md](docs/BUILD_GUIDE.md), covering every phase, every click, and fixes for common problems.
+
 **Stack (all free, Google-first):** React + Vite PWA · GitHub Pages · Firebase Auth (Google sign-in) · Firestore · Google Apps Script → Google Drive for photos · GitHub Actions · Colab for ML.
 
 ```
@@ -12,6 +14,7 @@ fitpot/
 ├── public/              icon, static assets
 ├── apps-script/         Drive photo backend (Google Apps Script)
 ├── firestore.rules      database security rules
+├── docs/                BUILD_GUIDE.md (step-by-step)
 ├── ml/                  vision + language model notebooks
 └── .github/workflows/   auto-deploy to GitHub Pages
 ```
@@ -106,8 +109,8 @@ See the header comment in `apps-script/Code.gs`.
 
 ## Roadmap
 - [x] Phase 0 — repo, PWA shell, Google sign-in, auto-deploy
-- [ ] Phase 1 — groups + passcode join
-- [ ] Phase 2 — daily check-in + calendar
+- [x] Phase 1 — groups + passcode join
+- [x] Phase 2 — daily check-in + calendar
 - [ ] Phase 3 — pot ledger, balances, leaderboard
 - [ ] Phase 4 — camera-only photos → Drive, photo wall
 - [ ] Phase 5 — food logging (Open Food Facts)

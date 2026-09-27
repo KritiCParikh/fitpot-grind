@@ -1,7 +1,14 @@
 rules_version = '2';
 
-// FitPot Firestore security rules (starter).
-// Paste into Firebase console → Firestore → Rules, or deploy with the Firebase CLI.
+// FitPot Firestore security rules.
+// Paste into Firebase console → Firestore Database → Rules → Publish.
+//
+// Data model
+//   users/{uid}                          name, photoURL, groupId
+//   passcodes/{code}                     groupId            (lookup for joining)
+//   groups/{gid}                         name, passcode, penalty, timezone, createdBy, createdAt
+//   groups/{gid}/members/{uid}           name, photoURL, passcode, joinedAt, joinedDate
+//   groups/{gid}/checkins/{date_uid}     uid, date, createdAt
 service cloud.firestore {
   match /databases/{database}/documents {
 
@@ -11,31 +18,61 @@ service cloud.firestore {
         exists(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid));
     }
 
-    // Public profile (name + avatar). Only the owner writes it.
+    // Profiles: any signed-in user can read names/avatars; only you write yours.
     match /users/{uid} {
       allow read: if signedIn();
       allow write: if signedIn() && request.auth.uid == uid;
     }
 
+    // Passcode lookup: you can fetch one code if you know it, but never list them all.
+    match /passcodes/{code} {
+      allow get: if signedIn();
+      allow list: if false;
+      // Created in the same batch as its group, only by the group's creator.
+      allow create: if signedIn()
+        && getAfter(/databases/$(database)/documents/groups/$(request.resource.data.groupId)).data.createdBy == request.auth.uid
+        && getAfter(/databases/$(database)/documents/groups/$(request.resource.data.groupId)).data.passcode == code;
+      allow update, delete: if false;
+    }
+
     match /groups/{groupId} {
       allow read: if isMember(groupId);
-      allow create: if signedIn();
+      allow create: if signedIn()
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.penalty is number
+        && request.resource.data.penalty >= 0;
+      // Any member can change group settings for now (penalty, name). Tightened with voting later.
+      allow update: if isMember(groupId)
+        && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.passcode == resource.data.passcode;
+      allow delete: if false;
 
-      // Joining: you may add only yourself.
+      // Joining: you may add only yourself, and only with the group's real passcode.
       match /members/{uid} {
         allow read: if isMember(groupId);
-        allow create: if signedIn() && request.auth.uid == uid;
+        allow create: if signedIn()
+          && request.auth.uid == uid
+          && request.resource.data.joinedAt == request.time
+          && getAfter(/databases/$(database)/documents/passcodes/$(request.resource.data.passcode)).data.groupId == groupId;
+        allow update: if signedIn() && request.auth.uid == uid
+          && request.resource.data.joinedDate == resource.data.joinedDate
+          && request.resource.data.joinedAt == resource.data.joinedAt;
+        allow delete: if false;
       }
 
-      // Check-ins: whole group can read; you can only create your own, never edit.
+      // Check-ins: whole group reads; you create only your own, stamped with server time.
+      // No edits or deletes — a check-in is permanent.
       match /checkins/{checkinId} {
         allow read: if isMember(groupId);
-        allow create: if isMember(groupId) && request.resource.data.uid == request.auth.uid;
+        allow create: if isMember(groupId)
+          && request.resource.data.uid == request.auth.uid
+          && checkinId == request.resource.data.date + '_' + request.auth.uid
+          && request.resource.data.createdAt == request.time;
         allow update, delete: if false;
       }
     }
 
-    // Private health data: owner only.
+    // Private health data (meals, weight): owner only. Used in later phases.
     match /private/{uid}/{document=**} {
       allow read, write: if signedIn() && request.auth.uid == uid;
     }
