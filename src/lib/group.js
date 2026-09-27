@@ -2,7 +2,7 @@ import {
   doc, collection, getDoc, setDoc, addDoc, updateDoc, deleteField, writeBatch, serverTimestamp,
 } from 'firebase/firestore'
 import { db } from '../firebase'
-import { todayInTz, dayInTz, addDays } from './dates'
+import { todayInTz, dayInTz, addDays, mondayOf } from './dates'
 
 // No 0/O/1/I/L so codes are easy to read out loud.
 const ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'
@@ -18,7 +18,7 @@ function profileOf(user) {
   }
 }
 
-export async function createGroup(user, { name, penalty }) {
+export async function createGroup(user, { name, penalty, weeklyTarget = 4, photoRequired = true }) {
   let code
   for (let i = 0; i < 5; i++) {
     code = randomCode()
@@ -33,6 +33,8 @@ export async function createGroup(user, { name, penalty }) {
     name: name.trim() || 'FitPot Crew',
     passcode: code,
     penalty: Number(penalty) || 0,
+    weeklyTarget: Math.min(7, Math.max(1, Number(weeklyTarget) || 7)),
+    photoRequired: Boolean(photoRequired),
     timezone,
     createdBy: user.uid,
     createdAt: serverTimestamp(),
@@ -116,3 +118,29 @@ export async function changePenalty(user, group, amount) {
     setAt: serverTimestamp(),
   })
 }
+
+// Undo today's check-in (and its photo record). The Drive file itself stays.
+export async function undoCheckIn(user, group, { hasPhoto }) {
+  const id = `${todayInTz(group.timezone)}_${user.uid}`
+  const batch = writeBatch(db)
+  batch.delete(doc(db, 'groups', group.id, 'checkins', id))
+  if (hasPhoto) batch.delete(doc(db, 'groups', group.id, 'photos', id))
+  await batch.commit()
+}
+
+// Weekly target changes start NEXT Monday, so the current week never changes.
+export async function changeTarget(user, group, target) {
+  await addDoc(collection(db, 'groups', group.id, 'targets'), {
+    target: Math.min(7, Math.max(1, Number(target) || 7)),
+    effectiveDate: addDays(mondayOf(todayInTz(group.timezone)), 7),
+    setBy: user.uid,
+    setAt: serverTimestamp(),
+  })
+}
+
+export async function setPhotoRequired(group, required) {
+  await updateDoc(doc(db, 'groups', group.id), { photoRequired: required })
+}
+
+// Groups created before this setting existed default to requiring a photo.
+export const photoRequiredFor = (group) => group.photoRequired !== false

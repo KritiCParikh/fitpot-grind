@@ -167,3 +167,13 @@ section > .cal-head { margin-bottom: 4px; }
 .consent { max-width: 420px; display: flex; flex-direction: column; gap: 10px; }
 .consent h3 { margin: 0; }
 .consent ul { padding-left: 18px; margin: 0; display: flex; flex-direction: column; gap: 6px; }
+
+/* ---------- Group rules update ---------- */
+.form select {
+  background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 12px;
+  padding: 12px 14px; font-size: 1rem; font-family: inherit;
+}
+.form label.check { flex-direction: row; align-items: center; gap: 10px; color: var(--text); font-size: 0.95rem; }
+.form label.check input { width: 22px; height: 22px; accent-color: var(--lime); padding: 0; }
+.link-btn { background: none; border: 0; color: var(--muted); text-decoration: underline; font-size: 0.85rem; cursor: pointer; padding: 4px; }
+.week-list li { flex-wrap: wrap; }

@@ -54,3 +54,8 @@ export function bestStreak(doneDays) {
   }
   return best
 }
+
+// Monday of the week containing `day` (weeks run Monday → Sunday).
+export function mondayOf(day) {
+  return addDays(day, -((weekdayOf(day) + 6) % 7))
+}

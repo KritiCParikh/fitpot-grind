@@ -100,8 +100,10 @@ function DayDetail({ info, open, members }) {
 
   return (
     <div className="card day-detail">
-      <p className="muted small">{prettyDay(info.day)}{open ? ' · still open' : ''} · ${info.penalty} penalty</p>
-      {info.rest ? (
+      <p className="muted small">{prettyDay(info.day)}{open ? ' · still open' : ''}{info.mode === 'daily' ? ` · $${info.penalty} penalty` : ''}</p>
+      {info.mode === 'weekly' ? (
+        <p>{info.rest ? '😴 Rest day (lowers the weekly target by 1). ' : ''}Weekly-target group: money settles on Sunday. See the Board.</p>
+      ) : info.rest ? (
         <p>😴 <strong>Rest day</strong>, nobody paid.</p>
       ) : (
         <p>
@@ -118,7 +120,7 @@ function DayDetail({ info, open, members }) {
             <span className="grow">{m.name}</span>
             <span className="pill">
               {showed.has(m.uid) ? (each ? `+$${each.toFixed(2)}` : 'In ✓')
-                : open ? 'Not yet' : info.rest || !info.showed.length ? 'Missed' : `−$${info.penalty}`}
+                : open ? 'Not yet' : info.mode === 'weekly' || info.rest || !info.showed.length ? 'Missed' : `−$${info.penalty}`}
             </span>
           </li>
         ))}

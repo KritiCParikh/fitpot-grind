@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useDayDocs } from '../hooks'
 import { todayInTz, addDays, prettyDay } from '../lib/dates'
 import { photosEnabled, photoUrl, isValidPhoto } from '../lib/photos'
+import { photoRequiredFor } from '../lib/group'
 import CameraCapture from '../components/CameraCapture'
 import Avatar from '../components/Avatar'
 
@@ -11,6 +12,7 @@ export default function Wall({ user, group, members }) {
   const [day, setDay] = useState(today)
   const [camera, setCamera] = useState(false)
   const photos = useDayDocs(group.id, 'photos', day)
+  const todaysCheckins = useDayDocs(group.id, 'checkins', today)
   const byUid = Object.fromEntries(members.map((m) => [m.uid, m]))
 
   if (!photosEnabled) {
@@ -26,6 +28,8 @@ export default function Wall({ user, group, members }) {
     .filter((p) => isValidPhoto(p, tz))
     .sort((a, b) => (b.createdAt?.toMillis?.() ?? Infinity) - (a.createdAt?.toMillis?.() ?? Infinity))
   const posted = list.some((p) => p.uid === user.uid)
+  // If the group requires a photo and you haven't checked in, posting IS your check-in.
+  const alsoCheckIn = photoRequiredFor(group) && !(todaysCheckins || []).some((c) => c.uid === user.uid)
 
   return (
     <section>
@@ -36,8 +40,10 @@ export default function Wall({ user, group, members }) {
         <button className="btn-ghost" onClick={() => setDay((d) => addDays(d, 1))} disabled={day >= today} aria-label="Next day">›</button>
       </div>
 
-      {day === today && !posted && (
-        <button className="btn-primary wide" onClick={() => setCamera(true)}>📸 Post today's workout photo</button>
+      {day === today && !posted && todaysCheckins && (
+        <button className="btn-primary wide" onClick={() => setCamera(true)}>
+          📸 {alsoCheckIn ? 'Check in with a photo' : 'Post today\'s workout photo'}
+        </button>
       )}
 
       {photos === undefined ? <p className="muted">Loading…</p>
@@ -48,7 +54,7 @@ export default function Wall({ user, group, members }) {
           </div>
         )}
 
-      {camera && <CameraCapture user={user} group={group} onClose={() => setCamera(false)} />}
+      {camera && <CameraCapture user={user} group={group} checkIn={alsoCheckIn} onClose={() => setCamera(false)} />}
     </section>
   )
 }

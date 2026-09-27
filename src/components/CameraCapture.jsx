@@ -9,7 +9,7 @@ const TARGET_BYTES = 500 * 1024
 
 // Live camera only: there is no file picker anywhere, so gallery photos
 // can't be submitted. Works on phones and on laptops with a webcam.
-export default function CameraCapture({ user, group, onClose, onUploaded }) {
+export default function CameraCapture({ user, group, onClose, onUploaded, checkIn = false }) {
   const profile = useUserDoc(user.uid)
   const videoRef = useRef(null)
   const streamRef = useRef(null)
@@ -56,7 +56,7 @@ export default function CameraCapture({ user, group, onClose, onUploaded }) {
   async function send() {
     setPhase('uploading'); setError('')
     try {
-      await uploadPhoto(user, group, shot.blob)
+      await uploadPhoto(user, group, shot.blob, { checkIn })
       onUploaded?.()
       onClose()
     } catch (e) {
@@ -105,7 +105,7 @@ export default function CameraCapture({ user, group, onClose, onUploaded }) {
           {phase === 'review' && (
             <>
               <button className="btn-ghost" onClick={retake}>Retake</button>
-              <button className="btn-primary" onClick={send}>Post to group</button>
+              <button className="btn-primary" onClick={send}>{checkIn ? 'Check in + post' : 'Post to group'}</button>
             </>
           )}
           {phase === 'uploading' && <p className="muted">Uploading…</p>}

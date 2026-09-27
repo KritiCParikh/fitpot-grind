@@ -1,15 +1,24 @@
 import { useCheckins, useSubcollection } from '../hooks'
 import { isValidCheckin, joinDay } from './group'
-import { dayInTz } from './dates'
+import { dayInTz, mondayOf } from './dates'
 import { computeLedger } from './ledger'
 
+// A logged change only counts if it was made BEFORE the day it takes effect.
+function validChanges(docs, tz, key) {
+  return (docs || [])
+    .filter((p) => !p.setAt || dayInTz(p.setAt.toDate(), tz) < p.effectiveDate)
+    .map((p) => ({ effectiveDate: p.effectiveDate, [key]: p[key], setBy: p.setBy }))
+}
+
 // Normalise raw Firestore docs into what the pure ledger needs.
+// Check-ins are loaded from the Monday of `from`'s week, so weekly targets work.
 export function useLedgerInputs(group, from, to) {
   const tz = group.timezone
-  const checkins = useCheckins(group.id, from, to)
+  const checkins = useCheckins(group.id, mondayOf(from), to)
   const restDocs = useSubcollection(group.id, 'restdays')
   const penaltyDocs = useSubcollection(group.id, 'penalties')
-  if (!checkins || !restDocs || !penaltyDocs) return null
+  const targetDocs = useSubcollection(group.id, 'targets')
+  if (!checkins || !restDocs || !penaltyDocs || !targetDocs) return null
 
   const doneByDay = {}
   for (const c of checkins) if (isValidCheckin(c, tz)) (doneByDay[c.date] ||= new Set()).add(c.uid)
@@ -22,12 +31,12 @@ export function useLedgerInputs(group, from, to) {
     restVotes[r.id] = v
   }
 
-  // A change only counts if it was made BEFORE the day it takes effect.
-  const penaltyChanges = penaltyDocs
-    .filter((p) => !p.setAt || dayInTz(p.setAt.toDate(), tz) < p.effectiveDate)
-    .map((p) => ({ effectiveDate: p.effectiveDate, penalty: p.penalty, setBy: p.setBy }))
-
-  return { doneByDay, restVotes, restRaw: restDocs, penaltyChanges }
+  return {
+    doneByDay,
+    restVotes,
+    penaltyChanges: validChanges(penaltyDocs, tz, 'penalty'),
+    targetChanges: validChanges(targetDocs, tz, 'target'),
+  }
 }
 
 export function runLedger(group, members, inputs, from, to) {
@@ -39,6 +48,8 @@ export function runLedger(group, members, inputs, from, to) {
     restVotes: inputs.restVotes,
     basePenalty: group.penalty,
     penaltyChanges: inputs.penaltyChanges,
+    baseTarget: group.weeklyTarget ?? 7,
+    targetChanges: inputs.targetChanges,
     startDay: group.createdAt ? dayInTz(group.createdAt.toDate(), tz) : undefined,
   })
 }

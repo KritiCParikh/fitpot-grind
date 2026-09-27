@@ -34,7 +34,7 @@ export default function Board({ user, group, members }) {
   let body = <p className="muted">Loading…</p>
   if (inputs && recent) {
     const hasDays = settledTo >= start
-    const ledger = hasDays ? runLedger(group, members, inputs, start, settledTo) : { days: [], totals: {} }
+    const ledger = hasDays ? runLedger(group, members, inputs, start, settledTo) : { days: [], weeks: [], totals: {} }
     const totals = Object.fromEntries(members.map((m) => [m.uid, ledger.totals[m.uid] || 0]))
     const ranked = [...members].sort((a, b) => totals[b.uid] - totals[a.uid])
     const transfers = settleUp(totals)
@@ -55,8 +55,8 @@ export default function Board({ user, group, members }) {
             <p className="stat-num orange">${potTotal.toFixed(0)}</p>
           </div>
           <div className="card stat">
-            <p className="muted small">Days settled</p>
-            <p className="stat-num">{ledger.days.length}</p>
+            <p className="muted small">{ledger.weeks.length ? 'Weeks settled' : 'Days settled'}</p>
+            <p className="stat-num">{ledger.weeks.length || ledger.days.filter((x) => x.mode === 'daily').length}</p>
           </div>
           <div className="card stat">
             <p className="muted small">Rest days</p>
@@ -90,8 +90,27 @@ export default function Board({ user, group, members }) {
           <div className="card"><p className="muted">All square. Nobody owes anything{hasDays ? '' : ' yet'}.</p></div>
         )}
         <p className="muted small">
-          {offset === 0 ? `Settled through yesterday. Today adds in after midnight.` : 'Final for the month.'} Pay each other however you like; FitPot doesn't move money.
+          {offset === 0 ? 'Daily groups settle each midnight; weekly groups settle Sunday midnight. A week counts in the month it ends.' : 'Final for the month.'} Pay each other however you like; FitPot doesn't move money.
         </p>
+
+        {ledger.weeks?.length > 0 && (
+          <>
+            <h3 className="section-title">📅 Weeks</h3>
+            <ul className="member-list week-list">
+              {[...ledger.weeks].reverse().map((w) => (
+                <li key={w.mon}>
+                  <span className="grow">
+                    <strong>{new Date(w.mon + 'T12:00:00Z').toLocaleDateString(undefined, { month: 'short', day: 'numeric', timeZone: 'UTC' })} week</strong>
+                    <span className="muted small"> · target {w.needed}{w.restDays ? ` (${w.restDays} rest)` : ''} · pot ${w.pot.toFixed(0)}</span>
+                  </span>
+                  <span className="muted small week-counts">
+                    {Object.entries(w.counts).map(([uid, c]) => `${name(uid).split(' ')[0]} ${c}${w.short[uid] ? '✗' : '✓'}`).join(' · ')}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
 
         <h3 className="section-title">🔥 Streaks</h3>
         <ul className="member-list">

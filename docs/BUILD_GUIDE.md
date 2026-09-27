@@ -13,6 +13,7 @@ A step-by-step record of how FitPot is built and deployed, from an empty GitHub 
 | 2 | Daily check-in + calendar + streaks | ✅ Done |
 | 3 | Pot ledger, balances, board, rest days, penalty changes | ✅ Done |
 | 4 | Camera-only photos → Google Drive, photo wall | ✅ Built, ready to deploy |
+| 4.5 | Group rules: weekly workout target, photo-required check-in, undo | ✅ Built, ready to deploy |
 | 5 | Food logging (Open Food Facts) | ⏳ Next |
 | 6 | Vision model (scratch → fine-tune → browser) | |
 | 7 | Language model nudges + push notifications | |
@@ -159,7 +160,9 @@ groups/{groupId}/checkins/{date_uid}   uid, date, createdAt (server time)
 groups/{groupId}/restdays/{date}       votes {uid: server time}        (phase 3)
 groups/{groupId}/penalties/{id}        penalty, effectiveDate, setBy, setAt (phase 3)
 groups/{groupId}/photos/{date_uid}     uid, date, fileId (Google Drive), createdAt (phase 4)
+groups/{groupId}/targets/{id}          target (days/week), effectiveDate (a Monday), setBy, setAt (phase 4.5)
 ```
+Groups also store `weeklyTarget` (1–7) and `photoRequired` (true/false) since phase 4.5.
 
 ### Security built into the rules
 - Only group members can read the group, its members and check-ins.
@@ -346,6 +349,61 @@ Edit `Code.gs` → **Save** → **Deploy → Manage deployments** → ✏️ edi
 | Upload fails / "Failed to fetch" | Deployment access isn't **Anyone**, or the URL doesn't end in `/exec`. Redo Step 16. |
 | Photo card says "Couldn't load" | Script was redeployed as a new deployment (new URL). Update the secret or edit the existing deployment instead. |
 | Browser URL test shows a Google sign-in page | **Who has access** isn't set to **Anyone**. |
+
+---
+
+# Phase 4.5 — Group rules: weekly target, photo-required check-in, undo
+
+### What changed
+**1. Workout days per week (group rule).** Set in **Group → Group rules**, or when creating a group.
+- **Every day (7)** works as before: each day settles at midnight.
+- **1–6 days a week** switches to weekly settling:
+  - Weeks run **Monday → Sunday** and settle at **Sunday midnight**.
+  - Anyone under the target pays **penalty × days short**.
+  - The pot is split evenly among everyone who **hit** the target. If nobody hit it, nobody pays.
+  - Each group **rest day** that week lowers the target by 1.
+  - Someone who joins mid-week starts counting next Monday (their first partial week is free). Same for a brand-new group.
+  - A week's money counts in the month the week **ends**.
+- Changing the target **starts next Monday**; the current week never changes. Changes are logged permanently.
+
+**Worked example.** Target 4, $5. Over one week: Asha 5 workouts, Ben 2, Cy 4.
+Ben is 2 short → pays 2 × $5 = **$10**. Asha and Cy hit 4 → **+$5 each**.
+
+**2. Photo-required check-in (group rule, on by default).**
+- **CHECK IN** opens the camera; posting the photo *is* the check-in (one step: **Check in + post**).
+- The database enforces it: a check-in without that day's photo is rejected.
+- Turn it off in **Group → Group rules** to make photos optional again.
+- If it's on but the Drive script isn't set up yet (Phase 4), the CHECK IN button is disabled with a note. Finish Phase 4 or turn the rule off.
+
+**3. Undo check-in.** After checking in, **Undo check-in** (small link under the button) removes today's check-in and its wall photo. Only for today; you can check in again afterwards. The photo file stays in Drive.
+
+### Screens
+- **Today** (weekly groups): **Your week** (e.g. 2/4), **Days left**, **Your month**; the crew list shows each person's weekly count. A line under the rest-day card states the group's rule.
+- **Board**: a **Weeks** list with each settled week's target, pot, and everyone's count (✓ hit / ✗ short).
+- **Calendar**: in weekly groups, tapping a day shows who worked out; money shows on the Board.
+
+### What you do
+**Step 19 — Update the Firestore rules.** Firebase → **Firestore Database → Rules** → select all → delete → paste the new `firestore.rules` → **Publish**. (Adds photo-required enforcement, undo, and the `targets` log.)
+
+**Step 20 — Upload the new code.** Drag in `src`, `docs`, `firestore.rules`, `README.md` → commit.
+
+**Step 21 — Set your group's rule.** In the app: **Group → Group rules → Change target** → **4 days a week**. It starts next Monday.
+Groups created before this update default to **every day** (daily) and **photo required**.
+
+### Check it worked
+1. **Group** tab shows **Group rules** with the target, the photo toggle, and the penalty.
+2. After setting 4 days: it shows "every day → 4 days a week from Monday"; from Monday, Today shows **Your week 0/4**.
+3. **CHECK IN** opens the camera (photo rule on) → **Check in + post** → ✓ and the photo is on the Wall.
+4. **Undo check-in** → confirm → the button returns to CHECK IN and the photo leaves the Wall.
+
+### Phase 4.5 fixes
+
+| Problem | Fix |
+|---|---|
+| CHECK IN is greyed out with a note about photos | Photo rule is on but the Drive script isn't deployed. Do Phase 4, or turn the photo rule off in Group. |
+| "Missing or insufficient permissions" on check-in, undo, or changing the target | Rules not updated. Step 19. |
+| Target change doesn't show on Today | Normal. It starts next Monday. |
+| Undo is gone the next day | By design. Only today's check-in can be undone. |
 
 ---
 

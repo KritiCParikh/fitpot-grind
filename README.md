@@ -1,6 +1,6 @@
 # 🏋️ FitPot
 
-Fitness accountability for friend groups. Check in every day or pay into the pot; the pot is split among everyone who showed up.
+Fitness accountability for friend groups. Hit your group's workout target (e.g. 4 days a week) or pay into the pot; the pot is split among everyone who showed up.
 
 **Live:** https://kriticparikh.github.io/fitpot-grind/
 
@@ -113,6 +113,7 @@ Step-by-step in [docs/BUILD_GUIDE.md](docs/BUILD_GUIDE.md) → Phase 4 (Steps 13
 - [x] Phase 2 — daily check-in + calendar
 - [x] Phase 3 — pot ledger, balances, leaderboard, rest days
 - [x] Phase 4 — camera-only photos → Drive, photo wall
+- [x] Phase 4.5 — group rules: weekly workout target, photo-required check-in, undo
 - [ ] Phase 5 — food logging (Open Food Facts)
 - [ ] Phase 6 — vision model (scratch → fine-tune → browser)
 - [ ] Phase 7 — language model nudges + push notifications

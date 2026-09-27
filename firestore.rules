@@ -6,12 +6,13 @@ rules_version = '2';
 // Data model
 //   users/{uid}                          name, photoURL, groupId, photoConsent
 //   passcodes/{code}                     groupId            (lookup for joining)
-//   groups/{gid}                         name, passcode, penalty, timezone, createdBy, createdAt
+//   groups/{gid}                         name, passcode, penalty, weeklyTarget, photoRequired, timezone, createdBy, createdAt
 //   groups/{gid}/members/{uid}           name, photoURL, passcode, joinedAt, joinedDate
 //   groups/{gid}/checkins/{date_uid}     uid, date, createdAt
 //   groups/{gid}/restdays/{date}         votes {uid: time}
 //   groups/{gid}/penalties/{id}          penalty, effectiveDate, setBy, setAt
 //   groups/{gid}/photos/{date_uid}       uid, date, fileId (Google Drive), createdAt
+//   groups/{gid}/targets/{id}            target (days/week), effectiveDate (a Monday), setBy, setAt
 service cloud.firestore {
   match /databases/{database}/documents {
 
@@ -47,7 +48,8 @@ service cloud.firestore {
       // Members may rename the group. Passcode, creator, timezone and the base
       // penalty are fixed; penalty changes go through /penalties below.
       allow update: if isMember(groupId)
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name']);
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'photoRequired'])
+        && request.resource.data.get('photoRequired', true) is bool;
       allow delete: if false;
 
       // Joining: you may add only yourself, and only with the group's real passcode.
@@ -64,14 +66,20 @@ service cloud.firestore {
       }
 
       // Check-ins: whole group reads; you create only your own, stamped with server time.
-      // No edits or deletes — a check-in is permanent.
+      // If the group requires a photo, the photo must be written in the same batch.
+      // You can undo your own check-in within 24 hours (the app offers it for today only).
       match /checkins/{checkinId} {
         allow read: if isMember(groupId);
         allow create: if isMember(groupId)
           && request.resource.data.uid == request.auth.uid
           && checkinId == request.resource.data.date + '_' + request.auth.uid
-          && request.resource.data.createdAt == request.time;
-        allow update, delete: if false;
+          && request.resource.data.createdAt == request.time
+          && (get(/databases/$(database)/documents/groups/$(groupId)).data.get('photoRequired', true) == false
+              || existsAfter(/databases/$(database)/documents/groups/$(groupId)/photos/$(checkinId)));
+        allow update: if false;
+        allow delete: if isMember(groupId)
+          && resource.data.uid == request.auth.uid
+          && request.time < resource.data.createdAt + duration.value(1, 'd');
       }
 
       // Rest-day votes for a day: {votes: {uid: serverTime}}. You can add or
@@ -99,6 +107,22 @@ service cloud.firestore {
           && photoId == request.resource.data.date + '_' + request.auth.uid
           && request.resource.data.createdAt == request.time
           && request.resource.data.fileId is string;
+        allow update: if false;
+        allow delete: if isMember(groupId)
+          && resource.data.uid == request.auth.uid
+          && request.time < resource.data.createdAt + duration.value(1, 'd');
+      }
+
+      // Weekly-target changes: permanent log. Each takes effect from a Monday.
+      match /targets/{changeId} {
+        allow read: if isMember(groupId);
+        allow create: if isMember(groupId)
+          && request.resource.data.setBy == request.auth.uid
+          && request.resource.data.setAt == request.time
+          && request.resource.data.target is int
+          && request.resource.data.target >= 1
+          && request.resource.data.target <= 7
+          && request.resource.data.effectiveDate is string;
         allow update, delete: if false;
       }
 

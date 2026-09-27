@@ -1,6 +1,6 @@
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore'
+import { doc, writeBatch, serverTimestamp } from 'firebase/firestore'
 import { db } from '../firebase'
-import { dayInTz } from './dates'
+import { dayInTz, todayInTz } from './dates'
 
 export const DRIVE_URL = import.meta.env.VITE_DRIVE_UPLOAD_URL || ''
 export const photosEnabled = Boolean(DRIVE_URL)
@@ -27,15 +27,23 @@ function blobToBase64(blob) {
   })
 }
 
-export async function uploadPhoto(user, group, blob) {
+// Upload to Drive, then record the photo — and, when `checkIn` is true, the
+// check-in too, in one batch (the rules require the photo when the group does).
+export async function uploadPhoto(user, group, blob, { checkIn = false } = {}) {
   const idToken = await user.getIdToken()
   const res = await callDrive({ action: 'upload', idToken, groupId: group.id, imageBase64: await blobToBase64(blob) })
-  await setDoc(doc(db, 'groups', group.id, 'photos', `${res.day}_${user.uid}`), {
-    uid: user.uid,
-    date: res.day,
-    fileId: res.fileId,
-    createdAt: serverTimestamp(),
+  const day = todayInTz(group.timezone)
+  const id = `${day}_${user.uid}`
+  const batch = writeBatch(db)
+  batch.set(doc(db, 'groups', group.id, 'photos', id), {
+    uid: user.uid, date: day, fileId: res.fileId, createdAt: serverTimestamp(),
   })
+  if (checkIn) {
+    batch.set(doc(db, 'groups', group.id, 'checkins', id), {
+      uid: user.uid, date: day, createdAt: serverTimestamp(),
+    })
+  }
+  await batch.commit()
   return res
 }
 

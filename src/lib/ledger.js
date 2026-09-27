@@ -1,37 +1,40 @@
 // FitPot ledger — pure functions, no Firebase. Everything money-related is
-// derived from check-ins, members, rest-day votes and penalty changes, so the
+// derived from check-ins, members, rest-day votes and setting changes, so the
 // numbers can always be recomputed and nobody can edit a balance directly.
 //
-// Rules for one finished day D:
+// The group's "workout days per week" target picks the mode, per week:
+//
+// DAILY mode (target 7), for each finished day D:
 //   active  = members who had joined by D
-//   rest day (majority of active members voted before D ended) → nobody pays
-//   missed  = active members with no valid check-in on D
-//   pot     = missed × penalty(D)
-//   each person who showed gets pot / showed; each who missed pays penalty(D)
-//   if NOBODY showed, nobody is charged (there's no one to pay)
+//   rest day (majority voted before D ended) → nobody pays
+//   missed  = active members with no check-in on D
+//   pot     = missed × penalty(D), split evenly among those who checked in
+//   if NOBODY checked in, nobody pays (there's no one to pay)
+//
+// WEEKLY mode (target 1–6), for each finished week Mon→Sun:
+//   active  = members who had joined by that Monday (a partial first week is free)
+//   target  = weekly target − number of rest days that week (min 0)
+//   short   = max(0, target − workouts that week)
+//   each member pays short × penalty(Monday); the pot is split evenly among
+//   everyone who hit the target. If nobody hit it, nobody pays.
 
-import { addDays } from './dates.js'
+import { addDays, mondayOf } from './dates.js'
 
-// Round to cents without floating-point drift in totals.
 const cents = (x) => Math.round(x * 100) / 100
 
-/**
- * penalty in effect on `day`.
- * changes: [{ effectiveDate: 'YYYY-MM-DD', penalty: number }], only valid ones.
- */
-export function penaltyOn(day, basePenalty, changes) {
-  let p = basePenalty
-  let latest = ''
+/** Latest change with effectiveDate <= day, else the base value. */
+export function valueOn(day, base, changes, key) {
+  let v = base, latest = ''
   for (const c of changes) {
-    if (c.effectiveDate <= day && c.effectiveDate > latest) { latest = c.effectiveDate; p = c.penalty }
+    if (c.effectiveDate <= day && c.effectiveDate > latest) { latest = c.effectiveDate; v = c[key] }
   }
-  return p
+  return v
 }
 
-/**
- * Is `day` a rest day? votes: { uid: 'YYYY-MM-DD' (day the vote was cast) }.
- * A vote counts only if cast on or before the day itself.
- */
+export const penaltyOn = (day, base, changes) => valueOn(day, base, changes, 'penalty')
+export const targetOn = (day, base, changes) => valueOn(mondayOf(day), base ?? 7, changes, 'target')
+
+/** votes: { uid: dayTheVoteWasCast }. A vote counts only if cast on or before the day. */
 export function isRestDay(day, votes, activeUids) {
   if (!votes || !activeUids.length) return false
   const yes = activeUids.filter((uid) => votes[uid] && votes[uid] <= day).length
@@ -39,43 +42,96 @@ export function isRestDay(day, votes, activeUids) {
 }
 
 /**
- * Compute every day from `from` to `to` (inclusive).
  * members:   [{ uid, joinDay }]
- * doneByDay: { 'YYYY-MM-DD': Set<uid> }        (valid check-ins only)
+ * doneByDay: { 'YYYY-MM-DD': Set<uid> }             (valid check-ins only)
  * restVotes: { 'YYYY-MM-DD': { uid: voteDay } }
- * Returns { days: [{ day, penalty, rest, showed, missed, pot, each }], totals: { uid: net } }
+ * Daily-mode days are included when the day is in [from, to].
+ * Weekly-mode weeks are settled when their Sunday is in [from, to].
+ * Needs check-ins from mondayOf(from) onward.
+ * Returns { days, weeks, totals: { uid: net } }.
  */
-export function computeLedger({ from, to, members, doneByDay, restVotes, basePenalty, penaltyChanges, startDay }) {
+export function computeLedger({
+  from, to, members, doneByDay, restVotes,
+  basePenalty, penaltyChanges, baseTarget = 7, targetChanges = [], startDay,
+}) {
   const totals = Object.fromEntries(members.map((m) => [m.uid, 0]))
-  const days = []
-  for (let day = from; day <= to; day = addDays(day, 1)) {
-    if (startDay && day < startDay) continue
-    const active = members.filter((m) => m.joinDay <= day)
+  const days = [], weeks = []
+
+  for (let mon = mondayOf(from); mon <= to; mon = addDays(mon, 7)) {
+    const sun = addDays(mon, 6)
+    const target = valueOn(mon, baseTarget, targetChanges, 'target')
+
+    if (target >= 7) {
+      // ---- daily mode ----
+      for (let day = mon; day <= sun; day = addDays(day, 1)) {
+        if (day < from || day > to || (startDay && day < startDay)) continue
+        const active = members.filter((m) => m.joinDay <= day).map((m) => m.uid)
+        if (!active.length) continue
+        const penalty = penaltyOn(day, basePenalty, penaltyChanges)
+        const done = doneByDay[day] || new Set()
+        const showed = active.filter((u) => done.has(u))
+        const missed = active.filter((u) => !done.has(u))
+        const rest = isRestDay(day, restVotes[day], active)
+        let pot = 0, each = 0
+        if (!rest && showed.length && missed.length && penalty > 0) {
+          pot = missed.length * penalty
+          each = pot / showed.length
+          for (const u of missed) totals[u] -= penalty
+          for (const u of showed) totals[u] += each
+        }
+        days.push({ day, mode: 'daily', penalty, rest, showed, missed, pot, each })
+      }
+      continue
+    }
+
+    // ---- weekly mode ----
+    // Per-day info (for the calendar), no money attached.
+    for (let day = mon; day <= sun; day = addDays(day, 1)) {
+      if (day < from || day > to || (startDay && day < startDay)) continue
+      const active = members.filter((m) => m.joinDay <= day).map((m) => m.uid)
+      if (!active.length) continue
+      const done = doneByDay[day] || new Set()
+      days.push({
+        day, mode: 'weekly', penalty: penaltyOn(mon, basePenalty, penaltyChanges),
+        rest: isRestDay(day, restVotes[day], active),
+        showed: active.filter((u) => done.has(u)), missed: active.filter((u) => !done.has(u)),
+        pot: 0, each: 0,
+      })
+    }
+
+    if (sun < from || sun > to) continue // settle only weeks that END inside the range
+    if (startDay && mon < startDay) continue // the group's first partial week is free
+    const active = members.filter((m) => m.joinDay <= mon).map((m) => m.uid)
     if (!active.length) continue
-    const activeUids = active.map((m) => m.uid)
-    const penalty = penaltyOn(day, basePenalty, penaltyChanges)
-    const done = doneByDay[day] || new Set()
-    const showed = activeUids.filter((u) => done.has(u))
-    const missed = activeUids.filter((u) => !done.has(u))
-    const rest = isRestDay(day, restVotes[day], activeUids)
+
+    let restDays = 0
+    const counts = Object.fromEntries(active.map((u) => [u, 0]))
+    for (let day = mon; day <= sun; day = addDays(day, 1)) {
+      if (isRestDay(day, restVotes[day], active)) restDays++
+      const done = doneByDay[day]
+      if (done) for (const u of active) if (done.has(u)) counts[u]++
+    }
+    const needed = Math.max(0, target - restDays)
+    const penalty = penaltyOn(mon, basePenalty, penaltyChanges)
+    const short = Object.fromEntries(active.map((u) => [u, Math.max(0, needed - counts[u])]))
+    const hit = active.filter((u) => short[u] === 0)
+    const missedUids = active.filter((u) => short[u] > 0)
 
     let pot = 0, each = 0
-    if (!rest && showed.length && missed.length && penalty > 0) {
-      pot = missed.length * penalty
-      each = pot / showed.length
-      for (const u of missed) totals[u] -= penalty
-      for (const u of showed) totals[u] += each
+    if (hit.length && missedUids.length && penalty > 0) {
+      pot = missedUids.reduce((s, u) => s + short[u] * penalty, 0)
+      each = pot / hit.length
+      for (const u of missedUids) totals[u] -= short[u] * penalty
+      for (const u of hit) totals[u] += each
     }
-    days.push({ day, penalty, rest, showed, missed, pot, each })
+    weeks.push({ mon, sun, target, restDays, needed, penalty, counts, short, hit, pot, each })
   }
+
   for (const u in totals) totals[u] = cents(totals[u])
-  return { days, totals }
+  return { days, weeks, totals }
 }
 
-/**
- * Fewest-transfers settle-up: who pays whom.
- * totals: { uid: net } (positive = is owed). Returns [{ from, to, amount }].
- */
+/** Fewest-transfers settle-up. totals: { uid: net } (positive = is owed). */
 export function settleUp(totals) {
   const creditors = [], debtors = []
   for (const [uid, v] of Object.entries(totals)) {
