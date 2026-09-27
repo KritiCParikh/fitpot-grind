@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { useCheckins, useMyCheckins } from '../hooks'
+import { useMyCheckins } from '../hooks'
 import { isValidCheckin, joinDay } from '../lib/group'
 import { todayInTz, monthDays, weekdayOf, prettyDay, currentStreak, bestStreak } from '../lib/dates'
+import { useLedgerInputs, runLedger } from '../lib/useLedger'
 import Avatar from '../components/Avatar'
 
 const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
@@ -13,13 +14,13 @@ export default function Calendar({ user, group, members }) {
   const [selected, setSelected] = useState(null)
 
   const days = monthDays(ym.y, ym.m)
-  const monthCheckins = useCheckins(group.id, days[0], days[days.length - 1])
+  const lastDay = days[days.length - 1] < today ? days[days.length - 1] : today
+  const inputs = useLedgerInputs(group, days[0], lastDay)
   const mine = useMyCheckins(group.id, user.uid)
 
-  const valid = (list) => (list || []).filter((c) => isValidCheckin(c, tz))
-  const myDays = new Set(valid(mine).map((c) => c.date))
-  const byDay = {}
-  for (const c of valid(monthCheckins)) (byDay[c.date] ||= new Set()).add(c.uid)
+  const myDays = new Set((mine || []).filter((c) => isValidCheckin(c, tz)).map((c) => c.date))
+  const ledger = inputs && days[0] <= today ? runLedger(group, members, inputs, days[0], lastDay) : { days: [] }
+  const ledgerByDay = Object.fromEntries(ledger.days.map((d) => [d.day, d]))
 
   const me = members.find((m) => m.uid === user.uid)
   const myJoin = me ? joinDay(me, tz) : today
@@ -27,6 +28,7 @@ export default function Calendar({ user, group, members }) {
   function statusOf(day) {
     if (day > today || day < myJoin) return 'none'
     if (myDays.has(day)) return 'done'
+    if (ledgerByDay[day]?.rest) return 'rest'
     return day === today ? 'pending' : 'missed'
   }
 
@@ -76,36 +78,48 @@ export default function Calendar({ user, group, members }) {
         <div className="legend">
           <span><i className="dot done" />Done</span>
           <span><i className="dot missed" />Missed</span>
+          <span><i className="dot rest" />Rest</span>
           <span><i className="dot pending" />Today</span>
         </div>
       </div>
 
-      {selected && <DayDetail day={selected} today={today} group={group} members={members} doneSet={byDay[selected] || new Set()} />}
+      {selected && ledgerByDay[selected] && (
+        <DayDetail info={ledgerByDay[selected]} open={selected === today} members={members} />
+      )}
     </section>
   )
 }
 
-function DayDetail({ day, today, group, members, doneSet }) {
-  const active = members.filter((m) => joinDay(m, group.timezone) <= day)
-  const done = active.filter((m) => doneSet.has(m.uid))
-  const missed = active.filter((m) => !doneSet.has(m.uid))
-  const pot = missed.length * group.penalty
-  const each = done.length ? pot / done.length : 0
-  const open = day === today
+function DayDetail({ info, open, members }) {
+  const byUid = Object.fromEntries(members.map((m) => [m.uid, m]))
+  const showed = new Set(info.showed)
+  const everyone = [...info.showed, ...info.missed].map((u) => byUid[u]).filter(Boolean)
+  // Today is still open: show what's at stake, not a settled result.
+  const pot = info.rest ? 0 : info.missed.length * info.penalty
+  const each = info.showed.length && !info.rest ? pot / info.showed.length : 0
 
   return (
     <div className="card day-detail">
-      <p className="muted small">{prettyDay(day)}{open ? ' · still open' : ''}</p>
-      <p>
-        Pot <strong className="orange">${pot}</strong>
-        {done.length ? <> · <strong className="lime">${each.toFixed(2)}</strong> each to {done.length}</> : ' · nobody showed, nobody collects'}
-      </p>
+      <p className="muted small">{prettyDay(info.day)}{open ? ' · still open' : ''} · ${info.penalty} penalty</p>
+      {info.rest ? (
+        <p>😴 <strong>Rest day</strong>, nobody paid.</p>
+      ) : (
+        <p>
+          Pot <strong className="orange">${pot}</strong>
+          {info.showed.length
+            ? <> · <strong className="lime">${each.toFixed(2)}</strong> each to {info.showed.length}</>
+            : ' · nobody showed, nobody pays'}
+        </p>
+      )}
       <ul className="member-list">
-        {active.map((m) => (
-          <li key={m.uid} className={doneSet.has(m.uid) ? 'in' : 'out'}>
+        {everyone.map((m) => (
+          <li key={m.uid} className={showed.has(m.uid) ? 'in' : 'out'}>
             <Avatar member={m} size={28} />
             <span className="grow">{m.name}</span>
-            <span className="pill">{doneSet.has(m.uid) ? 'In ✓' : open ? 'Not yet' : `Missed −$${group.penalty}`}</span>
+            <span className="pill">
+              {showed.has(m.uid) ? (each ? `+$${each.toFixed(2)}` : 'In ✓')
+                : open ? 'Not yet' : info.rest || !info.showed.length ? 'Missed' : `−$${info.penalty}`}
+            </span>
           </li>
         ))}
       </ul>

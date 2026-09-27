@@ -9,10 +9,10 @@ A step-by-step record of how FitPot is built and deployed, from an empty GitHub 
 | Phase | What | Status |
 |---|---|---|
 | 0 | Repo, PWA shell, Google sign-in, auto-deploy | ✅ Done |
-| 1 | Groups + passcode join | ✅ Built, ready to deploy |
-| 2 | Daily check-in + calendar + streaks | ✅ Built, ready to deploy |
-| 3 | Pot ledger, balances, leaderboard | ⏳ Next |
-| 4 | Camera-only photos → Google Drive, photo wall | |
+| 1 | Groups + passcode join | ✅ Done |
+| 2 | Daily check-in + calendar + streaks | ✅ Done |
+| 3 | Pot ledger, balances, board, rest days, penalty changes | ✅ Built, ready to deploy |
+| 4 | Camera-only photos → Google Drive, photo wall | ⏳ Next |
 | 5 | Food logging (Open Food Facts) | |
 | 6 | Vision model (scratch → fine-tune → browser) | |
 | 7 | Language model nudges + push notifications | |
@@ -156,6 +156,8 @@ passcodes/{code}                   groupId
 groups/{groupId}                   name, passcode, penalty, timezone, createdBy, createdAt
 groups/{groupId}/members/{uid}     name, photoURL, joinedAt (server time)
 groups/{groupId}/checkins/{date_uid}   uid, date, createdAt (server time)
+groups/{groupId}/restdays/{date}       votes {uid: server time}        (phase 3)
+groups/{groupId}/penalties/{id}        penalty, effectiveDate, setBy, setAt (phase 3)
 ```
 
 ### Security built into the rules
@@ -217,12 +219,56 @@ Same as Phase 1 (Steps 9–10). Phases 1 and 2 ship together.
 
 ---
 
+# Phase 3 — Pot ledger, balances, board, rest days
+
+### What was built
+- **Automatic ledger.** Every finished day is settled from the check-ins; nobody types in amounts and no balance can be edited. The rules for each day:
+  - Everyone who missed owes that day's penalty.
+  - The pot (missed × penalty) is split evenly among everyone who checked in.
+  - If **nobody** checked in, nobody is charged (there's no one to pay).
+  - People aren't charged for days before they joined.
+  - Amounts are rounded to the cent, so a settle-up can be off by a cent.
+- **Board tab** (replaces "coming soon")
+  - **Balances:** everyone's net for the month, highest first. The last place gets a 🙈 (the shame board).
+  - **Settle up:** who pays whom, using the fewest possible transfers.
+  - **Streaks:** current streak and best streak for everyone (looks back 60 days).
+  - Totals: pot moved, days settled, rest days. Browse back to earlier months.
+  - This month is settled **through yesterday**; today joins the ledger after midnight.
+- **Today tab additions:** **Your month** balance, and a **Rest day?** card.
+- **Rest-day voting.** Tap **Vote rest**. If more than half the group votes before midnight, the day becomes a rest day and nobody pays. Votes are stamped with Google's server time; a vote cast after the day ends doesn't count. You can take your vote back.
+- **Penalty changes** (Group tab). A new penalty always starts **tomorrow**, so today's stakes never change mid-day and past days keep the penalty they had. Every change is logged permanently.
+- **Calendar:** rest days show in grey; tapping a day shows that day's penalty and each person's +/− amount.
+
+### Worked example (from the blueprint)
+5 friends, $20 penalty. 3 check in, 2 don't → pot = 2 × $20 = **$40** → each of the 3 gets **+$13.33**, each of the 2 gets **−$20**.
+
+### What you do
+**Step 11 — Update the Firestore rules.** Firebase → **Firestore Database → Rules** → select all → delete → paste the new `firestore.rules` → **Publish**. New in this phase: rest-day votes and penalty changes. The group's base penalty can no longer be edited directly.
+
+**Step 12 — Upload the new code.** Same as before ("Uploading an update" below): drag in `src`, `docs`, `firestore.rules`, `README.md` → commit.
+
+### Check it worked
+1. **Board** tab opens and shows balances (all $0.00 on your first day; real numbers appear after midnight).
+2. **Today** → **Vote rest** → the button shows **Voted ✓** and the count goes up. Tap again to take it back.
+3. **Group** → set a new penalty → it shows "→ $X from tomorrow"; today's "At stake" doesn't change.
+4. The next day, **Board** shows yesterday's result, and **Calendar** → tap yesterday shows the +/− amounts.
+
+### Phase 3 fixes
+
+| Problem | Fix |
+|---|---|
+| "Missing or insufficient permissions" when voting or changing the penalty | Rules not updated. Step 11. |
+| Balances are all $0.00 | Normal on day one. Balances cover finished days only (through yesterday). |
+| Settle-up is off by $0.01 | Cent rounding when a pot doesn't split evenly. |
+
+---
+
 ## Uploading an update (website method)
 
 Each update comes as a zip. To apply it:
 1. Unzip it on your computer.
 2. On GitHub, open the folder where `package.json` lives (the repo root, or `fitpot/` if your files are in that folder).
-3. **Add file → Upload files** → drag in the files and folders from the zip (for this update: the `src` folder, `firestore.rules`, `README.md`, and the `docs` folder). Uploading a folder with the same name replaces the files inside it.
+3. **Add file → Upload files** → drag in the files and folders from the zip (usually the `src` folder, `docs` folder, `firestore.rules` and `README.md`; each update's section says which). Uploading a folder with the same name replaces the files inside it.
 4. **Commit changes**. The Actions tab starts a deploy automatically; wait for the green check (about 1 minute).
 5. Reload the app. An installed app updates itself on the next open or two.
 

@@ -8,6 +8,7 @@ import Onboarding from './screens/Onboarding'
 import Today from './screens/Today'
 import Calendar from './screens/Calendar'
 import Group from './screens/Group'
+import Board from './screens/Board'
 
 function SetupNotice() {
   return (
@@ -64,7 +65,7 @@ function Shell({ user, group, members }) {
           <Route path="/" element={<Today {...props} />} />
           <Route path="/calendar" element={<Calendar {...props} />} />
           <Route path="/wall" element={<ComingSoon title="Photo wall" phase={4} />} />
-          <Route path="/board" element={<ComingSoon title="Leaderboard" phase={3} />} />
+          <Route path="/board" element={<Board {...props} />} />
           <Route path="/group" element={<Group {...props} />} />
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>

@@ -1,13 +1,18 @@
 import { useState } from 'react'
-import { doc, updateDoc } from 'firebase/firestore'
-import { db } from '../firebase'
-import { leaveGroupLocally, joinDay } from '../lib/group'
-import { prettyDay } from '../lib/dates'
+import { leaveGroupLocally, joinDay, changePenalty } from '../lib/group'
+import { prettyDay, todayInTz, addDays } from '../lib/dates'
+import { penaltyOn } from '../lib/ledger'
+import { useLedgerInputs } from '../lib/useLedger'
 import Avatar from '../components/Avatar'
 
 export default function Group({ user, group, members }) {
   const [copied, setCopied] = useState(false)
-  const [penalty, setPenalty] = useState(group.penalty)
+  const today = todayInTz(group.timezone)
+  const inputs = useLedgerInputs(group, today, today)
+  const changes = inputs?.penaltyChanges || []
+  const current = penaltyOn(today, group.penalty, changes)
+  const tomorrow = penaltyOn(addDays(today, 1), group.penalty, changes)
+  const [penalty, setPenalty] = useState('')
   const [saving, setSaving] = useState(false)
 
   const inviteText = `Join my FitPot group "${group.name}" 💪\nPasscode: ${group.passcode}\n${location.origin}${location.pathname}`
@@ -23,7 +28,7 @@ export default function Group({ user, group, members }) {
 
   async function savePenalty() {
     setSaving(true)
-    try { await updateDoc(doc(db, 'groups', group.id), { penalty: Number(penalty) || 0 }) } finally { setSaving(false) }
+    try { await changePenalty(user, group, penalty); setPenalty('') } finally { setSaving(false) }
   }
 
   return (
@@ -37,13 +42,15 @@ export default function Group({ user, group, members }) {
       </div>
 
       <div className="card form">
-        <label>Daily penalty ($)
-          <input type="number" min="0" max="100" value={penalty} onChange={(e) => setPenalty(e.target.value)} />
+        <p className="muted small">Daily penalty</p>
+        <p className="stat-num">${current}{tomorrow !== current && <span className="muted small"> → ${tomorrow} from tomorrow</span>}</p>
+        <label>New penalty ($), starts tomorrow
+          <input type="number" min="0" max="100" value={penalty} placeholder={String(tomorrow)} onChange={(e) => setPenalty(e.target.value)} />
         </label>
-        <button className="btn-ghost" onClick={savePenalty} disabled={saving || Number(penalty) === group.penalty}>
-          {saving ? 'Saving…' : 'Save'}
+        <button className="btn-ghost" onClick={savePenalty} disabled={saving || penalty === '' || Number(penalty) === tomorrow}>
+          {saving ? 'Saving…' : 'Change penalty'}
         </button>
-        <p className="muted small">Agree on changes with the group first. Voting comes in a later phase.</p>
+        <p className="muted small">Agree with the group first. Changes are logged and never apply to past days.</p>
       </div>
 
       <h3 className="section-title">Members · {members.length}</h3>

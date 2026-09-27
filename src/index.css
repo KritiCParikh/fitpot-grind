@@ -138,3 +138,14 @@ h3.section-title { font-size: 0.95rem; font-weight: 700; color: var(--muted); ma
 .passcode { font-family: 'Anton', sans-serif; font-size: 2.6rem; letter-spacing: 0.25em; color: var(--lime); margin: 0; }
 .content > section > .btn-ghost { margin-top: 12px; }
 .disclaimer { margin-top: 16px; }
+
+/* ---------- Phase 3 ---------- */
+.badge { background: rgba(198, 255, 61, 0.12); color: var(--lime); border-radius: 999px; padding: 6px 12px; font-size: 0.85rem; font-weight: 700; }
+.rest-card { display: flex; align-items: center; gap: 12px; margin-top: 12px; }
+.grow-col { flex: 1; min-width: 0; }
+.grow-col p { margin: 2px 0 0; }
+.rank { width: 18px; text-align: center; color: var(--muted); font-weight: 700; font-size: 0.85rem; }
+.cal-day.rest { background: rgba(139, 149, 143, 0.25); color: var(--text); }
+.dot.rest { background: rgba(139, 149, 143, 0.5); }
+.stats-row .stat .stat-num { font-size: 1.6rem; }
+section > .cal-head { margin-bottom: 4px; }

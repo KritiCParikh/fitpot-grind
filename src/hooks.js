@@ -64,3 +64,14 @@ export function useMyCheckins(groupId, uid) {
   }, [groupId, uid])
   return checkins
 }
+
+// Every doc in a small group subcollection (rest-day votes, penalty changes).
+export function useSubcollection(groupId, name) {
+  const [docs, setDocs] = useState(undefined)
+  useEffect(() => {
+    if (!groupId) return
+    return onSnapshot(collection(db, 'groups', groupId, name), (s) =>
+      setDocs(s.docs.map((d) => ({ id: d.id, ...d.data() }))))
+  }, [groupId, name])
+  return docs
+}

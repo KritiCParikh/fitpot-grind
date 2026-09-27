@@ -111,7 +111,7 @@ See the header comment in `apps-script/Code.gs`.
 - [x] Phase 0 — repo, PWA shell, Google sign-in, auto-deploy
 - [x] Phase 1 — groups + passcode join
 - [x] Phase 2 — daily check-in + calendar
-- [ ] Phase 3 — pot ledger, balances, leaderboard
+- [x] Phase 3 — pot ledger, balances, leaderboard, rest days
 - [ ] Phase 4 — camera-only photos → Drive, photo wall
 - [ ] Phase 5 — food logging (Open Food Facts)
 - [ ] Phase 6 — vision model (scratch → fine-tune → browser)

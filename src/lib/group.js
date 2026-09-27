@@ -1,8 +1,8 @@
 import {
-  doc, collection, getDoc, setDoc, writeBatch, serverTimestamp,
+  doc, collection, getDoc, setDoc, addDoc, updateDoc, deleteField, writeBatch, serverTimestamp,
 } from 'firebase/firestore'
 import { db } from '../firebase'
-import { todayInTz, dayInTz } from './dates'
+import { todayInTz, dayInTz, addDays } from './dates'
 
 // No 0/O/1/I/L so codes are easy to read out loud.
 const ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'
@@ -96,4 +96,23 @@ export function isValidCheckin(c, timezone) {
 // joinedDate is only a fallback while the write is pending).
 export function joinDay(member, timezone) {
   return member.joinedAt ? dayInTz(member.joinedAt.toDate(), timezone) : member.joinedDate
+}
+
+// Rest day: vote (or un-vote) for TODAY. The vote is stamped with server time,
+// so a vote cast after the day ended never counts.
+export async function setRestVote(user, group, on) {
+  const day = todayInTz(group.timezone)
+  const ref = doc(db, 'groups', group.id, 'restdays', day)
+  if (on) await setDoc(ref, { votes: { [user.uid]: serverTimestamp() } }, { merge: true })
+  else await updateDoc(ref, { [`votes.${user.uid}`]: deleteField() })
+}
+
+// Penalty changes take effect TOMORROW, so today's stakes never change mid-day.
+export async function changePenalty(user, group, amount) {
+  await addDoc(collection(db, 'groups', group.id, 'penalties'), {
+    penalty: Number(amount) || 0,
+    effectiveDate: addDays(todayInTz(group.timezone), 1),
+    setBy: user.uid,
+    setAt: serverTimestamp(),
+  })
 }
