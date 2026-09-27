@@ -6,6 +6,8 @@ Fitness accountability for friend groups. Hit your group's workout target (e.g. 
 
 📘 **Full step-by-step build guide:** [docs/BUILD_GUIDE.md](docs/BUILD_GUIDE.md), covering every phase, every click, and fixes for common problems.
 
+🧭 **How it works:** [docs/HOW_IT_WORKS.md](docs/HOW_IT_WORKS.md), covering every service, every file, core concepts with analogies, and how it all connects.
+
 **Stack (all free, Google-first):** React + Vite PWA · GitHub Pages · Firebase Auth (Google sign-in) · Firestore · Google Apps Script → Google Drive for photos · GitHub Actions · Colab for ML.
 
 ```
@@ -14,7 +16,7 @@ fitpot/
 ├── public/              icon, static assets
 ├── apps-script/         Drive photo backend (Google Apps Script)
 ├── firestore.rules      database security rules
-├── docs/                BUILD_GUIDE.md (step-by-step)
+├── docs/                BUILD_GUIDE.md (setup) · HOW_IT_WORKS.md (explainer)
 ├── ml/                  vision + language model notebooks
 └── .github/workflows/   auto-deploy to GitHub Pages
 ```
