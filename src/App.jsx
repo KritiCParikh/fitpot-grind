@@ -15,6 +15,8 @@ import Wall from './screens/Wall'
 import Me from './screens/Me'
 import Login from './screens/Login'
 import Account from './screens/Account'
+import UpdateBar from './components/UpdateBar'
+import OfflineBar from './components/OfflineBar'
 
 function SetupNotice() {
   return (
@@ -119,6 +121,7 @@ function Shell({ user, profile }) {
         <GroupSwitcher user={user} groupIds={groupIds} activeId={activeId} meta={meta} />
         <NavLink to="/account" className="btn-ghost account-link" aria-label="Account settings"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" /></svg></NavLink>
       </header>
+      <OfflineBar />
       <div className="content">
         <GroupProvider key={activeId || 'none'} user={user} groupId={activeId}>
           <Routes>
@@ -168,6 +171,10 @@ export default function App() {
 
   if (!isConfigured) return <SetupNotice />
   if (user === undefined) return <Loading />
-  if (!user) return <Login />
-  return <SignedIn key={user.uid} user={user} />
+  return (
+    <>
+      {user ? <SignedIn key={user.uid} user={user} /> : <Login />}
+      <UpdateBar />
+    </>
+  )
 }

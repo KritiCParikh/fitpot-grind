@@ -10,6 +10,7 @@ import { useDayDocs } from '../hooks'
 import { photosEnabled } from '../lib/photos'
 import Avatar from '../components/Avatar'
 import CameraCapture from '../components/CameraCapture'
+import { useOnline } from '../lib/device'
 
 export default function Today({ user, group, members, groupIds, meta }) {
   const { clock, money } = group
@@ -23,6 +24,8 @@ export default function Today({ user, group, members, groupIds, meta }) {
   const [justDone, setJustDone] = useState(false)
   const [camera, setCamera] = useState(null) // null | 'checkin' | 'photo'
   const [note, setNote] = useState('')
+  // Check-ins are stamped with Google's clock, so they need a connection.
+  const online = useOnline()
 
   if (!inputs || !todaysPhotos) return <section><p className="muted">Loading...</p></section>
 
@@ -105,12 +108,13 @@ export default function Today({ user, group, members, groupIds, meta }) {
         <button
           className={`checkin-btn ${meDone ? 'done' : ''} ${justDone ? 'pop' : ''}`}
           onClick={onCheckIn}
-          disabled={busy || meDone || blocked || iLeft}
+          disabled={busy || meDone || blocked || iLeft || !online}
         >
           {meDone ? '✓' : busy ? '...' : photoRequired || anyNeedsPhoto ? 'CHECK IN' : 'CHECK IN'}
         </button>
         <p className="muted small">
           {iLeft ? 'You left this group. Check-ins here are closed.'
+            : !online && !meDone ? 'You\'re offline. Check-ins need a connection, because they\'re stamped with Google\'s clock.'
             : meDone ? 'Checked in. See you tomorrow.'
             : blocked ? 'This group requires a workout photo, but photos aren\'t set up yet. Turn the photo rule off in the Group tab, or deploy the Drive script (guide, Phase 4).'
             : photoRequired ? 'Opens the camera. Your photo is your check-in. Closes at your midnight.'

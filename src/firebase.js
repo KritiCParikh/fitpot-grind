@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app'
 import { getAuth, GoogleAuthProvider } from 'firebase/auth'
-import { getFirestore } from 'firebase/firestore'
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore'
 
 const config = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -15,5 +15,10 @@ export const isConfigured = Boolean(config.apiKey && config.projectId)
 
 export const app = isConfigured ? initializeApp(config) : null
 export const auth = app ? getAuth(app) : null
-export const db = app ? getFirestore(app) : null
+// Offline support (phase 5.5): Firestore keeps a copy of your data on the
+// phone, so screens open instantly and work with no signal. Changes made
+// offline are queued and sent when you're back online.
+export const db = app ? initializeFirestore(app, {
+  localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+}) : null
 export const googleProvider = new GoogleAuthProvider()

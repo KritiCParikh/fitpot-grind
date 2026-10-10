@@ -7,6 +7,8 @@ import Training from './Training'
 import Measurements from '../components/Measurements'
 import ExportData from '../components/ExportData'
 import VerifyBanner from '../components/VerifyBanner'
+import InstallCard from '../components/InstallCard'
+import { useLocation } from 'react-router-dom'
 
 const TABS = [
   { key: 'food', label: 'Food' },
@@ -18,12 +20,15 @@ const TABS = [
 // "Me": everything personal and private. Nobody in any group sees this tab's
 // data. It's where you land after signing in, and it works without a group.
 export default function Me({ user }) {
-  const [tab, setTab] = useState('food')
+  // Home screen shortcuts open e.g. #/?me=training
+  const wanted = new URLSearchParams(useLocation().search).get('me')
+  const [tab, setTab] = useState(TABS.some((t) => t.key === wanted) ? wanted : 'food')
   const [, bump] = useState(0) // re-render once your email is confirmed
   return (
     <section>
       <h2>Me</h2>
       <VerifyBanner user={user} onVerified={() => bump((n) => n + 1)} />
+      <InstallCard />
       <div className="segmented tabs3">
         {TABS.map((t) => <button key={t.key} className={tab === t.key ? 'on' : ''} onClick={() => setTab(t.key)}>{t.label}</button>)}
       </div>

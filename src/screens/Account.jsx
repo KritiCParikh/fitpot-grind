@@ -4,6 +4,7 @@ import {
   hasPassword, hasGoogle, isVerified, MIN_PASSWORD,
 } from '../lib/account'
 import VerifyBanner from '../components/VerifyBanner'
+import InstallCard from '../components/InstallCard'
 
 // Account (gear icon, top right): name, sign-in methods, password, sign out, delete account.
 export default function Account({ user, groupIds, profile }) {
@@ -26,6 +27,9 @@ export default function Account({ user, groupIds, profile }) {
 
       <NameCard user={user} groupIds={groupIds} onDone={refresh} />
       {pw ? <ChangePasswordCard user={user} /> : <AddPasswordCard user={user} onDone={refresh} />}
+
+      <h3 className="section-title">App</h3>
+      <InstallCard always />
 
       <button className="btn-ghost wide" onClick={logOut}>Sign out</button>
 

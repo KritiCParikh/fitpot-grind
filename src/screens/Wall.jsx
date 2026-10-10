@@ -6,6 +6,7 @@ import { photosEnabled, photoUrl, isValidPhoto } from '../lib/photos'
 import { photoRequiredFor } from '../lib/group'
 import CameraCapture from '../components/CameraCapture'
 import Avatar from '../components/Avatar'
+import { useOnline } from '../lib/device'
 
 export default function Wall({ user, group, members, groupIds }) {
   const { clock } = group
@@ -15,6 +16,7 @@ export default function Wall({ user, group, members, groupIds }) {
   const photos = useDayDocs(group.id, 'photos', day)
   const todaysCheckins = useDayDocs(group.id, 'checkins', today)
   const byUid = Object.fromEntries(members.map((m) => [m.uid, m]))
+  const online = useOnline()
 
   if (!photosEnabled) {
     return (
@@ -41,7 +43,7 @@ export default function Wall({ user, group, members, groupIds }) {
         <button className="btn-ghost" onClick={() => setDay((d) => addDays(d, 1))} disabled={day >= today} aria-label="Next day">›</button>
       </div>
 
-      {day === today && !posted && todaysCheckins && (
+      {day === today && !posted && todaysCheckins && online && (
         <button className="btn-primary wide" onClick={() => setCamera(true)}>
           {alsoCheckIn ? 'Check in with a photo' : 'Post today\'s workout photo'}
         </button>
