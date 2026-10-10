@@ -12,7 +12,8 @@ rules_version = '2';
 //   groups/{gid}/checkins/{date_uid}     uid, date, createdAt
 //   groups/{gid}/restdays/{date}         votes {uid: time}
 //   groups/{gid}/penalties/{id}          penalty, effectiveDate, setBy, setAt
-//   groups/{gid}/photos/{date_uid}       uid, date, fileId (Google Drive), createdAt
+//   groups/{gid}/photos/{date_uid}       uid, date, fileId (Google Drive), createdAt, slot, shot, activity?
+//                                        up to 4 a day: {date_uid}, {date_uid}_2, _3, _4 (phase 5.6)
 //   groups/{gid}/targets/{id}            target (days/week), effectiveDate (a Monday), setBy, setAt
 //   groups/{gid}/tzchanges/{id}          uid, timezone, effectiveDate, setAt          (phase 5.1)
 //   groups/{gid}/currencies/{id}         from, currency, rate, penalty, effectiveDate, setBy, setAt (phase 5.1)
@@ -118,15 +119,23 @@ service cloud.firestore {
         allow delete: if false;
       }
 
-      // Workout photos: one per person per day. The image itself lives in Google
-      // Drive; this doc points to it. Stamped with server time, never edited.
+      // Workout photos: up to 4 per person per day (slot 1 is the one a check-in
+      // needs). The image itself lives in Google Drive; this doc points to it.
+      // Stamped with server time, never edited. Activity tag is optional.
       match /photos/{photoId} {
         allow read: if isMember(groupId);
         allow create: if isActiveMember(groupId)
           && request.resource.data.uid == request.auth.uid
-          && photoId == request.resource.data.date + '_' + request.auth.uid
+          && photoId in [
+            request.resource.data.date + '_' + request.auth.uid,
+            request.resource.data.date + '_' + request.auth.uid + '_2',
+            request.resource.data.date + '_' + request.auth.uid + '_3',
+            request.resource.data.date + '_' + request.auth.uid + '_4'
+          ]
           && request.resource.data.createdAt == request.time
-          && request.resource.data.fileId is string;
+          && request.resource.data.fileId is string
+          && (!('activity' in request.resource.data)
+              || request.resource.data.activity in ['Gym', 'Run', 'Tennis', 'Swim', 'Yoga', 'Cycle', 'Sport', 'Other']);
         allow update: if false;
         allow delete: if isMember(groupId)
           && resource.data.uid == request.auth.uid

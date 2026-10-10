@@ -324,3 +324,20 @@ button.plain.grow-col { display: flex; flex-direction: column; align-items: flex
 /* Installed on iPhone: content clears the status bar */
 @media (display-mode: standalone) { .topbar { padding-top: calc(16px + env(safe-area-inset-top)); } }
 .update-text { flex: 1; min-width: 0; }
+
+/* Phase 5.6: several photos per person, one tile that flips */
+.photo-card { position: relative; }
+.photo-strip { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; }
+.photo-strip::-webkit-scrollbar { display: none; }
+.photo-slide { flex: 0 0 100%; scroll-snap-align: start; }
+.photo-tag { position: absolute; top: 8px; left: 8px; background: rgba(11, 13, 12, 0.75); color: var(--lime); font-size: 0.75rem; font-weight: 800; padding: 3px 9px; border-radius: 999px; pointer-events: none; }
+.photo-count { position: absolute; top: 8px; right: 8px; background: rgba(11, 13, 12, 0.75); color: var(--text); font-size: 0.72rem; font-weight: 700; padding: 3px 8px; border-radius: 999px; pointer-events: none; }
+.photo-card:has(.photo-delete) .photo-count { right: 44px; }
+.photo-nav { position: absolute; top: 38%; width: 30px; height: 30px; border-radius: 50%; border: 0; background: rgba(11, 13, 12, 0.6); color: #fff; font-size: 1.1rem; cursor: pointer; display: grid; place-items: center; }
+.photo-nav.prev { left: 6px; }
+.photo-nav.next { right: 6px; }
+.photo-dots { position: absolute; left: 0; right: 0; bottom: 46px; display: flex; justify-content: center; gap: 5px; pointer-events: none; }
+.photo-dots i { width: 6px; height: 6px; border-radius: 50%; background: rgba(255, 255, 255, 0.45); }
+.photo-dots i.on { background: var(--lime); }
+.photo-delete { position: absolute; top: 6px; right: 6px; width: 28px; height: 28px; border-radius: 50%; border: 0; background: rgba(11, 13, 12, 0.7); color: #fff; font-size: 0.8rem; cursor: pointer; }
+.activity-chips { justify-content: center; margin: 8px 0 0; }

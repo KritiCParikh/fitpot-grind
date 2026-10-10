@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { doc, setDoc } from 'firebase/firestore'
 import { db } from '../firebase'
 import { useUserDoc } from '../hooks'
-import { checkInEverywhere } from '../lib/everywhere'
+import { checkInEverywhere, ACTIVITIES } from '../lib/everywhere'
 
 const MAX_SIDE = 1080
 const TARGET_BYTES = 500 * 1024
@@ -18,6 +18,7 @@ export default function CameraCapture({ user, group, groupIds, onClose, onUpload
   const [phase, setPhase] = useState('starting') // starting | live | review | uploading
   const [shot, setShot] = useState(null) // { blob, url }
   const [error, setError] = useState('')
+  const [activity, setActivity] = useState('') // optional tag, e.g. Tennis
   const consented = profile?.photoConsent === true
   const wantCamera = consented && (phase === 'starting' || phase === 'live')
 
@@ -57,7 +58,7 @@ export default function CameraCapture({ user, group, groupIds, onClose, onUpload
   async function send() {
     setPhase('uploading'); setError('')
     try {
-      const result = await checkInEverywhere(user, groupIds, { blob: shot.blob, photoOnly: !checkIn })
+      const result = await checkInEverywhere(user, groupIds, { blob: shot.blob, photoOnly: !checkIn, activity })
       if (!result.done.length && result.skipped.length) throw new Error(result.skipped.map((x) => `${x.name}: ${x.reason}`).join(' · '))
       onUploaded?.(result)
       onClose()
@@ -96,6 +97,13 @@ export default function CameraCapture({ user, group, groupIds, onClose, onUpload
           ? <img src={shot.url} alt="Your workout photo" className="camera-view" />
           : <video ref={videoRef} className="camera-view" autoPlay playsInline muted />}
         {error && <p className="error small">{error}</p>}
+        {phase === 'review' && (
+          <div className="chips activity-chips" role="group" aria-label="What did you do? (optional)">
+            {ACTIVITIES.map((a) => (
+              <button key={a} type="button" className={`chip ${activity === a ? 'on' : ''}`} onClick={() => setActivity(activity === a ? '' : a)}>{a}</button>
+            ))}
+          </div>
+        )}
         <div className="camera-controls">
           {phase === 'live' && (
             <>

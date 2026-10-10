@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { setRestVote, photoRequiredFor } from '../lib/group'
-import { checkInEverywhere, undoEverywhere } from '../lib/everywhere'
+import { checkInEverywhere, undoEverywhere, MAX_PHOTOS } from '../lib/everywhere'
 import { prettyDay, addDays, mondayOf } from '../lib/dates'
 import { localTime, tzLabel } from '../lib/clock'
 import { fmt } from '../lib/money'
@@ -40,7 +40,8 @@ export default function Today({ user, group, members, groupIds, meta }) {
   const active = members.filter((m) => clock.joinDay(m) <= today && (!clock.leftDay(m) || today < clock.leftDay(m)))
   const activeUids = active.map((m) => m.uid)
   const meDone = done.has(user.uid)
-  const myPhoto = todaysPhotos.some((p) => p.uid === user.uid)
+  const myPhotos = todaysPhotos.filter((p) => p.uid === user.uid).length
+  const myPhoto = myPhotos > 0
 
   const cur = money.currencyOn(today)
   const curTomorrow = money.currencyOn(addDays(today, 1))
@@ -94,7 +95,7 @@ export default function Today({ user, group, members, groupIds, meta }) {
   }
 
   function onUndo() {
-    if (!confirm('Undo today\'s check-in in all your groups?' + (myPhoto ? ' Your photo will be removed from the walls.' : ''))) return
+    if (!confirm('Undo today\'s check-in in all your groups?' + (myPhoto ? ` Your ${myPhotos > 1 ? `${myPhotos} photos` : 'photo'} will be removed from the walls.` : ''))) return
     act(async () => { await undoEverywhere(user, groupIds); setJustDone(false); setNote('') })
   }
 
@@ -120,10 +121,10 @@ export default function Today({ user, group, members, groupIds, meta }) {
             : photoRequired ? 'Opens the camera. Your photo is your check-in. Closes at your midnight.'
             : 'Tap after your workout. Closes at your midnight.'}
         </p>
-        {meDone && !myPhoto && photosEnabled && !photoRequired && (
-          <button className="btn-ghost" onClick={() => setCamera('photo')}>Add workout photo</button>
+        {meDone && photosEnabled && online && myPhotos < MAX_PHOTOS && (
+          <button className="btn-ghost" onClick={() => setCamera('photo')}>{myPhoto ? `+ Add another photo (${myPhotos}/${MAX_PHOTOS})` : 'Add workout photo'}</button>
         )}
-        {meDone && myPhoto && <p className="muted small">Photo posted to the wall</p>}
+        {meDone && myPhoto && <p className="muted small">{myPhotos > 1 ? `${myPhotos} photos` : 'Photo'} posted to the wall</p>}
         {meDone && <button className="link-btn" onClick={onUndo} disabled={busy}>Undo check-in</button>}
         {myGroups.length > 1 && !meDone && !iLeft && <p className="muted small">One check-in counts in all {myGroups.length} of your groups.</p>}
         {note && <p className="muted small">{note}</p>}
