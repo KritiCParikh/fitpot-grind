@@ -40,8 +40,6 @@ It then opens full screen from its own icon, like a normal app.
 - [x] Phase 5.5 - installed app on iPhone and Android (free): install card, offline, shortcuts, update bar, icons and splash, Android APK via PWABuilder
 - [x] Phase 5.6 - up to 4 photos a day with an optional activity tag, flip tiles on the Wall, delete a single photo
 - [x] Phase 5.7 - bigger text and new navigation features 
-- [ ] Phase 6 - vision model (scratch → fine-tune → browser)
-- [ ] Phase 7 - language model nudges + push notifications
-- [ ] Phase 8 - personalised training plans from your own model, built on the Training data
+- [ ] Phase 6 - AI model (scratch -> fine-tune -> browser) + push notifications + personalised training plans from our model, built on the Training data
 
 > FitPot tracks informal debts between friends. It does not move money.
