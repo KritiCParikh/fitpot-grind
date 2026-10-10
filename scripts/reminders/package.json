@@ -1,0 +1,9 @@
+{
+  "name": "fitpot-reminders",
+  "private": true,
+  "type": "module",
+  "description": "Hourly job that sends FitPot's daily reminders (run by GitHub Actions).",
+  "dependencies": {
+    "firebase-admin": "^14.5.0"
+  }
+}

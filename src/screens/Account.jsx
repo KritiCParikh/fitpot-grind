@@ -5,6 +5,7 @@ import {
 } from '../lib/account'
 import VerifyBanner from '../components/VerifyBanner'
 import InstallCard from '../components/InstallCard'
+import RemindersCard from '../components/RemindersCard'
 import { TEXT_SIZES, getTextSize, applyTextSize } from '../nav/textSize'
 
 // Account (gear icon, top right): name, sign-in methods, password, sign out, delete account.
@@ -30,6 +31,7 @@ export default function Account({ user, groupIds, profile }) {
       {pw ? <ChangePasswordCard user={user} /> : <AddPasswordCard user={user} onDone={refresh} />}
 
       <h3 className="section-title">App</h3>
+      <RemindersCard user={user} />
       <TextSizeCard />
       <InstallCard always />
 

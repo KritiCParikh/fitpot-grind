@@ -72,6 +72,7 @@ export const CM_PER_IN = 2.54
 // exercises/{id}:    your own exercises: name, muscle, eq [equipment keys]
 // routines/{id}:     name, items [{ key, name, muscle, sets, reps }]
 // measurements/{date}: date, cm { waist, chest, hips, arm, thigh, neck }, bodyFat
+export const useReminders = (uid) => useLive(() => doc(db, 'private', uid, 'settings', 'reminders'), [uid])
 export const useTraining = (uid) => useLive(() => doc(db, 'private', uid, 'settings', 'training'), [uid])
 export const saveTraining = (uid, patch) => setDoc(doc(db, 'private', uid, 'settings', 'training'), patch, { merge: true })
 

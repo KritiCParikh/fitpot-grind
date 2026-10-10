@@ -13,8 +13,9 @@ export default defineConfig({
     VitePWA({
       // 'prompt': a new version waits until you tap "Update" (see UpdateBar.jsx).
       registerType: 'prompt',
-      includeAssets: ['icon.svg', 'icons/*.png', 'splash/*.png', 'data/indb.json'],
+      includeAssets: ['icon.svg', 'icons/*.png', 'splash/*.png', 'data/indb.json', 'push-sw.js'],
       workbox: {
+        importScripts: ['push-sw.js'], // reminders (phase 5.8)
         globPatterns: ['**/*.{js,css,html,svg,json,png}'],
         globIgnores: ['splash/**'], // splash screens are only fetched by iPhones at install
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,

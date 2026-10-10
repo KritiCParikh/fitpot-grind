@@ -481,3 +481,8 @@ body { line-height: 1.45; }
 .locker-section .group-switch { flex: 0 1 auto; max-width: 62%; min-height: 36px; font-size: 0.85rem; text-transform: none; letter-spacing: 0; }
 @media (max-width: 420px) { .topbar:has(.group-switch) .small-logo { display: none; } }
 .member-lockers { grid-template-columns: repeat(2, 1fr); }
+
+/* Reminders (phase 5.8) */
+.slot-list { display: flex; flex-direction: column; gap: 8px; }
+.slot-row { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 4px 0; border-bottom: 1px solid var(--border); }
+.slot-time { width: 148px; flex: none; }
