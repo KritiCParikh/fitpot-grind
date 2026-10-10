@@ -1,3 +1,0 @@
-# Lets GitHub Pages publish the hidden .well-known folder (needed by the FitPot Android app).
-# If this repo already has a _config.yml, add just the line below to it.
-include: [".well-known"]
