@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { NUTRIENTS } from '../lib/foods'
-import { useSettings, saveSettings, LB_PER_KG } from '../lib/privateData'
+import { useSettings, saveSettings, useMealsOn, LB_PER_KG } from '../lib/privateData'
 import FoodLog from './FoodLog'
 import Progress from './Progress'
 import Training from './Training'
@@ -8,36 +8,76 @@ import Measurements from '../components/Measurements'
 import ExportData from '../components/ExportData'
 import VerifyBanner from '../components/VerifyBanner'
 import InstallCard from '../components/InstallCard'
-import { useLocation } from 'react-router-dom'
-
-const TABS = [
-  { key: 'food', label: 'Food' },
-  { key: 'training', label: 'Training' },
-  { key: 'progress', label: 'Progress' },
-  { key: 'targets', label: 'Targets' },
-]
+import { useLocation, useNavigate } from 'react-router-dom'
+import MeBar, { ME_TABS } from '../nav/MeBar'
+import TrainingDial, { TRAINING_SECTIONS } from '../nav/TrainingDial'
+import FoodPlate from '../nav/FoodPlate'
+import { myToday } from '../lib/clock'
+import { local } from '../lib/device'
 
 // "Me": everything personal and private. Nobody in any group sees this tab's
 // data. It's where you land after signing in, and it works without a group.
+//
+// Sections (phase 5.7): Food, Training (Log, Muscles, Records, Routines,
+// Setup), Progress, Targets. The current one lives in the address
+// (#/?me=training&t=records), so the menu, shortcuts and Back all work.
+// The bottom barbell switches sections; tapping the plate you're on opens
+// the Training dial or the food plate.
 export default function Me({ user }) {
-  // Home screen shortcuts open e.g. #/?me=training
-  const wanted = new URLSearchParams(useLocation().search).get('me')
-  const [tab, setTab] = useState(TABS.some((t) => t.key === wanted) ? wanted : 'food')
+  const params = new URLSearchParams(useLocation().search)
+  const navigate = useNavigate()
+  const tab = ME_TABS.some((t) => t.key === params.get('me')) ? params.get('me') : 'food'
+  const lastSection = local.get('fitpot-training-section')
+  const section = TRAINING_SECTIONS.some((s) => s.key === params.get('t')) ? params.get('t')
+    : TRAINING_SECTIONS.some((s) => s.key === lastSection) ? lastSection : 'log'
+  const [chooser, setChooser] = useState(null) // null | 'dial' | 'plate'
+  const [foodCmd, setFoodCmd] = useState(null) // what the food plate asked the diary to open
   const [, bump] = useState(0) // re-render once your email is confirmed
+
+  const go = (me, t) => navigate(`/?me=${me}${me === 'training' ? `&t=${t || section}` : ''}`)
+  function onTab(key) {
+    if (key === tab && key === 'training') return setChooser('dial')
+    if (key === tab && key === 'food') return setChooser('plate')
+    go(key)
+  }
+  const sectionLabel = TRAINING_SECTIONS.find((s) => s.key === section)?.label
+
   return (
-    <section>
-      <h2>Me</h2>
+    <section className="me-page">
+      <h2>Me <span className="h2-sub">{ME_TABS.find((t) => t.key === tab).label}{tab === 'training' ? `: ${sectionLabel}` : ''}</span></h2>
       <VerifyBanner user={user} onVerified={() => bump((n) => n + 1)} />
       <InstallCard />
-      <div className="segmented tabs3">
-        {TABS.map((t) => <button key={t.key} className={tab === t.key ? 'on' : ''} onClick={() => setTab(t.key)}>{t.label}</button>)}
-      </div>
-      {tab === 'food' && <FoodLog user={user} />}
-      {tab === 'training' && <Training user={user} />}
+      {tab === 'food' && <FoodLog user={user} command={foodCmd} onOpenPlate={() => setChooser('plate')} />}
+      {tab === 'training' && (
+        <Training user={user} section={section} onOpenDial={() => setChooser('dial')} />
+      )}
       {tab === 'progress' && <Progress user={user} />}
       {tab === 'targets' && <Targets user={user} />}
+
+      <MeBar tab={tab} sectionLabel={sectionLabel} onTab={onTab} />
+      {chooser === 'dial' && (
+        <TrainingDial section={section} onClose={() => setChooser(null)} onPick={(t) => {
+          local.set('fitpot-training-section', t)
+          setChooser(null)
+          go('training', t)
+        }} />
+      )}
+      {chooser === 'plate' && <FoodPlateFor user={user} onClose={() => setChooser(null)} onPick={(w) => {
+        setChooser(null)
+        setFoodCmd({ w, n: Date.now() })
+      }} />}
     </section>
   )
+}
+
+// The food plate with today's calories per meal.
+function FoodPlateFor({ user, onPick, onClose }) {
+  const meals = useMealsOn(user.uid, myToday())
+  const settings = useSettings(user.uid)
+  const byMeal = {}
+  let total = 0
+  for (const m of meals || []) { const k = m.nutrients?.kcal || 0; byMeal[m.meal] = (byMeal[m.meal] || 0) + k; total += k }
+  return <FoodPlate kcalByMeal={byMeal} total={total} target={settings?.targets?.kcal} onPick={onPick} onClose={onClose} />
 }
 
 function Targets({ user }) {

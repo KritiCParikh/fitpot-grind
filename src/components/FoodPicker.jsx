@@ -11,14 +11,14 @@ const SOURCES = [
 
 // Full-screen food finder: Recent · My foods · search across India / USA /
 // packaged foods · barcode. Calls onPick(food) with a normalised food.
-export default function FoodPicker({ uid, title = 'Add food', onPick, onClose, onCreate, onBarcodeMissing, extraActions }) {
+export default function FoodPicker({ uid, title = 'Add food', onPick, onClose, onCreate, onBarcodeMissing, extraActions, startScan = false }) {
   const myFoodsRaw = useMyFoods(uid)
   const recentMeals = useRecentMeals(uid)
   const [q, setQ] = useState('')
   const [on, setOn] = useState({ india: true, usa: true, packaged: true })
   const [results, setResults] = useState({})
   const [errors, setErrors] = useState({})
-  const [scan, setScan] = useState(false)
+  const [scan, setScan] = useState(Boolean(startScan))
   const [scanMsg, setScanMsg] = useState('')
 
   const myFoods = useMemo(() => (myFoodsRaw || []).map(fromMyFood), [myFoodsRaw])

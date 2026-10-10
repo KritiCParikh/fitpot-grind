@@ -23,7 +23,7 @@ const VIEWS = [
 const short = (d) => prettyDay(d).split(', ').slice(1).join(', ')
 
 // Me → Training: a private progressive-overload tracker.
-export default function Training({ user }) {
+export default function Training({ user, section = 'log', onOpenDial }) {
   const uid = user.uid
   const today = myToday()
   const training = useTraining(uid)
@@ -31,7 +31,7 @@ export default function Training({ user }) {
   const rawWorkouts = useWorkouts(uid)
   const custom = useCustomExercises(uid)
   const routines = useRoutines(uid)
-  const [view, setView] = useState('log')
+  const view = section
   const [editor, setEditor] = useState(null) // initial workout for the editor
 
   const workouts = useMemo(() => (rawWorkouts || []).map((w) => ({ ...w, createdMs: w.createdAt?.toMillis?.() || 0 })), [rawWorkouts])
@@ -46,9 +46,10 @@ export default function Training({ user }) {
 
   return (
     <>
-      <div className="chips subtabs">
-        {VIEWS.map((v) => <button key={v.key} className={`chip ${view === v.key ? 'on' : ''}`} onClick={() => setView(v.key)}>{v.label}</button>)}
-      </div>
+      {/* Where you are in Training. Tap to open the dial (same as tapping the Training plate again). */}
+      <button className="section-switch" onClick={onOpenDial} aria-label="Change Training section">
+        {VIEWS.map((v) => <span key={v.key} className={view === v.key ? 'on' : ''}>{v.label}</span>)}
+      </button>
       {view === 'log' && <LogView {...ctx} />}
       {view === 'muscles' && <MusclesView {...ctx} />}
       {view === 'records' && <RecordsView {...ctx} />}

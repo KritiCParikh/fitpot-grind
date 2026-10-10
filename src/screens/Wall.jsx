@@ -7,6 +7,7 @@ import { photoRequiredFor } from '../lib/group'
 import { MAX_PHOTOS, deletePhotoEverywhere } from '../lib/everywhere'
 import CameraCapture from '../components/CameraCapture'
 import Avatar from '../components/Avatar'
+import Scoreboard from '../components/Scoreboard'
 import { useOnline } from '../lib/device'
 
 const ms = (p) => p.createdAt?.toMillis?.() ?? Infinity // pending writes count as newest
@@ -51,6 +52,23 @@ export default function Wall({ user, group, members, groupIds }) {
         <strong>{day === today ? 'Today' : prettyDay(day)}</strong>
         <button className="btn-ghost" onClick={() => setDay((d) => addDays(d, 1))} disabled={day >= today} aria-label="Next day">›</button>
       </div>
+
+      {photos !== undefined && (() => {
+        const posted = new Set(valid.map((p) => p.uid))
+        const active = members.filter((m) => clock.joinDay(m) <= day && !clock.hasLeft(m.uid))
+        const waiting = active.filter((m) => !posted.has(m.uid))
+        return (
+          <Scoreboard title="WALL" right={day === today ? 'TODAY' : prettyDay(day).toUpperCase()} cells={[
+            { label: 'PHOTOS', value: valid.length },
+            { label: 'POSTED', value: `${posted.size}/${active.length}`, tone: posted.size && posted.size === active.length ? 'lime' : '' },
+            { label: 'YOU', value: `${valid.filter((p) => p.uid === user.uid).length}/${MAX_PHOTOS}`, tone: valid.some((p) => p.uid === user.uid) ? 'lime' : '' },
+          ]}>
+            <p>Posted: <strong>{active.filter((m) => posted.has(m.uid)).map((m) => m.name).join(', ') || 'nobody yet'}</strong></p>
+            <p>Not yet: <strong>{waiting.map((m) => m.name).join(', ') || 'nobody, everyone posted'}</strong></p>
+            <p>Activities: <strong>{[...new Set(valid.map((p) => p.activity).filter(Boolean))].join(', ') || 'none tagged'}</strong></p>
+          </Scoreboard>
+        )
+      })()}
 
       {canPost && (
         <button className="btn-primary wide" onClick={() => setCamera(true)}>

@@ -1,5 +1,5 @@
 import { myToday } from '../lib/clock'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { NUTRIENTS, sumNutrients, MEALS } from '../lib/foods'
 import { useMealsOn, useSettings, useMyFoods, logMeal, deleteMeal } from '../lib/privateData'
 import { addDays, prettyDay } from '../lib/dates'
@@ -8,7 +8,7 @@ import PortionPicker from '../components/PortionPicker'
 import { MyFoodForm, RecipeBuilder } from '../components/MyFoodForms'
 
 // Private, optional food diary. Nothing here affects check-ins or the pot.
-export default function FoodLog({ user }) {
+export default function FoodLog({ user, command, onOpenPlate }) {
   const uid = user.uid
   const today = myToday() // your own day, from your phone's timezone
   const [day, setDay] = useState(today)
@@ -17,13 +17,21 @@ export default function FoodLog({ user }) {
   const myFoods = useMyFoods(uid)
   const [view, setView] = useState({ name: 'log' })
 
+  // The food plate (Me barbell) opens a meal, My foods or the scanner here.
+  useEffect(() => {
+    if (!command) return
+    if (command.w === 'myfoods') setView({ name: 'myfoods' })
+    else if (command.w === 'scan') setView({ name: 'pick', meal: 'Snacks', scan: true })
+    else setView({ name: 'pick', meal: command.w })
+  }, [command])
+
   const targets = settings?.targets || {}
   const back = () => setView({ name: 'log' })
 
   // ---- sub-screens ----
   if (view.name === 'pick') {
     return (
-      <FoodPicker uid={uid} title={`Add to ${view.meal}`}
+      <FoodPicker uid={uid} title={`Add to ${view.meal}`} startScan={view.scan}
         onPick={(food) => setView({ name: 'portion', meal: view.meal, food })}
         onClose={back}
         onCreate={() => setView({ name: 'create', meal: view.meal })}
@@ -80,6 +88,7 @@ export default function FoodLog({ user }) {
   const totals = sumNutrients((meals || []).map((m) => m.nutrients))
   return (
     <>
+      {onOpenPlate && <button className="btn-ghost wide plate-hint" onClick={onOpenPlate}>Open the food plate: meals, My foods, Scan</button>}
       <div className="cal-head">
         <button className="btn-ghost" onClick={() => setDay((d) => addDays(d, -1))} aria-label="Previous day">‹</button>
         <strong>{day === today ? 'Today' : prettyDay(day)}</strong>

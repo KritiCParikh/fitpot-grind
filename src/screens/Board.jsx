@@ -6,6 +6,7 @@ import { addDays, prettyDay, currentStreak, bestStreak } from '../lib/dates'
 import { settleUp } from '../lib/ledger'
 import { useLedgerInputs, runLedger } from '../lib/useLedger'
 import Avatar from '../components/Avatar'
+import Scoreboard from '../components/Scoreboard'
 
 function monthBounds(y, m) {
   const start = `${y}-${String(m + 1).padStart(2, '0')}-01`
@@ -51,20 +52,16 @@ export default function Board({ user, group, members }) {
 
     body = (
       <>
-        <div className="stats-row">
-          <div className="card stat">
-            <p className="muted small">Pot moved</p>
-            <p className="stat-num orange">{$(potTotal, { digits: 0 })}</p>
-          </div>
-          <div className="card stat">
-            <p className="muted small">{ledger.weeks.length ? 'Weeks settled' : 'Days settled'}</p>
-            <p className="stat-num">{ledger.weeks.length || ledger.days.filter((x) => x.mode === 'daily').length}</p>
-          </div>
-          <div className="card stat">
-            <p className="muted small">Rest days</p>
-            <p className="stat-num">{restDays}</p>
-          </div>
-        </div>
+        <Scoreboard title="BOARD" right={monthLabel.toUpperCase()} cells={[
+          { label: 'POT MOVED', value: $(potTotal, { digits: 0 }) },
+          { label: 'YOU', value: $(totals[user.uid] || 0, { plus: true, digits: Math.abs(totals[user.uid] || 0) % 1 ? 2 : 0 }), tone: (totals[user.uid] || 0) >= 0 ? 'lime' : 'neg' },
+          { label: ledger.weeks.length ? 'WEEKS DONE' : 'DAYS DONE', value: ledger.weeks.length || ledger.days.filter((x) => x.mode === 'daily').length },
+        ]}>
+          <p>Rest days: <strong>{restDays}</strong></p>
+          <p>Settled through: <strong>{hasDays ? prettyDay(settledTo) : 'nothing yet'}</strong></p>
+          <p>Leader: <strong>{ranked[0] && totals[ranked[0].uid] > 0 ? `${ranked[0].name} (${$(totals[ranked[0].uid], { plus: true })})` : 'nobody yet'}</strong></p>
+          <p>Top streak: <strong>{streaks[0]?.cur ? `${streaks[0].m.name}, ${streaks[0].cur} day${streaks[0].cur === 1 ? '' : 's'}` : 'nobody yet'}</strong></p>
+        </Scoreboard>
 
         <h3 className="section-title">Balances</h3>
         <ul className="member-list">

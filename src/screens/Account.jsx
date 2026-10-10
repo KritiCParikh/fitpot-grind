@@ -5,6 +5,7 @@ import {
 } from '../lib/account'
 import VerifyBanner from '../components/VerifyBanner'
 import InstallCard from '../components/InstallCard'
+import { TEXT_SIZES, getTextSize, applyTextSize } from '../nav/textSize'
 
 // Account (gear icon, top right): name, sign-in methods, password, sign out, delete account.
 export default function Account({ user, groupIds, profile }) {
@@ -29,6 +30,7 @@ export default function Account({ user, groupIds, profile }) {
       {pw ? <ChangePasswordCard user={user} /> : <AddPasswordCard user={user} onDone={refresh} />}
 
       <h3 className="section-title">App</h3>
+      <TextSizeCard />
       <InstallCard always />
 
       <button className="btn-ghost wide" onClick={logOut}>Sign out</button>
@@ -134,5 +136,21 @@ function DeleteCard({ user, groupIds }) {
       <button type="button" className="btn-ghost" onClick={() => setOpen(false)} disabled={busy}>Cancel</button>
       {note}
     </form>
+  )
+}
+
+// Bigger or smaller text across the whole app, saved on this phone.
+function TextSizeCard() {
+  const [size, setSize] = useState(getTextSize)
+  return (
+    <div className="card form">
+      <p className="muted small">Text size</p>
+      <div className="segmented text-size">
+        {TEXT_SIZES.map((t) => (
+          <button key={t.key} type="button" className={size === t.key ? 'on' : ''} style={{ fontSize: `${t.px * 0.85}px` }}
+            onClick={() => { applyTextSize(t.key); setSize(t.key) }}>{t.label}</button>
+        ))}
+      </div>
+    </div>
   )
 }

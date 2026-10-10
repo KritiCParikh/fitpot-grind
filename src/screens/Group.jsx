@@ -2,30 +2,60 @@ import { useState } from 'react'
 import {
   setActiveGroup, leaveGroup, changePenalty, changeTarget, setPhotoRequired, photoRequiredFor, changeCurrency, nextDay,
 } from '../lib/group'
-import { prettyDay, addDays, mondayOf } from '../lib/dates'
+import { prettyDay, addDays, mondayOf, currentStreak } from '../lib/dates'
 import { penaltyOn, targetOn } from '../lib/ledger'
 import { useLedgerInputs } from '../lib/useLedger'
-import { tzLabel, localTime } from '../lib/clock'
+import { tzLabel, localTime, onItsDay } from '../lib/clock'
 import { CURRENCIES, currencyInfo, fmt, fetchRate, roundPenalty, MAX_PENALTY } from '../lib/money'
 import Avatar from '../components/Avatar'
+import Icon from '../nav/Icon'
+import { useCheckins } from '../hooks'
 import JoinCreate from '../components/JoinCreate'
 import { useGroupCtx } from '../groupContext'
 
 const shortDay = (d) => prettyDay(d).split(', ').slice(1).join(', ')
 
-// Group tab: your groups (switch between them), join or create another, and
-// the settings of the group you're looking at.
+// Group tab (phase 5.7: laid out as a locker room).
+//   Passcode and Invite
+//   Lockers: one per member (in today light, streak, local time, joined)
+//   Manager's office: target, photo rule, penalty, pot currency
+//   Your groups: switch, join or create, leave
 export default function Group({ user, groupIds, meta, activeId }) {
   const { status, group, members } = useGroupCtx()
+  const yourGroups = <YourGroups user={user} groupIds={groupIds} meta={meta} activeId={activeId} />
+  if (status === 'ready') return <section><GroupSettings user={user} group={group} members={members} groupIds={groupIds} yourGroups={yourGroups} /></section>
+  return (
+    <section>
+      <h2>Groups</h2>
+      {status === 'loading' ? <p className="muted">Loading...</p> : yourGroups}
+    </section>
+  )
+}
+
+// A door that opens in place to show its contents.
+function Door({ icon, title, summary, open: open0 = false, children }) {
+  const [open, setOpen] = useState(open0)
+  return (
+    <div className={`office ${open ? 'open' : ''}`}>
+      <button className="office-door" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
+        <span className="office-icon"><Icon name={icon} size={24} /></span>
+        <span className="grow-col"><strong>{title}</strong><span className="muted small">{summary}</span></span>
+        <span className="office-arrow" aria-hidden="true">{open ? '▾' : '›'}</span>
+      </button>
+      {open && <div className="office-room">{children}</div>}
+    </div>
+  )
+}
+
+function YourGroups({ user, groupIds, meta, activeId, leave }) {
   const [adding, setAdding] = useState(false)
   const none = groupIds.length === 0
   return (
-    <section>
-      <h2>{none ? 'Groups' : 'Your groups'}</h2>
+    <>
       {none ? (
         <div className="card">
           <p>You're not in a group yet.</p>
-          <p className="muted small">Join friends with their 6-character passcode, or start a group and invite them. You can be in several groups; one check-in counts in all of them.</p>
+          <p className="muted small">Join friends with their 6 character passcode, or start a group and invite them. You can be in several groups; one check in counts in all of them.</p>
         </div>
       ) : (
         <ul className="member-list">
@@ -41,15 +71,46 @@ export default function Group({ user, groupIds, meta, activeId }) {
       )}
       {none || adding
         ? <JoinCreate user={user} onDone={() => setAdding(false)} />
-        : <button className="btn-ghost" onClick={() => setAdding(true)}>+ Join or create another group</button>}
-
-      {status === 'loading' && <p className="muted">Loading...</p>}
-      {status === 'ready' && <GroupSettings user={user} group={group} members={members} groupIds={groupIds} />}
-    </section>
+        : <button className="btn-ghost wide" onClick={() => setAdding(true)}>+ Join or create another group</button>}
+      {leave}
+    </>
   )
 }
 
-function GroupSettings({ user, group, members, groupIds }) {
+// One locker per member: light on when they're in for their own today.
+function MemberLockers({ user, group, members }) {
+  const { clock } = group
+  const recent = useCheckins(group.id, addDays(clock.today(), -60), clock.latestDay())
+  const days = {}
+  for (const c of recent || []) if (onItsDay(c, clock)) (days[c.uid] ||= new Set()).add(c.date)
+  return (
+    <div className="lockers member-lockers">
+      {members.map((m) => {
+        const tz = clock.tzAt(m.uid)
+        const mine = days[m.uid] || new Set()
+        const left = clock.hasLeft(m.uid)
+        const inToday = mine.has(clock.todayOf(m.uid))
+        const streak = currentStreak(mine, clock.todayOf(m.uid))
+        return (
+          <div key={m.uid} className={`locker member ${m.uid === user.uid ? 'on' : ''} ${left ? 'locked' : ''}`}>
+            <span className={`lamp ${inToday && !left ? '' : 'off'}`} title={inToday ? 'In today' : 'Not in yet'} />
+            <span className="locker-handle" aria-hidden="true" />
+            <Avatar member={m} size={36} />
+            <span className="locker-name">{m.name.split(' ')[0]}{m.uid === user.uid ? ' (you)' : ''}</span>
+            <span className="locker-stat">
+              {left ? 'Left the group' : recent === undefined ? '...' : inToday ? 'In today' : 'Not in yet'}
+              {!left && recent !== undefined && <><br />{streak ? `${streak} day streak` : 'No streak'}</>}
+              <br />{localTime(tz)} {tzLabel(tz)}
+              <br />since {shortDay(clock.joinDay(m))}
+            </span>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+function GroupSettings({ user, group, members, groupIds, yourGroups }) {
   const { clock, money } = group
   const [copied, setCopied] = useState(false)
   const today = clock.today()
@@ -93,9 +154,10 @@ function GroupSettings({ user, group, members, groupIds }) {
     try { await leaveGroup(user, group, groupIds) } finally { setSaving(false) }
   }
 
+  const activeCount = members.filter((m) => !clock.hasLeft(m.uid)).length
   return (
     <>
-      <h2 className="section-title group-title">{group.name}</h2>
+      <h2>{group.name}</h2>
 
       <div className="card passcode-card">
         <p className="muted small">Group passcode</p>
@@ -103,78 +165,78 @@ function GroupSettings({ user, group, members, groupIds }) {
         <button className="btn-primary" onClick={share}>{copied ? 'Copied!' : 'Invite friends'}</button>
       </div>
 
-      <h3 className="section-title">Group rules</h3>
-      <div className="card form">
-        <p className="muted small">Workout target</p>
-        <p className="stat-num">{label(target)}{nextTarget !== target && <span className="muted small"> → {label(nextTarget)} from Monday</span>}</p>
-        <label>Change target (starts next Monday)
-          <select value={nextTarget} disabled={saving} onChange={async (e) => {
-            setSaving(true); try { await changeTarget(user, group, +e.target.value) } finally { setSaving(false) }
-          }}>
-            {[1, 2, 3, 4, 5, 6].map((n) => <option key={n} value={n}>{n} days a week (settled weekly)</option>)}
-            <option value={7}>Every day (settled daily)</option>
-          </select>
-        </label>
-        <p className="muted small">
-          {target >= 7
-            ? 'Each missed day costs the penalty, split among who showed that day.'
-            : `Weeks run Monday to Sunday. Anyone under ${target} pays the penalty for each day short; the pot is split among everyone who hit ${target}. Each rest day lowers the target by 1.`}
-        </p>
-      </div>
+      <h3 className="section-title">Lockers <span className="section-note">{activeCount} member{activeCount === 1 ? '' : 's'}</span></h3>
+      <MemberLockers user={user} group={group} members={members} />
 
-      <div className="card form">
-        <label className="check">
-          <input type="checkbox" checked={photoRequired} disabled={saving} onChange={async (e) => {
-            setSaving(true); try { await setPhotoRequired(group, e.target.checked) } finally { setSaving(false) }
-          }} />
-          Require a live workout photo to check in
-        </label>
-        <p className="muted small">When on, CHECK IN opens the camera and the photo is the check-in.</p>
-      </div>
+      <h3 className="section-title">Rooms</h3>
+      <Door icon="plan" title="Manager's office"
+        summary={`${label(target)}, ${fmt(current, cur, { digits: cur === 'INR' ? 0 : 2 })} penalty, ${currencyInfo(cur).symbol} ${cur}, photo ${photoRequired ? 'required' : 'optional'}`}>
+        <div className="card form">
+          <p className="muted small">Workout target</p>
+          <p className="stat-num">{label(target)}{nextTarget !== target && <span className="muted small"> → {label(nextTarget)} from Monday</span>}</p>
+          <label>Change target (starts next Monday)
+            <select value={nextTarget} disabled={saving} onChange={async (e) => {
+              setSaving(true); try { await changeTarget(user, group, +e.target.value) } finally { setSaving(false) }
+            }}>
+              {[1, 2, 3, 4, 5, 6].map((n) => <option key={n} value={n}>{n} days a week (settled weekly)</option>)}
+              <option value={7}>Every day (settled daily)</option>
+            </select>
+          </label>
+          <p className="muted small">
+            {target >= 7
+              ? 'Each missed day costs the penalty, split among who showed that day.'
+              : `Weeks run Monday to Sunday. Anyone under ${target} pays the penalty for each day short; the pot is split among everyone who hit ${target}. Each rest day lowers the target by 1.`}
+          </p>
+        </div>
 
-      <div className="card form">
-        <p className="muted small">Penalty per missed workout</p>
-        <p className="stat-num">
-          {fmt(current, cur, { digits: cur === 'INR' ? 0 : 2 })}
-          {(tomorrow !== current || curNext !== cur) && <span className="muted small"> → {fmt(tomorrow, curNext)} from {shortDay(startDay)}</span>}
-        </p>
-        <label>New penalty ({currencyInfo(curNext).symbol}), starts {shortDay(startDay)}{target < 7 ? ' (weekly groups: from the next Monday\'s week)' : ''}
-          <input type="number" min="0" max={MAX_PENALTY} value={penalty} placeholder={String(tomorrow)} onChange={(e) => setPenalty(e.target.value)} />
-        </label>
-        <button className="btn-ghost" onClick={savePenalty} disabled={saving || penalty === '' || Number(penalty) === tomorrow}>
-          {saving ? 'Saving...' : 'Change penalty'}
-        </button>
-        <p className="muted small">Agree with the group first. Changes are logged and never apply to past days.</p>
-      </div>
+        <div className="card form">
+          <label className="check">
+            <input type="checkbox" checked={photoRequired} disabled={saving} onChange={async (e) => {
+              setSaving(true); try { await setPhotoRequired(group, e.target.checked) } finally { setSaving(false) }
+            }} />
+            Require a live workout photo to check in
+          </label>
+          <p className="muted small">When on, CHECK IN opens the camera and the photo is the check-in.</p>
+        </div>
 
-      <CurrencyCard user={user} group={group} from={curNext} penalty={tomorrow} startDay={startDay} />
+        <div className="card form">
+          <p className="muted small">Penalty per missed workout</p>
+          <p className="stat-num">
+            {fmt(current, cur, { digits: cur === 'INR' ? 0 : 2 })}
+            {(tomorrow !== current || curNext !== cur) && <span className="muted small"> → {fmt(tomorrow, curNext)} from {shortDay(startDay)}</span>}
+          </p>
+          <label>New penalty ({currencyInfo(curNext).symbol}), starts {shortDay(startDay)}{target < 7 ? ' (weekly groups: from the next Monday\'s week)' : ''}
+            <input type="number" min="0" max={MAX_PENALTY} value={penalty} placeholder={String(tomorrow)} onChange={(e) => setPenalty(e.target.value)} />
+          </label>
+          <button className="btn-ghost" onClick={savePenalty} disabled={saving || penalty === '' || Number(penalty) === tomorrow}>
+            {saving ? 'Saving...' : 'Change penalty'}
+          </button>
+          <p className="muted small">Agree with the group first. Changes are logged and never apply to past days.</p>
+        </div>
 
-      <h3 className="section-title">Members · {members.length}</h3>
-      <ul className="member-list">
-        {members.map((m) => {
-          const tz = clock.tzAt(m.uid)
-          return (
-            <li key={m.uid}>
-              <Avatar member={m} />
-              <span className="grow">
-                {m.name}{m.uid === user.uid ? ' (you)' : ''}{clock.hasLeft(m.uid) ? ' (left)' : ''}
-                <span className="muted small"> · {tzLabel(tz)}, {localTime(tz)}</span>
-              </span>
-              <span className="muted small">since {shortDay(clock.joinDay(m))}</span>
-            </li>
-          )
-        })}
-      </ul>
+        <CurrencyCard user={user} group={group} from={curNext} penalty={tomorrow} startDay={startDay} />
+      </Door>
+      <Door icon="group" title="Your groups" summary="Switch, join or create, leave">
+        <YourGroupsWithLeave yourGroups={yourGroups} left={left} leave={leave} saving={saving} />
+      </Door>
 
       <p className="muted small">
-        Everyone's day follows their own phone's timezone (yours: {clock.myTz()}). Check-ins, photos and rest votes
+        Everyone's day follows their own phone's timezone (yours: {clock.myTz()}). Check ins, photos and rest votes
         close at each person's own midnight. The group settles a day once it has ended for everyone. If your phone's
         timezone changes, FitPot switches you over from your next day.
       </p>
+      <p className="muted small disclaimer">FitPot tracks informal debts between friends. It doesn't move money. You keep being part of a group's pot until you leave it.</p>
+    </>
+  )
+}
+
+function YourGroupsWithLeave({ yourGroups, left, leave, saving }) {
+  return (
+    <>
+      {yourGroups}
       {left
         ? <p className="muted small">You left this group. Its history stays visible here.</p>
-        : <button className="btn-ghost danger" onClick={leave} disabled={saving}>Leave this group</button>}
-      <p className="muted small disclaimer">FitPot tracks informal debts between friends. It doesn't move money. You keep being part of a group's pot until you leave it.</p>
+        : <button className="btn-ghost wide danger" onClick={leave} disabled={saving}>Leave this group</button>}
     </>
   )
 }

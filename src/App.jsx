@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { HashRouter, Routes, Route, NavLink, Navigate, Link } from 'react-router-dom'
+import { HashRouter, Routes, Route, Navigate, Link, useLocation } from 'react-router-dom'
 import { onAuthStateChanged } from 'firebase/auth'
 import { auth, isConfigured } from './firebase'
 import { useUserDoc, useGroup, useMembers, useSubcollection, useGroupsMeta } from './hooks'
@@ -16,6 +16,11 @@ import Me from './screens/Me'
 import Login from './screens/Login'
 import Account from './screens/Account'
 import UpdateBar from './components/UpdateBar'
+import Icon from './nav/Icon'
+import LockerMenu from './nav/LockerMenu'
+import QuickCheck from './nav/QuickCheck'
+import useSwipe from './nav/useSwipe'
+import { currentKey } from './nav/pages'
 import OfflineBar from './components/OfflineBar'
 
 function SetupNotice() {
@@ -113,17 +118,24 @@ function Shell({ user, profile }) {
   const activeId = profile?.groupId || null
   const meta = useGroupsMeta(groupIds)
   const base = { user, groupIds, meta }
+  const [menu, setMenu] = useState(false)
+  const loc = useLocation()
+  const current = currentKey(loc.pathname, loc.search)
+  const swipe = useSwipe(current)
 
   return (
-    <div className="shell">
-      <header className="topbar">
-        <span className="logo small-logo">FitPot</span>
-        <GroupSwitcher user={user} groupIds={groupIds} activeId={activeId} meta={meta} />
-        <NavLink to="/account" className="btn-ghost account-link" aria-label="Account settings"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" /></svg></NavLink>
-      </header>
-      <OfflineBar />
-      <div className="content">
-        <GroupProvider key={activeId || 'none'} user={user} groupId={activeId}>
+    <GroupProvider key={activeId || 'none'} user={user} groupId={activeId}>
+      <div className="shell">
+        <header className="topbar">
+          <button className="icon-btn menu-btn" onClick={() => setMenu(true)} aria-label="Open menu" aria-expanded={menu}>
+            <Icon name="menu" size={26} />
+          </button>
+          <span className="logo small-logo">FitPot</span>
+          <GroupSwitcher user={user} groupIds={groupIds} activeId={activeId} meta={meta} />
+          <QuickCheck user={user} />
+        </header>
+        <OfflineBar />
+        <div className="content" {...swipe}>
           <Routes>
             <Route path="/" element={<Me user={user} />} />
             <Route path="/today" element={<NeedGroup title="Today">{(g, m) => <Today {...base} group={g} members={m} />}</NeedGroup>} />
@@ -135,17 +147,11 @@ function Shell({ user, profile }) {
             <Route path="/me" element={<Navigate to="/" />} />
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
-        </GroupProvider>
+        </div>
+        {menu && <LockerMenu user={user} current={current} onClose={() => setMenu(false)}
+          groupSwitch={<GroupSwitcher user={user} groupIds={groupIds} activeId={activeId} meta={meta} />} />}
       </div>
-      <nav className="tabbar">
-        <NavLink to="/" end>Me</NavLink>
-        <NavLink to="/today">Today</NavLink>
-        <NavLink to="/calendar">Calendar</NavLink>
-        <NavLink to="/wall">Wall</NavLink>
-        <NavLink to="/board">Board</NavLink>
-        <NavLink to="/group">Group</NavLink>
-      </nav>
-    </div>
+    </GroupProvider>
   )
 }
 
