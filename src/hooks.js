@@ -88,7 +88,7 @@ export function useDayDocs(groupId, name, day) {
 }
 
 // Names and settings of all your groups, for the switcher (one listener each).
-// Returns { [groupId]: { id, name, photoRequired, … } | null } once loaded.
+// Returns { [groupId]: { id, name, photoRequired, ... } | null } once loaded.
 export function useGroupsMeta(groupIds) {
   const key = groupIds.join(',')
   const [meta, setMeta] = useState({})

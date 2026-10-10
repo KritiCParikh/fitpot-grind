@@ -44,7 +44,7 @@ export default function Calendar({ user, group, members }) {
       <div className="stats-row">
         <div className="card stat">
           <p className="muted small">Current streak</p>
-          <p className="stat-num lime">{currentStreak(myDays, today)}🔥</p>
+          <p className="stat-num lime">{currentStreak(myDays, today)}</p>
         </div>
         <div className="card stat">
           <p className="muted small">Best streak</p>
@@ -104,9 +104,9 @@ function DayDetail({ info, open, members, clock, cur }) {
     <div className="card day-detail">
       <p className="muted small">{prettyDay(info.day)}{open ? ' · still open' : ''}{info.mode === 'daily' ? ` · ${$(info.penalty)} penalty` : ''}</p>
       {info.mode === 'weekly' ? (
-        <p>{info.rest ? '😴 Rest day (lowers the weekly target by 1). ' : ''}Weekly-target group: money settles on Sunday. See the Board.</p>
+        <p>{info.rest ? 'Rest day (lowers the weekly target by 1). ' : ''}Weekly target group: money settles on Sunday. See the Board.</p>
       ) : info.rest ? (
-        <p>😴 <strong>Rest day</strong>, nobody paid.</p>
+        <p><strong>Rest day</strong>, nobody paid.</p>
       ) : (
         <p>
           Pot <strong className="orange">{$(pot)}</strong>
@@ -121,7 +121,7 @@ function DayDetail({ info, open, members, clock, cur }) {
             <Avatar member={m} size={28} />
             <span className="grow">{m.name}</span>
             <span className="pill">
-              {showed.has(m.uid) ? (each ? fmt(each, cur, { plus: true }) : 'In ✓')
+              {showed.has(m.uid) ? (each ? fmt(each, cur, { plus: true }) : 'In')
                 : open && clock.stateFor(m.uid, info.day) !== 'closed' ? 'Not yet'
                   : open || info.mode === 'weekly' || info.rest || !info.showed.length ? 'Missed' : fmt(-info.penalty, cur)}
             </span>

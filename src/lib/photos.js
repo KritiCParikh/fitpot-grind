@@ -33,7 +33,7 @@ export async function uploadToDrive(user, groupId, blob) {
   return callDrive({ action: 'upload', idToken, groupId, imageBase64: await blobToBase64(blob) })
 }
 
-// Upload to Drive, then record the photo — and, when `checkIn` is true, the
+// Upload to Drive, then record the photo - and, when `checkIn` is true, the
 // check-in too, in one batch (the rules require the photo when the group does).
 // Single-group version; the app now uses checkInEverywhere (everywhere.js).
 export async function uploadPhoto(user, group, blob, { checkIn = false } = {}) {
@@ -68,7 +68,7 @@ export async function photoUrl(user, group, fileId) {
     const cache = await caches.open(CACHE)
     const hit = await cache.match(key)
     if (hit) blob = await hit.blob()
-  } catch { /* Cache Storage unavailable (private mode) — just refetch */ }
+  } catch { /* Cache Storage unavailable (private mode) - just refetch */ }
 
   if (!blob) {
     const idToken = await user.getIdToken()

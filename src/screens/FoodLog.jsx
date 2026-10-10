@@ -54,17 +54,17 @@ export default function FoodLog({ user }) {
           <span style={{ width: 40 }} />
         </div>
         <div className="action-row">
-          <button className="btn-ghost" onClick={() => setView({ name: 'editFood', food: null })}>＋ Food</button>
-          <button className="btn-ghost" onClick={() => setView({ name: 'recipe', food: null })}>🍲 Recipe</button>
+          <button className="btn-ghost" onClick={() => setView({ name: 'editFood', food: null })}>+ Food</button>
+          <button className="btn-ghost" onClick={() => setView({ name: 'recipe', food: null })}>+ Recipe</button>
         </div>
-        {!myFoods?.length ? <p className="muted small">Nothing saved yet. Save foods from search (⭐), create your own, or build a recipe.</p> : (
+        {!myFoods?.length ? <p className="muted small">Nothing saved yet. Save foods from search, create your own, or build a recipe.</p> : (
           <ul className="food-list">
             {[...myFoods].sort((a, b) => a.name.localeCompare(b.name)).map((f) => (
               <li key={f.id}>
                 <button onClick={() => setView({ name: f.kind === 'recipe' ? 'recipe' : 'editFood', food: f })}>
                   <span className="grow-col">
-                    <span className="food-name">{f.kind === 'recipe' ? '🍲 ' : '⭐ '}{f.name}</span>
-                    <span className="muted small">{Math.round(f.perServing?.kcal || 0)} kcal / {f.servingLabel || 'serving'}{f.barcode ? ' · ▦' : ''}</span>
+                    <span className="food-name">{f.name}{f.kind === 'recipe' ? <span className="muted small"> (recipe)</span> : null}</span>
+                    <span className="muted small">{Math.round(f.perServing?.kcal || 0)} kcal / {f.servingLabel || 'serving'}{f.barcode ? ' · barcode' : ''}</span>
                   </span>
                   <span className="muted small">Edit</span>
                 </button>
@@ -102,14 +102,14 @@ export default function FoodLog({ user }) {
         {!Object.values(targets).some(Number) && <p className="muted small">Set your targets in the Targets tab to see progress bars.</p>}
       </div>
 
-      {meals === undefined ? <p className="muted">Loading…</p> : MEALS.map((meal) => {
+      {meals === undefined ? <p className="muted">Loading...</p> : MEALS.map((meal) => {
         const list = meals.filter((m) => m.meal === meal)
         const kcal = Math.round(list.reduce((s, m) => s + (m.nutrients?.kcal || 0), 0))
         return (
           <div key={meal}>
             <h3 className="section-title meal-head">
               <span>{meal}{kcal ? ` · ${kcal} kcal` : ''}</span>
-              <button className="link-btn" onClick={() => setView({ name: 'pick', meal })}>＋ Add</button>
+              <button className="link-btn" onClick={() => setView({ name: 'pick', meal })}>+ Add</button>
             </h3>
             {list.length > 0 && (
               <ul className="member-list">
@@ -126,7 +126,7 @@ export default function FoodLog({ user }) {
         )
       })}
 
-      <button className="btn-ghost wide" style={{ marginTop: 16 }} onClick={() => setView({ name: 'myfoods' })}>⭐ My foods & recipes</button>
+      <button className="btn-ghost wide" style={{ marginTop: 16 }} onClick={() => setView({ name: 'myfoods' })}>My foods & recipes</button>
       <p className="muted small">Food logging is optional and private. Only you can see it, and it never affects the pot. Indian dishes: Indian Nutrient Databank (INDB). US foods: USDA FoodData Central. Packaged: Open Food Facts.</p>
     </>
   )

@@ -9,10 +9,10 @@ import ExportData from '../components/ExportData'
 import VerifyBanner from '../components/VerifyBanner'
 
 const TABS = [
-  { key: 'food', label: '🍽 Food' },
-  { key: 'training', label: '🏋️ Training' },
-  { key: 'progress', label: '⚖️ Progress' },
-  { key: 'targets', label: '🎯 Targets' },
+  { key: 'food', label: 'Food' },
+  { key: 'training', label: 'Training' },
+  { key: 'progress', label: 'Progress' },
+  { key: 'targets', label: 'Targets' },
 ]
 
 // "Me": everything personal and private. Nobody in any group sees this tab's
@@ -37,13 +37,13 @@ export default function Me({ user }) {
 
 function Targets({ user }) {
   const settings = useSettings(user.uid)
-  if (settings === undefined) return <p className="muted">Loading…</p>
+  if (settings === undefined) return <p className="muted">Loading...</p>
   return (
     <>
       <TargetsForm key={settings ? 'loaded' : 'empty'} uid={user.uid} settings={settings || {}} />
-      <h3 className="section-title">📏 Body measurements</h3>
+      <h3 className="section-title">Body measurements</h3>
       <Measurements uid={user.uid} settings={settings || {}} />
-      <h3 className="section-title">⬇️ Your data</h3>
+      <h3 className="section-title">Your data</h3>
       <ExportData uid={user.uid} />
     </>
   )
@@ -52,6 +52,7 @@ function Targets({ user }) {
 function TargetsForm({ uid, settings }) {
   const unit0 = settings.weightUnit || 'kg'
   const [unit, setUnit] = useState(unit0)
+  const [dist, setDist] = useState(settings.distanceUnit || 'km')
   const [targets, setTargets] = useState(Object.fromEntries(NUTRIENTS.map((n) => [n.key, settings.targets?.[n.key] ?? ''])))
   const toDisp = (kg, u) => (kg ? Math.round((u === 'lb' ? kg * LB_PER_KG : kg) * 10) / 10 : '')
   const [goal, setGoal] = useState(toDisp(settings.goalWeightKg, unit0))
@@ -63,6 +64,7 @@ function TargetsForm({ uid, settings }) {
     await saveSettings(uid, {
       targets: Object.fromEntries(NUTRIENTS.map((n) => [n.key, Number(targets[n.key]) || 0])),
       weightUnit: unit,
+      distanceUnit: dist,
       goalWeightKg: g ? (unit === 'lb' ? g / LB_PER_KG : g) : null,
     })
     setSaved(true); setTimeout(() => setSaved(false), 1500)
@@ -90,11 +92,19 @@ function TargetsForm({ uid, settings }) {
             <option value="lb">lb</option>
           </select>
         </label>
+        <label className="grow">Distance unit
+          <select value={dist} onChange={(e) => setDist(e.target.value)}>
+            <option value="km">km</option>
+            <option value="mi">miles</option>
+          </select>
+        </label>
+      </div>
+      <div className="row">
         <label className="grow">Goal weight ({unit}, optional)
           <input className="text-input" type="number" inputMode="decimal" step="0.1" value={goal} onChange={(e) => setGoal(e.target.value)} />
         </label>
       </div>
-      <button className="btn-primary">{saved ? 'Saved ✓' : 'Save targets'}</button>
+      <button className="btn-primary">{saved ? 'Saved' : 'Save targets'}</button>
       <p className="muted small">Private to you.</p>
     </form>
   )

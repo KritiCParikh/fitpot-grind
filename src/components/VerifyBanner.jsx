@@ -15,14 +15,14 @@ export default function VerifyBanner({ user, onVerified }) {
 
   return (
     <div className="card verify-card" role="status">
-      <p><strong>📧 Confirm your email</strong></p>
+      <p><strong>Confirm your email</strong></p>
       <p className="muted small">We sent a link to <strong>{user.email}</strong>. Tap it, then come back and press "I've confirmed". You need this before joining or creating a group. (Check spam if it's not there.)</p>
       <div className="action-row">
         <button className="btn-primary" disabled={busy} onClick={() => act(async () => {
           if (await refreshVerified(user)) onVerified?.()
           else setMsg('Not confirmed yet. Open the link in the email first.')
         })}>I've confirmed</button>
-        <button className="btn-ghost" disabled={busy} onClick={() => act(async () => { await resendVerification(user); setMsg('Sent again ✓') })}>Resend email</button>
+        <button className="btn-ghost" disabled={busy} onClick={() => act(async () => { await resendVerification(user); setMsg('Sent again.') })}>Resend email</button>
       </div>
       {msg && <p className="muted small">{msg}</p>}
     </div>

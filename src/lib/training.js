@@ -1,7 +1,9 @@
-// Training (progressive overload) — pure logic, no Firebase.
+// Training (progressive overload) - pure logic, no Firebase.
 //
-// A workout is { id, date, title, notes, exercises: [{ key, name, muscle, sets: [{ reps, kg }] }] }.
-// Weights are always stored in kg (0 = bodyweight only). From that we work out:
+// A workout is { id, date, title, notes, exercises: [{ key, name, muscle, sets: [...] }] }.
+// Strength sets are { reps, kg } (kg 0 = bodyweight only). Cardio sets are
+// { km, min, count } (phase 5.4). Weights are stored in kg and distances in km,
+// whatever unit you log in. From that we work out:
 //   • "last time" for an exercise, so you know what to beat
 //   • personal records (PRs): heaviest weight, best estimated 1-rep max, most reps
 //   • per week, per muscle group: sets, volume and each exercise's best set vs last week
@@ -21,6 +23,7 @@ export const MUSCLES = [
   { key: 'calves', label: 'Calves' },
   { key: 'core', label: 'Core' },
   { key: 'fullbody', label: 'Full body' },
+  { key: 'cardio', label: 'Cardio' },
 ]
 export const muscleLabel = (k) => MUSCLES.find((m) => m.key === k)?.label || 'Other'
 
@@ -40,10 +43,20 @@ export const EQUIPMENT = [
   { key: 'dip', label: 'Dip bars' },
   { key: 'bands', label: 'Resistance bands' },
   { key: 'abwheel', label: 'Ab wheel' },
+  { key: 'treadmill', label: 'Treadmill' },
+  { key: 'bike', label: 'Stationary bike' },
+  { key: 'rower', label: 'Rowing machine' },
+  { key: 'elliptical', label: 'Elliptical' },
+  { key: 'stairs', label: 'Stair climber' },
+  { key: 'jumprope', label: 'Jump rope' },
+  { key: 'bicycle', label: 'Bicycle (outdoor)' },
+  { key: 'pool', label: 'Swimming pool' },
 ]
 
 // Built-in exercises: key, name, primary muscle, equipment (any one of these works).
 const X = (key, name, muscle, eq) => ({ key, name, muscle, eq })
+// Cardio: metric 'distance' logs distance + time; 'time' logs time + a count (floors, jumps).
+const C = (key, name, eq, metric = 'distance', countLabel = '') => ({ key, name, muscle: 'cardio', eq, kind: 'cardio', metric, countLabel })
 export const LIBRARY = [
   // chest
   X('bench', 'Barbell bench press', 'chest', ['barbell']),
@@ -128,11 +141,31 @@ export const LIBRARY = [
   X('kb-swing', 'Kettlebell swing', 'fullbody', ['kettlebell']),
   X('clean-press', 'Clean and press', 'fullbody', ['barbell', 'dumbbell', 'kettlebell']),
   X('burpee', 'Burpee', 'fullbody', ['bodyweight']),
+  // cardio
+  C('run', 'Running (outdoor)', ['bodyweight']),
+  C('walk', 'Walking', ['bodyweight']),
+  C('cycle', 'Cycling (outdoor)', ['bicycle']),
+  C('bike', 'Stationary bike', ['bike']),
+  C('row', 'Rowing machine', ['rower']),
+  C('treadmill-run', 'Treadmill', ['treadmill']),
+  C('elliptical', 'Elliptical', ['elliptical']),
+  C('swim', 'Swimming', ['pool']),
+  C('stair-climber', 'Stair climber', ['stairs'], 'time', 'floors'),
+  C('skipping', 'Skipping (jump rope)', ['jumprope'], 'time', 'jumps'),
 ]
+
+export const isCardio = (ex) => ex?.kind === 'cardio' || ex?.muscle === 'cardio'
+const KNOWN = Object.fromEntries(LIBRARY.map((x) => [x.key, x]))
+/** Cardio metric for an exercise ('distance' or 'time'), looking up built-in ones by key. */
+export const cardioMetric = (ex) => KNOWN[ex.key]?.metric || ex.metric || 'distance'
+export const countLabel = (ex) => KNOWN[ex.key]?.countLabel || ex.countLabel || ''
 
 /** Library + your own exercises (custom ones keep their Firestore id as key). */
 export function allExercises(custom = []) {
-  return [...LIBRARY, ...custom.map((c) => ({ key: `my:${c.id}`, name: c.name, muscle: c.muscle || 'fullbody', eq: c.eq?.length ? c.eq : ['bodyweight'], custom: true, id: c.id }))]
+  return [...LIBRARY, ...custom.map((c) => ({
+    key: `my:${c.id}`, name: c.name, muscle: c.muscle || 'fullbody', eq: c.eq?.length ? c.eq : ['bodyweight'], custom: true, id: c.id,
+    ...(c.muscle === 'cardio' ? { kind: 'cardio', metric: c.metric || 'distance', countLabel: c.countLabel || '' } : {}),
+  }))]
 }
 
 /** Can you do this exercise with the equipment you have? */
@@ -147,7 +180,44 @@ export function e1rm(kg, reps) {
   return reps === 1 ? kg : kg * (1 + reps / 30)
 }
 
-const realSets = (ex) => (ex.sets || []).filter((s) => Number(s.reps) > 0)
+const realSets = (ex) => (isCardio(ex) ? [] : (ex.sets || []).filter((s) => Number(s.reps) > 0))
+
+// ---------- cardio ----------
+const cardioSets = (ex) => (isCardio(ex) ? (ex.sets || []).filter((s) => Number(s.km) > 0 || Number(s.min) > 0) : [])
+/** Minutes per km, or 0 if it can't be worked out. */
+export const pace = (km, min) => (km > 0 && min > 0 ? min / km : 0)
+// Pace only counts as a record over a sensible distance (swims are shorter).
+const paceMinKm = (key) => (key === 'swim' ? 0.2 : 1)
+
+/** One cardio session's totals. */
+function cardioTotals(ex) {
+  const sets = cardioSets(ex)
+  if (!sets.length) return null
+  const km = sets.reduce((a, s) => a + (Number(s.km) || 0), 0)
+  const min = sets.reduce((a, s) => a + (Number(s.min) || 0), 0)
+  const count = sets.reduce((a, s) => a + (Number(s.count) || 0), 0)
+  return { km: r2(km), min: r1(min), count, pace: pace(km, min) }
+}
+const r2 = (x) => Math.round(x * 100) / 100
+
+/** Every session of one cardio exercise, oldest first. */
+export function cardioHistory(workouts, key) {
+  const out = []
+  for (const w of [...workouts].sort(byDate)) {
+    for (const ex of w.exercises || []) {
+      if (ex.key !== key || !isCardio(ex)) continue
+      const t = cardioTotals(ex)
+      if (t) out.push({ workoutId: w.id, date: w.date, ...t })
+    }
+  }
+  return out
+}
+
+/** The most recent earlier cardio session (for "last time"). */
+export function lastCardio(workouts, key, { before, excludeId } = {}) {
+  const h = cardioHistory(workouts.filter((w) => w.id !== excludeId && (!before || w.date <= before)), key)
+  return h[h.length - 1] || null
+}
 
 /** Best set of an exercise in one session: highest e1RM, or most reps for bodyweight. */
 export function bestSet(sets) {
@@ -202,6 +272,7 @@ export function personalRecords(workouts) {
   const records = {}, byWorkout = {}
   for (const w of [...workouts].sort(byDate)) {
     for (const ex of w.exercises || []) {
+      if (isCardio(ex)) { cardioRecord(records, byWorkout, w, ex); continue }
       const sets = realSets(ex)
       if (!sets.length) continue
       const r = records[ex.key]
@@ -228,8 +299,37 @@ export function personalRecords(workouts) {
   return { records, byWorkout }
 }
 
+// Cardio records: longest distance, best pace (over a sensible distance),
+// longest time, highest count (floors, jumps).
+function cardioRecord(records, byWorkout, w, ex) {
+  const t = cardioTotals(ex)
+  if (!t) return
+  const paceOk = t.pace && t.km >= paceMinKm(ex.key)
+  const r = records[ex.key]
+  if (!r) {
+    records[ex.key] = {
+      name: ex.name, muscle: 'cardio', cardio: true, sessions: 1, lastDate: w.date,
+      longest: { km: t.km, date: w.date },
+      bestPace: paceOk ? { pace: t.pace, km: t.km, date: w.date } : null,
+      longestTime: { min: t.min, date: w.date },
+      mostCount: { count: t.count, date: w.date },
+    }
+    return
+  }
+  const prs = []
+  if (t.km > r.longest.km) { prs.push({ kind: 'distance', value: t.km }); r.longest = { km: t.km, date: w.date } }
+  if (paceOk && (!r.bestPace || t.pace < r.bestPace.pace - 0.001)) {
+    if (r.bestPace) prs.push({ kind: 'pace', value: t.pace, km: t.km })
+    r.bestPace = { pace: t.pace, km: t.km, date: w.date }
+  }
+  if (t.min > r.longestTime.min) { prs.push({ kind: 'time', value: t.min }); r.longestTime = { min: t.min, date: w.date } }
+  if (t.count > r.mostCount.count) { if (r.mostCount.count) prs.push({ kind: 'count', value: t.count }); r.mostCount = { count: t.count, date: w.date } }
+  r.sessions++; r.lastDate = w.date; r.name = ex.name
+  if (prs.length) (byWorkout[w.id] ||= []).push(...prs.map((p) => ({ key: ex.key, name: ex.name, ...p })))
+}
+
 /**
- * One week (Mon–Sun containing `day`) per muscle group, compared with the week before.
+ * One week (Mon to Sun containing `day`) per muscle group, compared with the week before.
  * Returns { mon, sun, sessions, prevSessions, muscles: [{ muscle, sets, prevSets, volume, prevVolume,
  *   exercises: [{ key, name, best, prevBest, trend: 'up'|'down'|'same'|'new' }] }] }
  */
@@ -253,6 +353,31 @@ export function weekByMuscle(workouts, day) {
     return m
   }
   const a = tally(thisW), b = tally(prevW)
+
+  // Cardio: distance and time per activity, this week vs last week.
+  function cardioTally(list) {
+    const m = {}
+    for (const w of list) for (const ex of w.exercises || []) {
+      const t = isCardio(ex) && cardioTotals(ex)
+      if (!t) continue
+      const e = (m[ex.key] ||= { name: ex.name, km: 0, min: 0, count: 0, sessions: 0 })
+      e.km += t.km; e.min += t.min; e.count += t.count; e.sessions++
+    }
+    return m
+  }
+  const ca = cardioTally(thisW), cb = cardioTally(prevW)
+  const cKeys = [...new Set([...Object.keys(ca), ...Object.keys(cb)])]
+  const sum = (m, k) => r2(Object.values(m).reduce((x, e) => x + e[k], 0))
+  const cardio = cKeys.length ? {
+    km: sum(ca, 'km'), prevKm: sum(cb, 'km'), min: sum(ca, 'min'), prevMin: sum(cb, 'min'),
+    exercises: cKeys.map((key) => {
+      const cur = ca[key], prev = cb[key]
+      const metric = cardioMetric({ key })
+      const v = (e) => (e ? (metric === 'time' ? e.min : e.km || e.min) : 0)
+      const trend = !cur ? 'none' : !prev ? 'new' : v(cur) > v(prev) ? 'up' : v(cur) < v(prev) ? 'down' : 'same'
+      return { key, name: (cur || prev).name, cur: cur || null, prev: prev || null, trend }
+    }),
+  } : null
   const muscles = MUSCLES.map((mm) => mm.key).filter((k) => a[k] || b[k]).map((k) => {
     const cur = a[k] || { sets: 0, volume: 0, ex: {} }, prev = b[k] || { sets: 0, volume: 0, ex: {} }
     const keys = [...new Set([...Object.keys(cur.ex), ...Object.keys(prev.ex)])]
@@ -263,7 +388,7 @@ export function weekByMuscle(workouts, day) {
     })
     return { muscle: k, sets: cur.sets, prevSets: prev.sets, volume: Math.round(cur.volume), prevVolume: Math.round(prev.volume), exercises }
   })
-  return { mon, sun, sessions: thisW.length, prevSessions: prevW.length, muscles }
+  return { mon, sun, sessions: thisW.length, prevSessions: prevW.length, muscles, cardio }
 }
 
 function compare(best, prev) {
@@ -283,11 +408,27 @@ export function beatIt(last, { repTop = 12, stepKg = 2.5 } = {}) {
   return reps >= repTop ? { kg: r1(kg + stepKg), reps: Math.max(6, repTop - 4) } : { kg, reps: reps + 1 }
 }
 
-/** Display helpers for kg or lb. Weights are stored in kg. */
-export function units(unit = 'kg') {
+/** Display helpers. Weights are stored in kg, distances in km. */
+export const KM_PER_MI = 1.609344
+export function units(unit = 'kg', dist = 'km') {
   const LB = 2.20462
   const toDisp = (kg) => (kg ? Math.round((unit === 'lb' ? kg * LB : kg) * 10) / 10 : 0)
   const toKg = (v) => { const n = Number(v) || 0; return unit === 'lb' ? n / LB : n }
   const show = (kg, reps) => (kg ? `${toDisp(kg)} ${unit} × ${reps}` : `${reps} reps`)
-  return { unit, toDisp, toKg, show, step: unit === 'lb' ? 5 : 2.5 }
+  const toDist = (km) => (km ? Math.round((dist === 'mi' ? km / KM_PER_MI : km) * 100) / 100 : 0)
+  const toKm = (v) => { const n = Number(v) || 0; return dist === 'mi' ? n * KM_PER_MI : n }
+  /** "5:36 /km" from minutes per km. */
+  const showPace = (minPerKm) => {
+    if (!minPerKm) return ''
+    const per = dist === 'mi' ? minPerKm * KM_PER_MI : minPerKm
+    const m = Math.floor(per), sec = Math.round((per - m) * 60)
+    return `${sec === 60 ? m + 1 : m}:${String(sec === 60 ? 0 : sec).padStart(2, '0')} /${dist}`
+  }
+  const showCardio = (t, metric = 'distance', countLbl = '') => [
+    t.km ? `${toDist(t.km)} ${dist}` : '',
+    t.min ? `${t.min} min` : '',
+    metric === 'time' && t.count ? `${t.count} ${countLbl}` : '',
+    t.km && t.min ? showPace(pace(t.km, t.min)) : '',
+  ].filter(Boolean).join(', ')
+  return { unit, dist, toDisp, toKg, show, toDist, toKm, showPace, showCardio, step: unit === 'lb' ? 5 : 2.5 }
 }

@@ -5,7 +5,7 @@ import {
 } from '../lib/account'
 import VerifyBanner from '../components/VerifyBanner'
 
-// ⚙️ Account: name, sign-in methods, password, sign out, delete account.
+// Account (gear icon, top right): name, sign-in methods, password, sign out, delete account.
 export default function Account({ user, groupIds, profile }) {
   const [, bump] = useState(0) // re-render after Firebase updates the user object
   const refresh = () => bump((n) => n + 1)
@@ -19,7 +19,7 @@ export default function Account({ user, groupIds, profile }) {
         <p className="muted small">{user.email}</p>
         <p className="muted small">
           Sign-in: {[google && 'Google', pw && 'email + password'].filter(Boolean).join(' · ')}
-          {' · '}{isVerified(user) ? <span className="lime">email verified ✓</span> : <span className="orange">email not verified</span>}
+          {' · '}{isVerified(user) ? <span className="lime">email verified</span> : <span className="orange">email not verified</span>}
         </p>
       </div>
       <VerifyBanner user={user} onVerified={refresh} />
@@ -49,11 +49,11 @@ function NameCard({ user, groupIds, onDone }) {
   const [name, setName] = useState(user.displayName || '')
   const { busy, run, note } = useAction()
   return (
-    <form className="card form" onSubmit={(e) => { e.preventDefault(); run(async () => { await changeName(user, name, groupIds); onDone() }, 'Name updated ✓') }}>
+    <form className="card form" onSubmit={(e) => { e.preventDefault(); run(async () => { await changeName(user, name, groupIds); onDone() }, 'Name updated.') }}>
       <label>Display name (what friends see)
         <input value={name} onChange={(e) => setName(e.target.value)} maxLength={40} required />
       </label>
-      <button className="btn-ghost" disabled={busy || !name.trim() || name.trim() === user.displayName}>{busy ? 'Saving…' : 'Save name'}</button>
+      <button className="btn-ghost" disabled={busy || !name.trim() || name.trim() === user.displayName}>{busy ? 'Saving...' : 'Save name'}</button>
       {note}
     </form>
   )
@@ -65,7 +65,7 @@ function PasswordInput({ label, value, onChange, autoComplete }) {
     <label>{label}
       <span className="pw-wrap">
         <input type={show ? 'text' : 'password'} value={value} onChange={(e) => onChange(e.target.value)} autoComplete={autoComplete} required />
-        <button type="button" className="pw-eye" onClick={() => setShow((s) => !s)} aria-label={show ? 'Hide password' : 'Show password'}>{show ? '🙈' : '👁'}</button>
+        <button type="button" className="pw-eye" onClick={() => setShow((s) => !s)} aria-label={show ? 'Hide password' : 'Show password'}>{show ? 'Hide' : 'Show'}</button>
       </span>
     </label>
   )
@@ -76,11 +76,11 @@ function ChangePasswordCard({ user }) {
   const [next, setNext] = useState('')
   const { busy, run, note } = useAction()
   return (
-    <form className="card form" onSubmit={(e) => { e.preventDefault(); run(async () => { await changePassword(user, current, next); setCurrent(''); setNext('') }, 'Password changed ✓') }}>
+    <form className="card form" onSubmit={(e) => { e.preventDefault(); run(async () => { await changePassword(user, current, next); setCurrent(''); setNext('') }, 'Password changed.') }}>
       <p className="muted small">Change password</p>
       <PasswordInput label="Current password" value={current} onChange={setCurrent} autoComplete="current-password" />
       <PasswordInput label={`New password (at least ${MIN_PASSWORD} characters)`} value={next} onChange={setNext} autoComplete="new-password" />
-      <button className="btn-ghost" disabled={busy || !current || next.length < MIN_PASSWORD}>{busy ? 'Saving…' : 'Change password'}</button>
+      <button className="btn-ghost" disabled={busy || !current || next.length < MIN_PASSWORD}>{busy ? 'Saving...' : 'Change password'}</button>
       {note}
     </form>
   )
@@ -92,12 +92,12 @@ function AddPasswordCard({ user, onDone }) {
   const { busy, run, note } = useAction()
   const mismatch = again && next !== again
   return (
-    <form className="card form" onSubmit={(e) => { e.preventDefault(); run(async () => { await addPassword(user, next); setNext(''); setAgain(''); onDone() }, `Done. You can now also sign in with ${user.email} and this password ✓`) }}>
+    <form className="card form" onSubmit={(e) => { e.preventDefault(); run(async () => { await addPassword(user, next); setNext(''); setAgain(''); onDone() }, `Done. You can now also sign in with ${user.email} and this password.`) }}>
       <p className="muted small">Add a password, so you can also sign in with your email ({user.email}) and a password, not only Google.</p>
       <PasswordInput label={`Password (at least ${MIN_PASSWORD} characters)`} value={next} onChange={setNext} autoComplete="new-password" />
       <PasswordInput label="Type it again" value={again} onChange={setAgain} autoComplete="new-password" />
       {mismatch && <p className="error small">The two passwords don't match.</p>}
-      <button className="btn-ghost" disabled={busy || next.length < MIN_PASSWORD || next !== again}>{busy ? 'Saving…' : 'Add password'}</button>
+      <button className="btn-ghost" disabled={busy || next.length < MIN_PASSWORD || next !== again}>{busy ? 'Saving...' : 'Add password'}</button>
       {note}
     </form>
   )
@@ -110,7 +110,7 @@ function DeleteCard({ user, groupIds }) {
   const { busy, run, note } = useAction()
   const pw = hasPassword(user)
 
-  if (!open) return <button className="btn-ghost wide danger" onClick={() => setOpen(true)}>Delete my account…</button>
+  if (!open) return <button className="btn-ghost wide danger" onClick={() => setOpen(true)}>Delete my account...</button>
   return (
     <form className="card form danger-card" onSubmit={(e) => { e.preventDefault(); run(() => deleteAccount(user, { currentPassword: current, groupIds })) }}>
       <p><strong>Delete my account</strong></p>
@@ -126,7 +126,7 @@ function DeleteCard({ user, groupIds }) {
       <label>Type DELETE to confirm
         <input value={typed} onChange={(e) => setTyped(e.target.value)} autoCapitalize="characters" />
       </label>
-      <button className="btn-primary danger-btn" disabled={busy || typed !== 'DELETE' || (pw && !current)}>{busy ? 'Deleting…' : 'Delete everything'}</button>
+      <button className="btn-primary danger-btn" disabled={busy || typed !== 'DELETE' || (pw && !current)}>{busy ? 'Deleting...' : 'Delete everything'}</button>
       <button type="button" className="btn-ghost" onClick={() => setOpen(false)} disabled={busy}>Cancel</button>
       {note}
     </form>

@@ -43,11 +43,11 @@ export default function Wall({ user, group, members, groupIds }) {
 
       {day === today && !posted && todaysCheckins && (
         <button className="btn-primary wide" onClick={() => setCamera(true)}>
-          📸 {alsoCheckIn ? 'Check in with a photo' : 'Post today\'s workout photo'}
+          {alsoCheckIn ? 'Check in with a photo' : 'Post today\'s workout photo'}
         </button>
       )}
 
-      {photos === undefined ? <p className="muted">Loading…</p>
+      {photos === undefined ? <p className="muted">Loading...</p>
         : list.length === 0 ? <div className="card"><p className="muted">No photos {day === today ? 'yet today' : 'this day'}.</p></div>
         : (
           <div className="photo-grid">
@@ -76,7 +76,7 @@ function PhotoCard({ photo, member, user, group }) {
   return (
     <figure className="photo-card">
       {url ? <img src={url} alt={`${member?.name || 'Member'}'s workout`} loading="lazy" />
-        : <div className="photo-placeholder">{failed ? 'Couldn\'t load' : 'Loading…'}</div>}
+        : <div className="photo-placeholder">{failed ? 'Couldn\'t load' : 'Loading...'}</div>}
       <figcaption>
         {member && <Avatar member={member} size={24} />}
         <span className="grow">{member?.name || 'Member'}</span>

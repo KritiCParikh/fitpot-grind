@@ -44,7 +44,7 @@ export default function JoinCreate({ user, onDone }) {
               className="code-input"
             />
           </label>
-          <button className="btn-primary" disabled={busy || code.length < 6}>{busy ? 'Joining…' : 'Join'}</button>
+          <button className="btn-primary" disabled={busy || code.length < 6}>{busy ? 'Joining...' : 'Join'}</button>
         </form>
       ) : (
         <form className="card form" onSubmit={(e) => { e.preventDefault(); run(() => createGroup(user, { name, penalty, weeklyTarget, photoRequired, currency })) }}>
@@ -69,8 +69,8 @@ export default function JoinCreate({ user, onDone }) {
             <input type="checkbox" checked={photoRequired} onChange={(e) => setPhotoRequired(e.target.checked)} />
             Require a live workout photo to check in
           </label>
-          <p className="muted small">Start low ({currency === 'INR' ? '₹50–200' : `${currencyInfo(currency).symbol}5–10`}). You can change all of these later, including the currency.</p>
-          <button className="btn-primary" disabled={busy}>{busy ? 'Creating…' : 'Create group'}</button>
+          <p className="muted small">Start low ({currency === 'INR' ? '₹50 to 200' : `${currencyInfo(currency).symbol}5 to 10`}). You can change all of these later, including the currency.</p>
+          <button className="btn-primary" disabled={busy}>{busy ? 'Creating...' : 'Create group'}</button>
         </form>
       )}
 

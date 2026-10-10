@@ -1,22 +1,24 @@
 import { useMemo, useState } from 'react'
 import {
-  useTraining, saveTraining, useWorkouts, useCustomExercises, useRoutines, saveRoutine, deleteRoutine, useSettings, LB_PER_KG,
+  useTraining, saveTraining, useWorkouts, useCustomExercises, useRoutines, saveRoutine, deleteRoutine, useSettings, saveSettings, LB_PER_KG,
 } from '../lib/privateData'
 import {
   MUSCLES, EQUIPMENT, muscleLabel, allExercises, personalRecords, weekByMuscle, historyOf, units,
+  isCardio, cardioHistory, cardioMetric, countLabel,
 } from '../lib/training'
 import { addDays, prettyDay, mondayOf } from '../lib/dates'
 import { myToday } from '../lib/clock'
 import WorkoutEditor from '../components/WorkoutEditor'
 import ExercisePicker from '../components/ExercisePicker'
 import WeightChart from '../components/WeightChart'
+import UnitSwitch from '../components/UnitSwitch'
 
 const VIEWS = [
-  { key: 'log', label: '📝 Log' },
-  { key: 'muscles', label: '💪 Muscles' },
-  { key: 'records', label: '🏆 Records' },
-  { key: 'routines', label: '📋 Routines' },
-  { key: 'setup', label: '⚙️ Setup' },
+  { key: 'log', label: 'Log' },
+  { key: 'muscles', label: 'Muscles' },
+  { key: 'records', label: 'Records' },
+  { key: 'routines', label: 'Routines' },
+  { key: 'setup', label: 'Setup' },
 ]
 const short = (d) => prettyDay(d).split(', ').slice(1).join(', ')
 
@@ -35,9 +37,9 @@ export default function Training({ user }) {
   const workouts = useMemo(() => (rawWorkouts || []).map((w) => ({ ...w, createdMs: w.createdAt?.toMillis?.() || 0 })), [rawWorkouts])
   const exercises = useMemo(() => allExercises(custom || []), [custom])
   const have = useMemo(() => new Set(training?.equipment || []), [training])
-  const u = units(settings?.weightUnit || 'kg')
+  const u = units(settings?.weightUnit || 'kg', settings?.distanceUnit || 'km')
 
-  if ([training, settings, rawWorkouts, custom, routines].includes(undefined)) return <p className="muted">Loading…</p>
+  if ([training, settings, rawWorkouts, custom, routines].includes(undefined)) return <p className="muted">Loading...</p>
 
   const t = training || {}
   const ctx = { uid, today, t, workouts, exercises, have, u, routines, start: setEditor }
@@ -90,11 +92,11 @@ function LogView({ today, t, workouts, u, routines, start }) {
         </div>
       </div>
 
-      <button className="btn-primary wide" onClick={() => start({ date: today, exercises: [] })}>＋ Start workout</button>
+      <button className="btn-primary wide" onClick={() => start({ date: today, exercises: [] })}>+ Start workout</button>
       <div className="action-row">
-        {last && <button className="btn-ghost" onClick={() => start({ date: today, title: last.title, exercises: last.exercises.map(fromLast) })}>↻ Repeat last{last.title ? ` (${last.title})` : ''}</button>}
+        {last && <button className="btn-ghost" onClick={() => start({ date: today, title: last.title, exercises: last.exercises.map(fromLast) })}>Repeat last{last.title ? ` (${last.title})` : ''}</button>}
         {(routines || []).map((r) => (
-          <button key={r.id} className="btn-ghost" onClick={() => start({ date: today, title: r.name, exercises: r.items.map((it) => fromRoutine(it, workouts)) })}>▶ {r.name}</button>
+          <button key={r.id} className="btn-ghost" onClick={() => start({ date: today, title: r.name, exercises: r.items.map((it) => fromRoutine(it, workouts)) })}>Start {r.name}</button>
         ))}
       </div>
 
@@ -103,16 +105,17 @@ function LogView({ today, t, workouts, u, routines, start }) {
       <ul className="member-list workout-list">
         {sorted.slice(0, shown).map((w) => {
           const sets = w.exercises.reduce((n, x) => n + x.sets.length, 0)
-          const vol = w.exercises.reduce((v, x) => v + x.sets.reduce((a, s) => a + s.reps * (s.kg || 0), 0), 0)
+          const vol = w.exercises.reduce((v, x) => v + x.sets.reduce((a, s) => a + (s.reps || 0) * (s.kg || 0), 0), 0)
+          const km = w.exercises.reduce((v, x) => v + (isCardio(x) ? x.sets.reduce((a, s) => a + (s.km || 0), 0) : 0), 0)
           const prs = byWorkout[w.id] || []
           return (
             <li key={w.id}>
               <button className="plain grow-col" onClick={() => start(w)}>
                 <strong>{w.title || [...new Set(w.exercises.map((x) => muscleLabel(x.muscle)))].join(' · ')}</strong>
-                <span className="muted small">{short(w.date)} · {w.exercises.length} exercise{w.exercises.length === 1 ? '' : 's'} · {sets} set{sets === 1 ? '' : 's'}{vol ? ` · ${Math.round(u.toDisp(vol)).toLocaleString()} ${u.unit} volume` : ''}</span>
-                {w.notes && <span className="muted small">📝 {w.notes}</span>}
+                <span className="muted small">{short(w.date)} · {w.exercises.length} exercise{w.exercises.length === 1 ? '' : 's'} · {sets} set{sets === 1 ? '' : 's'}{vol ? ` · ${Math.round(u.toDisp(vol)).toLocaleString()} ${u.unit} volume` : ''}{km ? ` · ${u.toDist(km)} ${u.dist}` : ''}</span>
+                {w.notes && <span className="muted small">Notes: {w.notes}</span>}
               </button>
-              {prs.length > 0 && <span className="pill pr">🏆 {prs.length}</span>}
+              {prs.length > 0 && <span className="pill pr">{prs.length} PR{prs.length > 1 ? 's' : ''}</span>}
             </li>
           )
         })}
@@ -122,16 +125,18 @@ function LogView({ today, t, workouts, u, routines, start }) {
   )
 }
 
-const fromLast = (x) => ({ key: x.key, name: x.name, muscle: x.muscle, sets: x.sets.map((s) => ({ reps: s.reps, kg: s.kg })) })
+const fromLast = (x) => ({ ...x, sets: x.sets.map((s) => ({ ...s })) })
 function fromRoutine(it, workouts) {
-  // Pre-fill each set with last time's weight for that exercise, else empty.
+  // Cardio: one interval with the routine's target minutes.
+  if (isCardio(it)) return { key: it.key, name: it.name, muscle: 'cardio', kind: 'cardio', sets: [{ min: it.min || 0 }] }
+  // Strength: pre-fill each set with last time's weight for that exercise, else empty.
   const h = historyOf(workouts, it.key)
   const kg = h.length ? h[h.length - 1].best?.kg || 0 : 0
   return { key: it.key, name: it.name, muscle: it.muscle, sets: Array.from({ length: it.sets || 3 }, () => ({ reps: it.reps || 0, kg })) }
 }
 
 // ---------------- Muscles (weekly progressive overload) ----------------
-const ARROW = { up: '▲', down: '▼', same: '＝', new: '★', none: '–' }
+const ARROW = { up: '▲', down: '▼', same: '=', new: 'new', none: '-' }
 
 function MusclesView({ today, workouts, u }) {
   const [day, setDay] = useState(today)
@@ -145,8 +150,31 @@ function MusclesView({ today, workouts, u }) {
         <strong>Week of {short(week.mon)}</strong>
         <button className="btn-ghost" onClick={() => setDay((d) => addDays(d, 7))} disabled={week.sun >= today} aria-label="Next week">›</button>
       </div>
-      <p className="muted small">{week.sessions} workouts this week (last week {week.prevSessions}). Progressive overload: beat each exercise's best set from last week by a rep or a little weight. ▲ beat it · ＝ matched · ▼ dropped · ★ new this week.</p>
-      {!week.muscles.length && <div className="card"><p className="muted">Nothing logged this week or last week.</p></div>}
+      <p className="muted small">{week.sessions} workouts this week (last week {week.prevSessions}). Progressive overload: beat each exercise's best set from last week by a rep or a little weight. ▲ beat it, = matched, ▼ dropped, new = first time this week.</p>
+      {!week.muscles.length && !week.cardio && <div className="card"><p className="muted">Nothing logged this week or last week.</p></div>}
+      {week.cardio && (
+        <details className="card muscle-card" open={week.cardio.km > 0 || week.cardio.min > 0}>
+          <summary>
+            <strong className="grow">Cardio</strong>
+            {(week.cardio.km > 0 || week.cardio.prevKm > 0) && <span className="muted small">{u.toDist(week.cardio.km)} {u.dist} <span className={week.cardio.km >= week.cardio.prevKm ? 'lime' : 'orange'}>{pct(week.cardio.km, week.cardio.prevKm)}</span></span>}
+            <span className="muted small"> · {Math.round(week.cardio.min)} min <span className={week.cardio.min >= week.cardio.prevMin ? 'lime' : 'orange'}>{pct(week.cardio.min, week.cardio.prevMin)}</span></span>
+          </summary>
+          <ul className="member-list">
+            {week.cardio.exercises.map((x) => {
+              const metric = cardioMetric(x), lbl = countLabel(x)
+              const one = (e) => (e ? u.showCardio(e, metric, lbl) : 'none')
+              return (
+                <li key={x.key} className={x.trend === 'up' || x.trend === 'new' ? 'in' : x.trend === 'down' ? 'out' : ''}>
+                  <span className="grow">{x.name}<br />
+                    <span className="muted small">this week {one(x.cur)}. Last week {one(x.prev)}</span>
+                  </span>
+                  <span className="pill">{ARROW[x.trend]}</span>
+                </li>
+              )
+            })}
+          </ul>
+        </details>
+      )}
       {week.muscles.map((m) => (
         <details className="card muscle-card" key={m.muscle} open={m.sets > 0}>
           <summary>
@@ -158,7 +186,7 @@ function MusclesView({ today, workouts, u }) {
             {m.exercises.map((x) => (
               <li key={x.key} className={x.trend === 'up' || x.trend === 'new' ? 'in' : x.trend === 'down' ? 'out' : ''}>
                 <span className="grow">{x.name}<br />
-                  <span className="muted small">this week {x.best ? u.show(x.best.kg, x.best.reps) : '–'} · last week {x.prevBest ? u.show(x.prevBest.kg, x.prevBest.reps) : '–'}</span>
+                  <span className="muted small">this week {x.best ? u.show(x.best.kg, x.best.reps) : '-'} · last week {x.prevBest ? u.show(x.prevBest.kg, x.prevBest.reps) : '-'}</span>
                 </span>
                 <span className="pill">{ARROW[x.trend]}</span>
               </li>
@@ -179,6 +207,7 @@ function RecordsView({ workouts, u }) {
     .filter(([, r]) => !muscle || r.muscle === muscle)
     .sort((a, b) => b[1].lastDate.localeCompare(a[1].lastDate))
 
+  if (open && records[open]?.cardio) return <CardioRecord r={records[open]} h={cardioHistory(workouts, open)} k={open} u={u} onBack={() => setOpen(null)} />
   if (open) {
     const r = records[open]
     const h = historyOf(workouts, open)
@@ -188,8 +217,8 @@ function RecordsView({ workouts, u }) {
         <button className="btn-ghost" onClick={() => setOpen(null)}>‹ All records</button>
         <h3>{r.name}</h3>
         <div className="stats-row">
-          <div className="card stat"><p className="muted small">Heaviest</p><p className="stat-num lime">{r.heaviest.kg ? u.toDisp(r.heaviest.kg) : '–'}</p><p className="muted small">{r.heaviest.kg ? `${u.unit} × ${r.heaviest.reps}` : 'bodyweight'}</p></div>
-          <div className="card stat"><p className="muted small">Est. 1-rep max</p><p className="stat-num">{r.bestE1rm.value ? u.toDisp(r.bestE1rm.value) : '–'}</p><p className="muted small">{r.bestE1rm.value ? u.unit : ''}</p></div>
+          <div className="card stat"><p className="muted small">Heaviest</p><p className="stat-num lime">{r.heaviest.kg ? u.toDisp(r.heaviest.kg) : '-'}</p><p className="muted small">{r.heaviest.kg ? `${u.unit} × ${r.heaviest.reps}` : 'bodyweight'}</p></div>
+          <div className="card stat"><p className="muted small">Est. 1-rep max</p><p className="stat-num">{r.bestE1rm.value ? u.toDisp(r.bestE1rm.value) : '-'}</p><p className="muted small">{r.bestE1rm.value ? u.unit : ''}</p></div>
           <div className="card stat"><p className="muted small">Most reps</p><p className="stat-num">{r.mostReps.reps}</p><p className="muted small">{r.mostReps.kg ? `at ${u.toDisp(r.mostReps.kg)} ${u.unit}` : 'reps'}</p></div>
         </div>
         {points.length > 1 && (
@@ -228,10 +257,45 @@ function RecordsView({ workouts, u }) {
               <strong>{r.name}</strong>
               <span className="muted small">{muscleLabel(r.muscle)} · {r.sessions} sessions · last {short(r.lastDate)}</span>
             </button>
-            <span className="pill">{r.heaviest.kg ? u.show(r.heaviest.kg, r.heaviest.reps) : `${r.mostReps.reps} reps`}</span>
+            <span className="pill">{r.cardio
+              ? (r.longest.km ? `${u.toDist(r.longest.km)} ${u.dist}` : `${r.longestTime.min} min`)
+              : r.heaviest.kg ? u.show(r.heaviest.kg, r.heaviest.reps) : `${r.mostReps.reps} reps`}</span>
           </li>
         ))}
       </ul>
+    </>
+  )
+}
+
+// Records for one cardio activity: longest distance, fastest pace, longest
+// session, and a chart of distance (or time) per session.
+function CardioRecord({ r, h, k, u, onBack }) {
+  const metric = cardioMetric({ key: k }), lbl = countLabel({ key: k })
+  const byDist = metric === 'distance' && h.some((s) => s.km > 0)
+  const points = h.map((s) => ({ date: s.date, value: byDist ? u.toDist(s.km) : s.min })).filter((p) => p.value > 0)
+  return (
+    <>
+      <button className="btn-ghost" onClick={onBack}>‹ All records</button>
+      <h3>{r.name}</h3>
+      <div className="stats-row">
+        {metric === 'distance' && <div className="card stat"><p className="muted small">Longest</p><p className="stat-num lime">{r.longest.km ? u.toDist(r.longest.km) : '-'}</p><p className="muted small">{u.dist}</p></div>}
+        {metric === 'distance' && <div className="card stat"><p className="muted small">Fastest pace</p><p className="stat-num">{r.bestPace ? u.showPace(r.bestPace.pace).split(' ')[0] : '-'}</p><p className="muted small">min per {u.dist}</p></div>}
+        <div className="card stat"><p className="muted small">Longest session</p><p className="stat-num">{r.longestTime.min || '-'}</p><p className="muted small">min</p></div>
+        {metric === 'time' && <div className="card stat"><p className="muted small">Most {lbl}</p><p className="stat-num">{r.mostCount.count || '-'}</p><p className="muted small">in one session</p></div>}
+      </div>
+      {points.length > 1 && (
+        <div className="card">
+          <p className="muted small">{byDist ? `Distance per session (${u.dist})` : 'Minutes per session'}</p>
+          <WeightChart points={points} unit={byDist ? u.dist : 'min'} />
+        </div>
+      )}
+      <h3 className="section-title">Sessions · {h.length}</h3>
+      <ul className="member-list">
+        {[...h].reverse().map((s, i) => (
+          <li key={i}><span className="grow">{short(s.date)}<br /><span className="muted small">{u.showCardio(s, metric, lbl)}</span></span></li>
+        ))}
+      </ul>
+      {metric === 'distance' && <p className="muted small">Fastest pace counts sessions of at least {k === 'swim' ? `0.2 km` : `1 km`}, so a short burst doesn't count as a record.</p>}
     </>
   )
 }
@@ -243,15 +307,15 @@ function RoutinesView({ uid, routines, exercises, have, workouts, start, today }
   return (
     <>
       <p className="muted small">Save the workouts you repeat (e.g. Push / Pull / Legs) and start them in one tap. Weights pre-fill from last time.</p>
-      <button className="btn-primary wide" onClick={() => setEdit({ name: '', items: [] })}>＋ New routine</button>
+      <button className="btn-primary wide" onClick={() => setEdit({ name: '', items: [] })}>+ New routine</button>
       <ul className="member-list">
         {(routines || []).map((r) => (
           <li key={r.id}>
             <button className="plain grow-col" onClick={() => setEdit(r)}>
               <strong>{r.name}</strong>
-              <span className="muted small">{r.items.map((it) => `${it.name} ${it.sets}×${it.reps}`).join(' · ')}</span>
+              <span className="muted small">{r.items.map((it) => (isCardio(it) ? `${it.name} ${it.min} min` : `${it.name} ${it.sets}×${it.reps}`)).join(' · ')}</span>
             </button>
-            <button className="btn-ghost" onClick={() => start({ date: today, title: r.name, exercises: r.items.map((it) => fromRoutine(it, workouts)) })}>▶ Start</button>
+            <button className="btn-ghost" onClick={() => start({ date: today, title: r.name, exercises: r.items.map((it) => fromRoutine(it, workouts)) })}>Start</button>
           </li>
         ))}
       </ul>
@@ -266,7 +330,7 @@ function RoutineForm({ uid, initial, exercises, have, onClose }) {
   const [busy, setBusy] = useState(false)
   if (picking) {
     return <ExercisePicker uid={uid} exercises={exercises} have={have} title="Add to routine" onClose={() => setPicking(false)}
-      onPick={(ex) => { setPicking(false); setItems((l) => [...l, { key: ex.key, name: ex.name, muscle: ex.muscle, sets: 3, reps: 10 }]) }} />
+      onPick={(ex) => { setPicking(false); setItems((l) => [...l, isCardio(ex) ? { key: ex.key, name: ex.name, muscle: 'cardio', kind: 'cardio', min: 20 } : { key: ex.key, name: ex.name, muscle: ex.muscle, sets: 3, reps: 10 }]) }} />
   }
   const setIt = (i, patch) => setItems((l) => l.map((x, j) => (j === i ? { ...x, ...patch } : x)))
   async function save() {
@@ -281,14 +345,23 @@ function RoutineForm({ uid, initial, exercises, have, onClose }) {
       {items.map((it, i) => (
         <div className="row routine-row" key={i}>
           <span className="grow">{it.name}</span>
-          <input className="text-input mini" type="number" min="1" max="10" value={it.sets} aria-label="Sets" onChange={(e) => setIt(i, { sets: +e.target.value })} />
-          <span className="muted">×</span>
-          <input className="text-input mini" type="number" min="1" max="50" value={it.reps} aria-label="Reps" onChange={(e) => setIt(i, { reps: +e.target.value })} />
+          {isCardio(it) ? (
+            <>
+              <input className="text-input mini" type="number" min="1" max="300" value={it.min} aria-label="Minutes" onChange={(e) => setIt(i, { min: +e.target.value })} />
+              <span className="muted small">min</span>
+            </>
+          ) : (
+            <>
+              <input className="text-input mini" type="number" min="1" max="10" value={it.sets} aria-label="Sets" onChange={(e) => setIt(i, { sets: +e.target.value })} />
+              <span className="muted">×</span>
+              <input className="text-input mini" type="number" min="1" max="50" value={it.reps} aria-label="Reps" onChange={(e) => setIt(i, { reps: +e.target.value })} />
+            </>
+          )}
           <button className="btn-ghost" aria-label={`Remove ${it.name}`} onClick={() => setItems((l) => l.filter((_, j) => j !== i))}>✕</button>
         </div>
       ))}
-      <button className="btn-ghost" onClick={() => setPicking(true)}>＋ Add exercise</button>
-      <button className="btn-primary" onClick={save} disabled={busy || !items.length}>{busy ? 'Saving…' : 'Save routine'}</button>
+      <button className="btn-ghost" onClick={() => setPicking(true)}>+ Add exercise</button>
+      <button className="btn-primary" onClick={save} disabled={busy || !items.length}>{busy ? 'Saving...' : 'Save routine'}</button>
       <div className="action-row">
         <button className="btn-ghost" onClick={onClose}>Cancel</button>
         {initial.id && <button className="btn-ghost danger" onClick={async () => { if (confirm('Delete this routine?')) { await deleteRoutine(uid, initial.id); onClose() } }}>Delete</button>}
@@ -302,7 +375,7 @@ const GOALS = [
   ['muscle', 'Build muscle'], ['strength', 'Get stronger'], ['fatloss', 'Lose fat'],
   ['endurance', 'Endurance / fitness'], ['general', 'General health'],
 ]
-const LEVELS = [['beginner', 'Beginner (under 1 year)'], ['intermediate', 'Intermediate (1–3 years)'], ['advanced', 'Advanced (3+ years)']]
+const LEVELS = [['beginner', 'Beginner (under 1 year)'], ['intermediate', 'Intermediate (1 to 3 years)'], ['advanced', 'Advanced (3+ years)']]
 
 function SetupView({ uid, t, settings }) {
   const [form, setForm] = useState({
@@ -332,20 +405,20 @@ function SetupView({ uid, t, settings }) {
       <p className="muted small">What you're training for and what you have. Private to you, and the base for future personalised plans.</p>
       <label>Main goal
         <select value={form.goal} onChange={set('goal')}>
-          <option value="">Choose…</option>
+          <option value="">Choose...</option>
           {GOALS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
         </select>
       </label>
       <div className="row">
         <label className="grow">Days per week
           <select value={form.daysPerWeek} onChange={set('daysPerWeek')}>
-            <option value="">–</option>
+            <option value="">-</option>
             {[1, 2, 3, 4, 5, 6, 7].map((n) => <option key={n} value={n}>{n}</option>)}
           </select>
         </label>
         <label className="grow">Session length
           <select value={form.sessionMin} onChange={set('sessionMin')}>
-            <option value="">–</option>
+            <option value="">-</option>
             {[30, 45, 60, 75, 90, 120].map((n) => <option key={n} value={n}>{n} min</option>)}
           </select>
         </label>
@@ -353,7 +426,7 @@ function SetupView({ uid, t, settings }) {
       <div className="row">
         <label className="grow">Experience
           <select value={form.experience} onChange={set('experience')}>
-            <option value="">Choose…</option>
+            <option value="">Choose...</option>
             {LEVELS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
           </select>
         </label>
@@ -362,6 +435,10 @@ function SetupView({ uid, t, settings }) {
             {[0, 45, 60, 90, 120, 180, 240].map((n) => <option key={n} value={n}>{n ? `${n} s` : 'Off'}</option>)}
           </select>
         </label>
+      </div>
+      <div className="unit-row">
+        <UnitSwitch label="Weight" value={unit} options={['kg', 'lb']} onChange={(v) => saveSettings(uid, { weightUnit: v })} />
+        <UnitSwitch label="Distance" value={settings.distanceUnit || 'km'} options={['km', 'mi']} onChange={(v) => saveSettings(uid, { distanceUnit: v })} />
       </div>
       <p className="muted small">Body weight target: {goalW ? <strong>{goalW} {unit}</strong> : 'not set'} (set in Targets).</p>
 
@@ -378,14 +455,14 @@ function SetupView({ uid, t, settings }) {
         </div>
       )}
       <div className="row">
-        <input className="text-input grow" value={newEq} onChange={(e) => setNewEq(e.target.value)} placeholder="Add other equipment (e.g. 2–24 kg adjustable dumbbells)" maxLength={50} />
+        <input className="text-input grow" value={newEq} onChange={(e) => setNewEq(e.target.value)} placeholder="Add other equipment (e.g. 2 to 24 kg adjustable dumbbells)" maxLength={50} />
         <button type="button" className="btn-ghost" disabled={!newEq.trim()} onClick={() => { setCustomEq((l) => [...new Set([...l, newEq.trim()])]); setNewEq('') }}>Add</button>
       </div>
 
       <label>Limitations / injuries (optional)
         <textarea className="text-input" rows={3} value={form.limitations} onChange={set('limitations')} placeholder="e.g. Left knee: no deep squats. Lower back: avoid heavy deadlifts." />
       </label>
-      <button className="btn-primary">{saved ? 'Saved ✓' : 'Save setup'}</button>
+      <button className="btn-primary">{saved ? 'Saved' : 'Save setup'}</button>
       <p className="muted small">Exercise lists use your equipment to suggest what you can do. Remember to save after changes.</p>
     </form>
   )

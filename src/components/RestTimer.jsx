@@ -18,7 +18,7 @@ export default function RestTimer({ endAt, total, onAdd, onStop }) {
   return (
     <div className={`rest-bar ${left === 0 ? 'done' : ''}`} role="timer" aria-live="polite">
       <i style={{ width: `${pct}%` }} />
-      <span className="grow">{left === 0 ? 'Rest done. Next set 💪' : `Rest ${mm}:${ss}`}</span>
+      <span className="grow">{left === 0 ? 'Rest done. Next set.' : `Rest ${mm}:${ss}`}</span>
       {left > 0 && <button className="btn-ghost" onClick={() => onAdd(15)}>+15s</button>}
       <button className="btn-ghost" onClick={onStop}>{left === 0 ? 'OK' : 'Skip'}</button>
     </div>

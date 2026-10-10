@@ -63,7 +63,7 @@ code { background: var(--surface); padding: 0.1em 0.35em; border-radius: 4px; }
 .tabbar a { color: var(--muted); text-decoration: none; font-size: 0.8rem; font-weight: 500; padding: 6px 8px; }
 .tabbar a.active { color: var(--lime); }
 
-/* ---------- Phase 1–2 ---------- */
+/* ---------- Phase 1-2 ---------- */
 h3.section-title { font-size: 0.95rem; font-weight: 700; color: var(--muted); margin: 24px 0 8px; text-transform: uppercase; letter-spacing: 0.06em; }
 .lime { color: var(--lime); }
 .orange { color: var(--orange); }
@@ -306,3 +306,12 @@ button.plain.grow-col { display: flex; flex-direction: column; align-items: flex
 .danger-card ul { padding-left: 18px; margin: 0; }
 .btn-primary.danger-btn { background: var(--red); color: #fff; }
 .content > section > .btn-ghost.wide { width: 100%; margin-top: 12px; }
+
+/* Phase 5.4: unit switches */
+.unit-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin: 10px 0; }
+.unit-switch { display: inline-flex; align-items: center; gap: 4px; }
+.unit-switch .muted { margin-right: 4px; }
+.unit-switch button { background: var(--surface); color: var(--muted); border: 1px solid var(--border); padding: 5px 12px; font: inherit; font-weight: 700; font-size: 0.85rem; cursor: pointer; }
+.unit-switch button:first-of-type { border-radius: 999px 0 0 999px; }
+.unit-switch button:last-of-type { border-radius: 0 999px 999px 0; }
+.unit-switch button.on { background: var(--lime); color: #0b0d0c; border-color: var(--lime); }

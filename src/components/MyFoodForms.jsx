@@ -49,7 +49,7 @@ export function MyFoodForm({ uid, initial, barcode, onSaved, onBack }) {
           ))}
         </div>
       </div>
-      <button className="btn-primary wide" disabled={busy || !name.trim()} onClick={save}>{busy ? 'Saving…' : 'Save food'}</button>
+      <button className="btn-primary wide" disabled={busy || !name.trim()} onClick={save}>{busy ? 'Saving...' : 'Save food'}</button>
       {initial?.id && <button className="btn-ghost wide" onClick={async () => { await deleteMyFood(uid, initial.id); onSaved() }}>Delete</button>}
     </div>
   )
@@ -115,7 +115,7 @@ export function RecipeBuilder({ uid, initial, onSaved, onBack }) {
           </li>
         ))}
       </ul>
-      <button className="btn-ghost wide" onClick={() => setStep('pick')}>＋ Add ingredient</button>
+      <button className="btn-ghost wide" onClick={() => setStep('pick')}>+ Add ingredient</button>
 
       <div className="card nutri-grid">
         <p className="muted small full">Per serving (of {n}){totalGrams ? ` · ≈ ${Math.round(totalGrams / n)} g` : ''}</p>
@@ -123,7 +123,7 @@ export function RecipeBuilder({ uid, initial, onSaved, onBack }) {
           <div key={x.key}><p className="muted small">{x.label}</p><p className="stat-num small-num">{perServing[x.key]}<span className="muted small"> {x.unit}</span></p></div>
         ))}
       </div>
-      <button className="btn-primary wide" disabled={busy || !name.trim() || !items.length} onClick={save}>{busy ? 'Saving…' : 'Save recipe'}</button>
+      <button className="btn-primary wide" disabled={busy || !name.trim() || !items.length} onClick={save}>{busy ? 'Saving...' : 'Save recipe'}</button>
       {initial?.id && <button className="btn-ghost wide" onClick={async () => { await deleteMyFood(uid, initial.id); onSaved() }}>Delete recipe</button>}
     </div>
   )

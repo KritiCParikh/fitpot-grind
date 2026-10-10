@@ -4,9 +4,9 @@ import { useMyFoods, useRecentMeals } from '../lib/privateData'
 import BarcodeScanner from './BarcodeScanner'
 
 const SOURCES = [
-  { key: 'india', label: '🇮🇳 India' },
-  { key: 'usa', label: '🇺🇸 USA' },
-  { key: 'packaged', label: '📦 Packaged' },
+  { key: 'india', label: 'India' },
+  { key: 'usa', label: 'USA' },
+  { key: 'packaged', label: 'Packaged' },
 ]
 
 // Full-screen food finder: Recent · My foods · search across India / USA /
@@ -53,7 +53,7 @@ export default function FoodPicker({ uid, title = 'Add food', onPick, onClose, o
   }, [q, on])
 
   async function onCode(code) {
-    setScan(false); setScanMsg('Looking up…')
+    setScan(false); setScanMsg('Looking up...')
     const mine = myFoods.find((f) => f.barcode === code)
     if (mine) { setScanMsg(''); return onPick(mine) }
     try {
@@ -75,7 +75,7 @@ export default function FoodPicker({ uid, title = 'Add food', onPick, onClose, o
         <span style={{ width: 40 }} />
       </div>
 
-      <input className="text-input search" autoFocus placeholder="Search foods: dal, paneer, oats, whey…" value={q} onChange={(e) => setQ(e.target.value)} />
+      <input className="text-input search" autoFocus placeholder="Search foods: dal, paneer, oats, whey..." value={q} onChange={(e) => setQ(e.target.value)} />
 
       <div className="chips">
         {SOURCES.map((s) => (
@@ -84,8 +84,8 @@ export default function FoodPicker({ uid, title = 'Add food', onPick, onClose, o
       </div>
 
       <div className="action-row">
-        <button className="btn-ghost" onClick={() => setScan(true)}>▦ Scan barcode</button>
-        {onCreate && <button className="btn-ghost" onClick={() => onCreate()}>＋ Create food</button>}
+        <button className="btn-ghost" onClick={() => setScan(true)}>Scan barcode</button>
+        {onCreate && <button className="btn-ghost" onClick={() => onCreate()}>+ Create food</button>}
         {extraActions}
       </div>
       {scanMsg && <p className="muted small">{scanMsg}</p>}
@@ -114,7 +114,7 @@ function FoodList({ title, foods, error, onPick }) {
   return (
     <>
       <h3 className="section-title">{title}</h3>
-      {foods === undefined ? <p className="muted small">Searching…</p>
+      {foods === undefined ? <p className="muted small">Searching...</p>
         : error ? <p className="error small">{error}</p>
         : foods.length === 0 ? <p className="muted small">No matches.</p>
         : (

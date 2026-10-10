@@ -40,7 +40,7 @@ export default function ExercisePicker({ uid, exercises, have, onPick, onClose, 
           <li key={e.key}>
             <button onClick={() => onPick(e)}>
               <span className="grow-col">
-                <span className="food-name">{e.custom ? '⭐ ' : ''}{e.name}</span>
+                <span className="food-name">{e.name}{e.custom ? <span className="muted small"> (mine)</span> : null}</span>
                 <span className="muted small">{muscleLabel(e.muscle)}</span>
               </span>
             </button>
@@ -48,7 +48,7 @@ export default function ExercisePicker({ uid, exercises, have, onPick, onClose, 
         ))}
         {!list.length && <li className="muted small">No match. Create it below.</li>}
       </ul>
-      <button className="btn-ghost wide" onClick={() => setCreating(true)}>＋ Create your own exercise</button>
+      <button className="btn-ghost wide" onClick={() => setCreating(true)}>+ Create your own exercise</button>
       {exercises.some((e) => e.custom) && (
         <details className="history">
           <summary>Manage my exercises</summary>
@@ -104,7 +104,7 @@ function CreateExercise({ uid, onClose, onCreated }) {
               onClick={() => setEq((l) => (l.includes(x.key) ? l.filter((k) => k !== x.key) : [...l, x.key]))}>{x.label}</button>
           ))}
         </div>
-        <button className="btn-primary" disabled={busy || !name.trim()}>{busy ? 'Saving…' : 'Save and add'}</button>
+        <button className="btn-primary" disabled={busy || !name.trim()}>{busy ? 'Saving...' : 'Save and add'}</button>
       </form>
     </div>
   )

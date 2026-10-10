@@ -1,10 +1,11 @@
 import { myToday } from '../lib/clock'
 import { useEffect, useRef, useState } from 'react'
-import { useWeights, useSettings, useProgressPhotos, logWeight, deleteWeight, addProgressPhoto, deleteProgressPhoto, LB_PER_KG } from '../lib/privateData'
+import { useWeights, useSettings, useProgressPhotos, logWeight, deleteWeight, addProgressPhoto, deleteProgressPhoto, saveSettings, LB_PER_KG } from '../lib/privateData'
 import { addDays, prettyDay } from '../lib/dates'
 import { compressImage } from '../lib/image'
 import { myDriveEnabled, getDriveToken, hasDriveToken, uploadProgressPhoto, progressPhotoUrl, deleteProgressFile } from '../lib/myDrive'
 import WeightChart from '../components/WeightChart'
+import UnitSwitch from '../components/UnitSwitch'
 
 const RANGES = [{ label: '30d', days: 30 }, { label: '90d', days: 90 }, { label: '1y', days: 365 }, { label: 'All', days: 0 }]
 
@@ -39,12 +40,20 @@ export default function Progress({ user }) {
     try { await logWeight(uid, date, unit === 'lb' ? v / LB_PER_KG : v); setValue('') } finally { setBusy(false) }
   }
 
-  const fmt = (x) => (x == null ? '–' : `${x > 0 ? '+' : ''}${x} ${unit}`)
+  const fmt = (x) => (x == null ? '-' : `${x > 0 ? '+' : ''}${x} ${unit}`)
 
   return (
     <>
       <form className="card form" onSubmit={save}>
-        <p className="muted small">Log weight (manual)</p>
+        <div className="row">
+          <p className="muted small grow">Log weight (manual)</p>
+          <UnitSwitch value={unit} options={['kg', 'lb']} label="" onChange={(next) => {
+            // Convert what's typed, and make this your default everywhere.
+            const v = Number(value)
+            if (v) setValue(String(Math.round((next === 'lb' ? v * LB_PER_KG : v / LB_PER_KG) * 10) / 10))
+            saveSettings(uid, { weightUnit: next })
+          }} />
+        </div>
         <div className="row">
           <label className="grow">Weight ({unit})
             <input className="text-input" type="number" inputMode="decimal" step="0.1" min="20" max="400" value={value} onChange={(e) => setValue(e.target.value)} placeholder={latest ? String(toUnit(latest.kg)) : unit === 'kg' ? '70.0' : '155.0'} />
@@ -53,12 +62,12 @@ export default function Progress({ user }) {
             <input className="text-input" type="date" value={date} max={today} onChange={(e) => setDate(e.target.value || today)} />
           </label>
         </div>
-        <button className="btn-primary" disabled={busy || !value}>{busy ? 'Saving…' : 'Save weight'}</button>
+        <button className="btn-primary" disabled={busy || !value}>{busy ? 'Saving...' : 'Save weight'}</button>
         <p className="muted small">Same scale, same time of day (e.g. morning, before breakfast) gives the cleanest trend. Logging a date again replaces it.</p>
       </form>
 
       <div className="stats-row">
-        <div className="card stat"><p className="muted small">Latest</p><p className="stat-num">{latest ? toUnit(latest.kg) : '–'}</p><p className="muted small">{latest ? prettyDay(latest.date).split(', ').slice(1).join(', ') : unit}</p></div>
+        <div className="card stat"><p className="muted small">Latest</p><p className="stat-num">{latest ? toUnit(latest.kg) : '-'}</p><p className="muted small">{latest ? prettyDay(latest.date).split(', ').slice(1).join(', ') : unit}</p></div>
         <div className="card stat"><p className="muted small">7 days</p><p className="stat-num small-num">{fmt(change(7))}</p></div>
         <div className="card stat"><p className="muted small">30 days</p><p className="stat-num small-num">{fmt(change(30))}</p></div>
       </div>
@@ -108,7 +117,7 @@ function ProgressPhotos({ uid, user, today }) {
     const file = e.target.files?.[0]
     e.target.value = ''
     if (!file) return
-    setBusy('Uploading to your Drive…'); setError('')
+    setBusy('Uploading to your Drive...'); setError('')
     try {
       const blob = await compressImage(file, { maxSide: 1600, quality: 0.8, targetBytes: 900 * 1024 })
       const fileId = await uploadProgressPhoto(blob, today)
@@ -130,13 +139,13 @@ function ProgressPhotos({ uid, user, today }) {
 
   return (
     <>
-      <h3 className="section-title">📸 Progress photos · optional</h3>
+      <h3 className="section-title">Progress photos (optional)</h3>
       {!myDriveEnabled ? (
         <div className="card"><p className="muted small">Progress photos aren't switched on yet. The organiser needs to add a Google sign-in client (docs/BUILD_GUIDE.md, Phase 5).</p></div>
       ) : (
         <div className="card form">
           <p className="muted small">
-            🔒 Saved to <strong>your own</strong> Google Drive in a "FitPot Progress" folder. Nobody in the group can see them.
+            Saved to <strong>your own</strong> Google Drive in a "FitPot Progress" folder. Nobody in the group can see them.
             FitPot can only access files it created there, nothing else in your Drive.
           </p>
           {!connected ? (
@@ -144,7 +153,7 @@ function ProgressPhotos({ uid, user, today }) {
           ) : (
             <>
               <input ref={fileRef} type="file" accept="image/*" hidden onChange={onFile} />
-              <button className="btn-primary" disabled={!!busy} onClick={() => fileRef.current.click()}>{busy || '＋ Add progress photo'}</button>
+              <button className="btn-primary" disabled={!!busy} onClick={() => fileRef.current.click()}>{busy || '+ Add progress photo'}</button>
             </>
           )}
           {error && <p className="error small">{error}</p>}
@@ -190,7 +199,7 @@ function ProgressImage({ photo, caption }) {
   }, [photo.fileId])
   return (
     <div className="progress-img">
-      {url ? <img src={url} alt={`Progress photo ${photo.date}`} /> : <div className="photo-placeholder">{failed ? 'Not found in Drive' : 'Loading…'}</div>}
+      {url ? <img src={url} alt={`Progress photo ${photo.date}`} /> : <div className="photo-placeholder">{failed ? 'Not found in Drive' : 'Loading...'}</div>}
       {caption && <span className="muted small">{caption}</span>}
     </div>
   )

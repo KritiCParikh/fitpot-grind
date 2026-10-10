@@ -20,7 +20,7 @@ export function useLedgerInputs(group, from, to) {
   const doneByDay = {}
   for (const c of checkins) if (onItsDay(c, clock)) (doneByDay[c.date] ||= new Set()).add(c.uid)
 
-  // votes: { day: { uid: dayTheVoteWasCast } } — server time, the VOTER's own timezone
+  // votes: { day: { uid: dayTheVoteWasCast } } - server time, the VOTER's own timezone
   const restVotes = {}
   for (const r of restDocs) {
     const v = {}

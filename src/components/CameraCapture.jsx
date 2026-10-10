@@ -68,7 +68,7 @@ export default function CameraCapture({ user, group, groupIds, onClose, onUpload
 
   function retake() { setShot(null); setPhase('starting') }
 
-  if (profile === undefined) return <Overlay onClose={onClose}><p className="muted">Loading…</p></Overlay>
+  if (profile === undefined) return <Overlay onClose={onClose}><p className="muted">Loading...</p></Overlay>
 
   if (!consented) {
     return (
@@ -110,8 +110,8 @@ export default function CameraCapture({ user, group, groupIds, onClose, onUpload
               <button className="btn-primary" onClick={send}>{checkIn ? 'Check in + post' : 'Post to group'}</button>
             </>
           )}
-          {phase === 'uploading' && <p className="muted">Uploading…</p>}
-          {phase === 'starting' && !error && <p className="muted">Opening camera…</p>}
+          {phase === 'uploading' && <p className="muted">Uploading...</p>}
+          {phase === 'starting' && !error && <p className="muted">Opening camera...</p>}
         </div>
       </div>
     </Overlay>

@@ -86,7 +86,7 @@ export function makeMoney({ base = 'USD', changes = [], today }) {
       for (const c of applied()) if (c.effectiveDate > day) f *= c.rate
       return f
     },
-    /** Changes already in force, for "converted at…" notes. */
+    /** Changes already in force, for "converted at..." notes. */
     applied,
     pending: () => changes.filter((c) => c.effectiveDate > today()),
     fmt: (x, opts) => fmt(x, currencyOn(today()), opts),

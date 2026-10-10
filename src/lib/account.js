@@ -126,9 +126,9 @@ const PRIVATE = ['meals', 'foods', 'weights', 'measurements', 'workouts', 'exerc
 /**
  * Delete my account:
  *   1. confirm it's you (password or Google)
- *   2. delete everything under private/{you} (food, training, weight, …)
+ *   2. delete everything under private/{you} (food, training, weight, ...)
  *   3. in every group: leave (if you hadn't), and show your name as "Former member"
- *      — past check-ins stay, so friends' balances don't change
+ * - past check-ins stay, so friends' balances don't change
  *   4. delete your profile, then your login
  * Progress photos in your own Google Drive are not touched (they're your files).
  */

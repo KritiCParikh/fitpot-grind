@@ -65,13 +65,13 @@ export default function Login() {
               <input type={show ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)}
                 placeholder={mode === 'signup' ? `At least ${MIN_PASSWORD} characters` : ''}
                 autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} minLength={mode === 'signup' ? MIN_PASSWORD : undefined} required />
-              <button type="button" className="pw-eye" onClick={() => setShow((s) => !s)} aria-label={show ? 'Hide password' : 'Show password'}>{show ? '🙈' : '👁'}</button>
+              <button type="button" className="pw-eye" onClick={() => setShow((s) => !s)} aria-label={show ? 'Hide password' : 'Show password'}>{show ? 'Hide' : 'Show'}</button>
             </span>
           </label>
         )}
 
         <button className="btn-primary" disabled={busy}>
-          {busy ? '…' : mode === 'signup' ? 'Create account' : mode === 'signin' ? 'Sign in' : 'Send reset link'}
+          {busy ? '...' : mode === 'signup' ? 'Create account' : mode === 'signin' ? 'Sign in' : 'Send reset link'}
         </button>
         {mode === 'signin' && <button type="button" className="link-btn" onClick={() => go('reset')}>Forgot password?</button>}
         {mode === 'reset' && <button type="button" className="link-btn" onClick={() => go('signin')}>‹ Back to sign in</button>}

@@ -29,7 +29,7 @@ function SetupNotice() {
 }
 
 function Loading() {
-  return <main className="center"><p className="muted">Loading…</p></main>
+  return <main className="center"><p className="muted">Loading...</p></main>
 }
 
 // If this phone's timezone differs from the one this group has for you, log
@@ -83,7 +83,7 @@ function NeedGroup({ title, children }) {
   return (
     <section>
       <h2>{title}</h2>
-      {status === 'loading' ? <p className="muted">Loading…</p> : (
+      {status === 'loading' ? <p className="muted">Loading...</p> : (
         <div className="card">
           <p>{status === 'error' ? 'Couldn\'t open this group. Pick another one in the Group tab.' : 'Join or create a group to see this.'}</p>
           <p className="muted small">Your Me tab works on its own. Groups add the daily check-in, the pot and your friends.</p>
@@ -100,7 +100,7 @@ function GroupSwitcher({ user, groupIds, activeId, meta }) {
     <select className="group-switch" value={activeId || ''} aria-label="Switch group"
       onChange={(e) => setActiveGroup(user, e.target.value)}>
       {!activeId && <option value="">Choose a group</option>}
-      {groupIds.map((id) => <option key={id} value={id}>{meta[id]?.name || '…'}</option>)}
+      {groupIds.map((id) => <option key={id} value={id}>{meta[id]?.name || '...'}</option>)}
     </select>
   )
 }
@@ -117,7 +117,7 @@ function Shell({ user, profile }) {
       <header className="topbar">
         <span className="logo small-logo">FitPot</span>
         <GroupSwitcher user={user} groupIds={groupIds} activeId={activeId} meta={meta} />
-        <NavLink to="/account" className="btn-ghost account-link" aria-label="Account settings">⚙️</NavLink>
+        <NavLink to="/account" className="btn-ghost account-link" aria-label="Account settings"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" /></svg></NavLink>
       </header>
       <div className="content">
         <GroupProvider key={activeId || 'none'} user={user} groupId={activeId}>

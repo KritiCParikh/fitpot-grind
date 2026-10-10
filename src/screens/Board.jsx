@@ -33,7 +33,7 @@ export default function Board({ user, group, members }) {
   const byUid = Object.fromEntries(members.map((m) => [m.uid, m]))
   const name = (uid) => byUid[uid]?.name || 'Someone'
 
-  let body = <p className="muted">Loading…</p>
+  let body = <p className="muted">Loading...</p>
   if (inputs && recent) {
     const hasDays = settledTo >= start
     const ledger = hasDays ? runLedger(group, members, inputs, start, settledTo) : { days: [], weeks: [], totals: {} }
@@ -66,19 +66,19 @@ export default function Board({ user, group, members }) {
           </div>
         </div>
 
-        <h3 className="section-title">💰 Balances</h3>
+        <h3 className="section-title">Balances</h3>
         <ul className="member-list">
           {ranked.map((m, i) => (
             <li key={m.uid} className={totals[m.uid] > 0 ? 'in' : totals[m.uid] < 0 ? 'out' : ''}>
               <span className="rank">{i + 1}</span>
               <Avatar member={m} size={32} />
-              <span className="grow">{m.name}{m.uid === user.uid ? ' (you)' : ''}{i === ranked.length - 1 && totals[m.uid] < 0 ? ' 🙈' : ''}</span>
+              <span className="grow">{m.name}{m.uid === user.uid ? ' (you)' : ''}{i === ranked.length - 1 && totals[m.uid] < 0 ? ' (last place)' : ''}</span>
               <span className="pill">{$(totals[m.uid], { plus: true })}</span>
             </li>
           ))}
         </ul>
 
-        <h3 className="section-title">🤝 Settle up</h3>
+        <h3 className="section-title">Settle up</h3>
         {transfers.length ? (
           <ul className="member-list">
             {transfers.map((t, i) => (
@@ -102,7 +102,7 @@ export default function Board({ user, group, members }) {
 
         {ledger.weeks?.length > 0 && (
           <>
-            <h3 className="section-title">📅 Weeks</h3>
+            <h3 className="section-title">Weeks</h3>
             <ul className="member-list week-list">
               {[...ledger.weeks].reverse().map((w) => (
                 <li key={w.mon}>
@@ -119,14 +119,14 @@ export default function Board({ user, group, members }) {
           </>
         )}
 
-        <h3 className="section-title">🔥 Streaks</h3>
+        <h3 className="section-title">Streaks</h3>
         <ul className="member-list">
           {streaks.map(({ m, cur, best }) => (
             <li key={m.uid}>
               <Avatar member={m} size={32} />
               <span className="grow">{m.name}</span>
               <span className="muted small">best {best}</span>
-              <span className="pill">{cur}🔥</span>
+              <span className="pill">{cur} day{cur === 1 ? '' : 's'}</span>
             </li>
           ))}
         </ul>

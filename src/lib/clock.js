@@ -1,4 +1,4 @@
-// FitPot clock — pure functions, no Firebase.
+// FitPot clock - pure functions, no Firebase.
 //
 // Every member's "day" follows THEIR OWN phone's timezone, so friends in
 // different countries each get a full local day (midnight to midnight).

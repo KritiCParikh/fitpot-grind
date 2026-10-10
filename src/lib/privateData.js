@@ -1,5 +1,5 @@
 // Private, per-person data: food log, own foods, targets, weight, progress
-// photos. Everything lives under private/{uid}/… and the Firestore rules let
+// photos. Everything lives under private/{uid}/... and the Firestore rules let
 // ONLY that person read or write it. Nobody in the group can see it.
 
 import { useEffect, useState } from 'react'

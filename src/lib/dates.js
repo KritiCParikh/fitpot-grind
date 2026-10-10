@@ -36,7 +36,7 @@ export function prettyDay(day) {
 }
 
 // Current streak: consecutive checked-in days ending today (or yesterday,
-// if today isn't done yet — the streak isn't broken until midnight).
+// if today isn't done yet - the streak isn't broken until midnight).
 export function currentStreak(doneDays /* Set of YYYY-MM-DD */, today) {
   let day = doneDays.has(today) ? today : addDays(today, -1)
   let streak = 0

@@ -69,7 +69,7 @@ export default function PortionPicker({ uid, food, meal, showMeal = true, action
         {actionLabel || `Add to ${mealSel}`}
       </button>
       {food.source !== 'mine' && food.source !== 'recipe' && (
-        <button className="btn-ghost wide" onClick={saveToMine} disabled={saved}>{saved ? '⭐ Saved to My foods' : `⭐ Save "${unit.label}" to My foods`}</button>
+        <button className="btn-ghost wide" onClick={saveToMine} disabled={saved}>{saved ? 'Saved to My foods' : `Save "${unit.label}" to My foods`}</button>
       )}
     </div>
   )

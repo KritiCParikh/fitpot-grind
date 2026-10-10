@@ -1,5 +1,5 @@
 /**
- * FitPot — Drive photo backend (Google Apps Script)
+ * FitPot - Drive photo backend (Google Apps Script)
  *
  * Saves workout photos into the Google Drive of whoever deploys this script:
  *   FitPot/<member name>/<YYYY-MM>/<YYYY-MM-DD_HHmmss>.jpg
@@ -38,7 +38,7 @@ function doPost(e) {
   }
 }
 
-// Visiting the URL in a browser shows this — handy to confirm the deployment works.
+// Visiting the URL in a browser shows this - handy to confirm the deployment works.
 function doGet() {
   return json_({ ok: true, service: 'fitpot-drive', configured: Boolean(prop_('FIREBASE_API_KEY') && prop_('FIREBASE_PROJECT_ID')) });
 }

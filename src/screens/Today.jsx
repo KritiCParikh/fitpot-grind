@@ -24,7 +24,7 @@ export default function Today({ user, group, members, groupIds, meta }) {
   const [camera, setCamera] = useState(null) // null | 'checkin' | 'photo'
   const [note, setNote] = useState('')
 
-  if (!inputs || !todaysPhotos) return <section><p className="muted">Loading…</p></section>
+  if (!inputs || !todaysPhotos) return <section><p className="muted">Loading...</p></section>
 
   const photoRequired = photoRequiredFor(group)
   const blocked = photoRequired && !photosEnabled // photos required but Drive not set up
@@ -32,7 +32,7 @@ export default function Today({ user, group, members, groupIds, meta }) {
   const myGroups = groupIds.filter((id) => meta[id])
   const anyNeedsPhoto = photosEnabled && myGroups.some((id) => photoRequiredFor(meta[id]))
   const iLeft = clock.hasLeft(user.uid)
-  const report = (r) => setNote(r?.skipped?.length ? `Not checked in: ${r.skipped.map((x) => `${x.name} (${x.reason})`).join(', ')}` : r?.done?.length > 1 ? `Checked in to ${r.done.join(', ')} ✓` : '')
+  const report = (r) => setNote(r?.skipped?.length ? `Not checked in: ${r.skipped.map((x) => `${x.name} (${x.reason})`).join(', ')}` : r?.done?.length > 1 ? `Checked in to ${r.done.join(', ')}` : '')
   const done = inputs.doneByDay[today] || new Set()
   const active = members.filter((m) => clock.joinDay(m) <= today && (!clock.leftDay(m) || today < clock.leftDay(m)))
   const activeUids = active.map((m) => m.uid)
@@ -75,7 +75,7 @@ export default function Today({ user, group, members, groupIds, meta }) {
 
   // Where each friend is in THEIR day, relative to yours.
   const stateOf = (uid) => (done.has(uid) ? 'in' : clock.stateFor(uid, today))
-  const PILL = { in: 'In ✓', open: 'Not yet', closed: 'Missed', later: 'Not started' }
+  const PILL = { in: 'In', open: 'Not yet', closed: 'Missed', later: 'Not started' }
 
   async function act(fn) {
     setBusy(true); setError('')
@@ -98,16 +98,16 @@ export default function Today({ user, group, members, groupIds, meta }) {
   return (
     <section>
       <p className="muted">{prettyDay(today)}</p>
-      <h2>{meDone ? 'Done for today 💪' : `Hey ${user.displayName?.split(' ')[0] || 'there'}`}</h2>
+      <h2>{meDone ? 'Done for today' : `Hey ${user.displayName?.split(' ')[0] || 'there'}`}</h2>
 
       <div className="card today-card">
-        {rest && <span className="badge">😴 Rest day{weekly ? ', weekly target −1' : ', nobody pays today'}</span>}
+        {rest && <span className="badge">Rest day{weekly ? ', weekly target −1' : ', nobody pays today'}</span>}
         <button
           className={`checkin-btn ${meDone ? 'done' : ''} ${justDone ? 'pop' : ''}`}
           onClick={onCheckIn}
           disabled={busy || meDone || blocked || iLeft}
         >
-          {meDone ? '✓' : busy ? '…' : photoRequired || anyNeedsPhoto ? '📸 CHECK IN' : 'CHECK IN'}
+          {meDone ? '✓' : busy ? '...' : photoRequired || anyNeedsPhoto ? 'CHECK IN' : 'CHECK IN'}
         </button>
         <p className="muted small">
           {iLeft ? 'You left this group. Check-ins here are closed.'
@@ -117,9 +117,9 @@ export default function Today({ user, group, members, groupIds, meta }) {
             : 'Tap after your workout. Closes at your midnight.'}
         </p>
         {meDone && !myPhoto && photosEnabled && !photoRequired && (
-          <button className="btn-ghost" onClick={() => setCamera('photo')}>📸 Add workout photo</button>
+          <button className="btn-ghost" onClick={() => setCamera('photo')}>Add workout photo</button>
         )}
-        {meDone && myPhoto && <p className="muted small">📸 Photo posted to the wall</p>}
+        {meDone && myPhoto && <p className="muted small">Photo posted to the wall</p>}
         {meDone && <button className="link-btn" onClick={onUndo} disabled={busy}>Undo check-in</button>}
         {myGroups.length > 1 && !meDone && !iLeft && <p className="muted small">One check-in counts in all {myGroups.length} of your groups.</p>}
         {note && <p className="muted small">{note}</p>}
@@ -138,7 +138,7 @@ export default function Today({ user, group, members, groupIds, meta }) {
           <div className="card stat">
             <p className="muted small">Your week</p>
             <p className={`stat-num ${weekCount(user.uid) >= weekNeeded ? 'lime' : ''}`}>{weekCount(user.uid)}/{weekNeeded}</p>
-            <p className="muted small">{Math.max(0, weekNeeded - weekCount(user.uid)) || 'target hit ✓'}{weekCount(user.uid) < weekNeeded ? ' to go' : ''}</p>
+            <p className="muted small">{Math.max(0, weekNeeded - weekCount(user.uid)) || 'target hit'}{weekCount(user.uid) < weekNeeded ? ' to go' : ''}</p>
           </div>
           <div className="card stat">
             <p className="muted small">Days left</p>
@@ -177,7 +177,7 @@ export default function Today({ user, group, members, groupIds, meta }) {
           <p className="muted small">{voteCount}/{activeUids.length} voted · {needed} needed, each before their own midnight</p>
         </div>
         <button className={iVoted ? 'btn-primary' : 'btn-ghost'} disabled={busy} onClick={() => act(() => setRestVote(user, group, !iVoted))}>
-          {iVoted ? 'Voted ✓' : 'Vote rest'}
+          {iVoted ? 'Voted' : 'Vote rest'}
         </button>
       </div>
       <p className="muted small">
@@ -195,7 +195,7 @@ export default function Today({ user, group, members, groupIds, meta }) {
             <li key={m.uid} className={stateOf(m.uid) === 'in' ? 'in' : stateOf(m.uid) === 'later' ? '' : 'out'}>
               <Avatar member={m} />
               <span className="grow">
-                {m.name}{m.uid === user.uid ? ' (you)' : ''}{votes[m.uid] ? ' 😴' : ''}
+                {m.name}{m.uid === user.uid ? ' (you)' : ''}{votes[m.uid] ? <span className="muted small"> (voted rest)</span> : ''}
                 {theirTz !== myTz && <span className="muted small"> · {localTime(theirTz)} there</span>}
               </span>
               {weekly && <span className="muted small">{weekCount(m.uid)}/{weekNeeded}</span>}

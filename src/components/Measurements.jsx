@@ -59,7 +59,7 @@ export default function Measurements({ uid, settings }) {
             <input className="text-input" type="date" value={date} max={today} onChange={(e) => setDate(e.target.value || today)} />
           </label>
         </div>
-        <button className="btn-primary" disabled={busy}>{busy ? 'Saving…' : 'Save measurements'}</button>
+        <button className="btn-primary" disabled={busy}>{busy ? 'Saving...' : 'Save measurements'}</button>
       </form>
 
       {latest && (

@@ -1,4 +1,4 @@
-// FitPot ledger — pure functions, no Firebase. Everything money-related is
+// FitPot ledger - pure functions, no Firebase. Everything money-related is
 // derived from check-ins, members, rest-day votes and setting changes, so the
 // numbers can always be recomputed and nobody can edit a balance directly.
 //
@@ -15,7 +15,7 @@
 //   pot     = missed × penalty(D), split evenly among those who checked in
 //   if NOBODY checked in, nobody pays (there's no one to pay)
 //
-// WEEKLY mode (target 1–6), for each finished week Mon→Sun:
+// WEEKLY mode (target 1-6), for each finished week Mon to Sun:
 //   active  = members who had joined by that Monday (a partial first week is free)
 //   target  = weekly target − number of rest days that week (min 0)
 //   short   = max(0, target − workouts that week)

@@ -31,7 +31,7 @@ export default function Group({ user, groupIds, meta, activeId }) {
         <ul className="member-list">
           {groupIds.map((id) => (
             <li key={id} className={id === activeId ? 'in' : ''}>
-              <span className="grow">{meta[id]?.name || '…'}</span>
+              <span className="grow">{meta[id]?.name || '...'}</span>
               {id === activeId
                 ? <span className="pill">Viewing</span>
                 : <button className="btn-ghost" onClick={() => setActiveGroup(user, id)}>Switch</button>}
@@ -41,9 +41,9 @@ export default function Group({ user, groupIds, meta, activeId }) {
       )}
       {none || adding
         ? <JoinCreate user={user} onDone={() => setAdding(false)} />
-        : <button className="btn-ghost" onClick={() => setAdding(true)}>＋ Join or create another group</button>}
+        : <button className="btn-ghost" onClick={() => setAdding(true)}>+ Join or create another group</button>}
 
-      {status === 'loading' && <p className="muted">Loading…</p>}
+      {status === 'loading' && <p className="muted">Loading...</p>}
       {status === 'ready' && <GroupSettings user={user} group={group} members={members} groupIds={groupIds} />}
     </section>
   )
@@ -70,7 +70,7 @@ function GroupSettings({ user, group, members, groupIds }) {
   const photoRequired = photoRequiredFor(group)
   const label = (t) => (t >= 7 ? 'every day' : `${t} days a week`)
 
-  const inviteText = `Join my FitPot group "${group.name}" 💪\nPasscode: ${group.passcode}\n${location.origin}${location.pathname}`
+  const inviteText = `Join my FitPot group "${group.name}"\nPasscode: ${group.passcode}\n${location.origin}${location.pathname}`
 
   async function share() {
     if (navigator.share) {
@@ -118,7 +118,7 @@ function GroupSettings({ user, group, members, groupIds }) {
         <p className="muted small">
           {target >= 7
             ? 'Each missed day costs the penalty, split among who showed that day.'
-            : `Weeks run Mon–Sun. Anyone under ${target} pays the penalty for each day short; the pot is split among everyone who hit ${target}. Each rest day lowers the target by 1.`}
+            : `Weeks run Monday to Sunday. Anyone under ${target} pays the penalty for each day short; the pot is split among everyone who hit ${target}. Each rest day lowers the target by 1.`}
         </p>
       </div>
 
@@ -142,7 +142,7 @@ function GroupSettings({ user, group, members, groupIds }) {
           <input type="number" min="0" max={MAX_PENALTY} value={penalty} placeholder={String(tomorrow)} onChange={(e) => setPenalty(e.target.value)} />
         </label>
         <button className="btn-ghost" onClick={savePenalty} disabled={saving || penalty === '' || Number(penalty) === tomorrow}>
-          {saving ? 'Saving…' : 'Change penalty'}
+          {saving ? 'Saving...' : 'Change penalty'}
         </button>
         <p className="muted small">Agree with the group first. Changes are logged and never apply to past days.</p>
       </div>
@@ -220,14 +220,14 @@ function CurrencyCard({ user, group, from, penalty, startDay }) {
       </p>
       <label>Switch to (starts {shortDay(startDay)})
         <select value={to} disabled={busy} onChange={(e) => pick(e.target.value)}>
-          <option value="">Choose a currency…</option>
+          <option value="">Choose a currency...</option>
           {CURRENCIES.filter((c) => c.code !== from).map((c) => <option key={c.code} value={c.code}>{c.symbol} {c.name}</option>)}
         </select>
       </label>
       {to && (
         <>
           <label>Today's rate: 1 {currencyInfo(from).symbol} = ? {currencyInfo(to).symbol}
-            <input type="number" step="any" min="0" value={rate} disabled={busy} placeholder={status === 'fetching' ? 'Fetching…' : 'e.g. 0.012'}
+            <input type="number" step="any" min="0" value={rate} disabled={busy} placeholder={status === 'fetching' ? 'Fetching...' : 'e.g. 0.012'}
               onChange={(e) => {
                 setRate(e.target.value)
                 if (Number(e.target.value) > 0) setNewPenalty(String(roundPenalty(penalty * Number(e.target.value), to)))
@@ -237,7 +237,7 @@ function CurrencyCard({ user, group, from, penalty, startDay }) {
             <input type="number" min="0" max={MAX_PENALTY} value={newPenalty} disabled={busy} onChange={(e) => setNewPenalty(e.target.value)} />
           </label>
           <button className="btn-primary" onClick={save} disabled={busy || !(Number(rate) > 0) || newPenalty === ''}>
-            {status === 'saving' ? 'Saving…' : `Switch to ${currencyInfo(to).symbol}`}
+            {status === 'saving' ? 'Saving...' : `Switch to ${currencyInfo(to).symbol}`}
           </button>
         </>
       )}

@@ -7,8 +7,8 @@
 // serving for your own foods). A unit's `factor` says how many base amounts
 // one of that unit is: 1 g = 0.01 (of 100 g), 1 bowl of 292 g = 2.92.
 //
-// Sources: 🇮🇳 INDB (bundled file), 🇺🇸 USDA FoodData Central (free key),
-// 📦 Open Food Facts (packaged/barcodes, no key), ⭐ your own foods.
+// Sources: INDB for Indian dishes (bundled file), USDA FoodData Central (free key),
+// Open Food Facts (packaged foods and barcodes, no key), and your own foods.
 // None of these are AI services; they're nutrition databases.
 
 const USDA_KEY = import.meta.env.VITE_USDA_API_KEY || 'DEMO_KEY' // DEMO_KEY works but is rate-limited
@@ -41,7 +41,7 @@ function gramUnits(extra = []) {
   return [...extra, { label: 'g', factor: 0.01, grams: 1 }, { label: '100 g', factor: 1, grams: 100 }]
 }
 
-// ---------- 🇮🇳 India: Indian Nutrient Databank (bundled, works offline) ----------
+// ---------- India: Indian Nutrient Databank (bundled, works offline) ----------
 let indbPromise = null
 function loadIndb() {
   indbPromise ||= fetch(`${import.meta.env.BASE_URL}data/indb.json`).then((r) => r.json()).then((d) =>
@@ -66,7 +66,7 @@ export async function searchIndia(q) {
     .slice(0, 15)
 }
 
-// ---------- 🇺🇸 USA: USDA FoodData Central ----------
+// ---------- USA: USDA FoodData Central ----------
 const USDA_IDS = { kcal: ['208', '957', '958'], protein: ['203'], carbs: ['205'], fat: ['204'], fibre: ['291'] }
 
 function usdaNutrient(food, ids) {
@@ -105,7 +105,7 @@ export async function searchUSA(q, signal) {
   })
 }
 
-// ---------- 📦 Packaged foods: Open Food Facts ----------
+// ---------- Packaged foods: Open Food Facts ----------
 const OFF_FIELDS = 'code,product_name,brands,nutriments,serving_quantity,serving_size'
 
 function fromOff(p) {
@@ -147,7 +147,7 @@ export async function lookupBarcode(code) {
   return data.status === 1 && data.product ? fromOff({ ...data.product, code }) : null
 }
 
-// ---------- ⭐ Your own foods & recipes (stored privately in Firestore) ----------
+// ---------- Your own foods & recipes (stored privately in Firestore) ----------
 export function fromMyFood(doc) {
   const units = [{ label: doc.servingLabel || 'serving', factor: 1, grams: doc.servingGrams || null }]
   if (doc.servingGrams) units.push({ label: 'g', factor: 1 / doc.servingGrams, grams: 1 })
@@ -173,4 +173,4 @@ function titleCase(s = '') {
   return s.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
-export const SOURCE_LABEL = { india: '🇮🇳 India', usa: '🇺🇸 USA', packaged: '📦 Packaged', mine: '⭐ My food', recipe: '🍲 My recipe' }
+export const SOURCE_LABEL = { india: 'India', usa: 'USA', packaged: 'Packaged', mine: 'My food', recipe: 'My recipe' }
