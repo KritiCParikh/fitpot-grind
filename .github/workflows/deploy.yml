@@ -35,6 +35,7 @@ jobs:
           VITE_DRIVE_UPLOAD_URL: ${{ secrets.VITE_DRIVE_UPLOAD_URL }}
           VITE_USDA_API_KEY: ${{ secrets.VITE_USDA_API_KEY }}
           VITE_GOOGLE_CLIENT_ID: ${{ secrets.VITE_GOOGLE_CLIENT_ID }}
+          VITE_FIREBASE_VAPID_KEY: ${{ secrets.VITE_FIREBASE_VAPID_KEY }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
