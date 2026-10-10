@@ -20,7 +20,7 @@ fitpot/
 
 **On your phone:** open the link in your phone's browser. Then install it:
 
-* **iPhone (Safari):** Share -> **Add to Home Screen**
+* **iPhone (Safari):** Share -> **Add to Home Screen**. If FitPot is already on your home screen, delete the old icon first so you get the new icon and splash screen.
 * **Android (Chrome):** ⋮ menu -> **Install app**
 
 It then opens full screen from its own icon, like a normal app.
