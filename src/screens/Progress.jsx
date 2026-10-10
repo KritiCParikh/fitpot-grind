@@ -1,15 +1,16 @@
+import { myToday } from '../lib/clock'
 import { useEffect, useRef, useState } from 'react'
 import { useWeights, useSettings, useProgressPhotos, logWeight, deleteWeight, addProgressPhoto, deleteProgressPhoto, LB_PER_KG } from '../lib/privateData'
-import { todayInTz, addDays, prettyDay } from '../lib/dates'
+import { addDays, prettyDay } from '../lib/dates'
 import { compressImage } from '../lib/image'
 import { myDriveEnabled, getDriveToken, hasDriveToken, uploadProgressPhoto, progressPhotoUrl, deleteProgressFile } from '../lib/myDrive'
 import WeightChart from '../components/WeightChart'
 
 const RANGES = [{ label: '30d', days: 30 }, { label: '90d', days: 90 }, { label: '1y', days: 365 }, { label: 'All', days: 0 }]
 
-export default function Progress({ user, group }) {
+export default function Progress({ user }) {
   const uid = user.uid
-  const today = todayInTz(group.timezone)
+  const today = myToday() // your own day, from your phone's timezone
   const weights = useWeights(uid)
   const settings = useSettings(uid)
   const unit = settings?.weightUnit || 'kg'

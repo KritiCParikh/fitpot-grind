@@ -1,15 +1,16 @@
+import { myToday } from '../lib/clock'
 import { useState } from 'react'
 import { NUTRIENTS, sumNutrients, MEALS } from '../lib/foods'
 import { useMealsOn, useSettings, useMyFoods, logMeal, deleteMeal } from '../lib/privateData'
-import { todayInTz, addDays, prettyDay } from '../lib/dates'
+import { addDays, prettyDay } from '../lib/dates'
 import FoodPicker from '../components/FoodPicker'
 import PortionPicker from '../components/PortionPicker'
 import { MyFoodForm, RecipeBuilder } from '../components/MyFoodForms'
 
 // Private, optional food diary. Nothing here affects check-ins or the pot.
-export default function FoodLog({ user, group }) {
+export default function FoodLog({ user }) {
   const uid = user.uid
-  const today = todayInTz(group.timezone)
+  const today = myToday() // your own day, from your phone's timezone
   const [day, setDay] = useState(today)
   const meals = useMealsOn(uid, day)
   const settings = useSettings(uid)

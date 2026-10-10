@@ -1,15 +1,16 @@
 import { useState } from 'react'
 import { useMyCheckins } from '../hooks'
-import { isValidCheckin, joinDay } from '../lib/group'
-import { todayInTz, monthDays, weekdayOf, prettyDay, currentStreak, bestStreak } from '../lib/dates'
+import { onItsDay } from '../lib/clock'
+import { monthDays, weekdayOf, prettyDay, currentStreak, bestStreak } from '../lib/dates'
 import { useLedgerInputs, runLedger } from '../lib/useLedger'
 import Avatar from '../components/Avatar'
+import { fmt } from '../lib/money'
 
 const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
 
 export default function Calendar({ user, group, members }) {
-  const tz = group.timezone
-  const today = todayInTz(tz)
+  const { clock, money } = group
+  const today = clock.today() // your own day
   const [ym, setYm] = useState(() => ({ y: +today.slice(0, 4), m: +today.slice(5, 7) - 1 }))
   const [selected, setSelected] = useState(null)
 
@@ -18,12 +19,12 @@ export default function Calendar({ user, group, members }) {
   const inputs = useLedgerInputs(group, days[0], lastDay)
   const mine = useMyCheckins(group.id, user.uid)
 
-  const myDays = new Set((mine || []).filter((c) => isValidCheckin(c, tz)).map((c) => c.date))
+  const myDays = new Set((mine || []).filter((c) => onItsDay(c, clock)).map((c) => c.date))
   const ledger = inputs && days[0] <= today ? runLedger(group, members, inputs, days[0], lastDay) : { days: [] }
   const ledgerByDay = Object.fromEntries(ledger.days.map((d) => [d.day, d]))
 
   const me = members.find((m) => m.uid === user.uid)
-  const myJoin = me ? joinDay(me, tz) : today
+  const myJoin = me ? clock.joinDay(me) : today
 
   function statusOf(day) {
     if (day > today || day < myJoin) return 'none'
@@ -84,13 +85,14 @@ export default function Calendar({ user, group, members }) {
       </div>
 
       {selected && ledgerByDay[selected] && (
-        <DayDetail info={ledgerByDay[selected]} open={selected === today} members={members} />
+        <DayDetail info={ledgerByDay[selected]} open={selected > clock.closedThrough()} members={members} clock={clock} cur={money.current()} />
       )}
     </section>
   )
 }
 
-function DayDetail({ info, open, members }) {
+function DayDetail({ info, open, members, clock, cur }) {
+  const $ = (x, digits = 2) => fmt(x, cur, { digits })
   const byUid = Object.fromEntries(members.map((m) => [m.uid, m]))
   const showed = new Set(info.showed)
   const everyone = [...info.showed, ...info.missed].map((u) => byUid[u]).filter(Boolean)
@@ -100,16 +102,16 @@ function DayDetail({ info, open, members }) {
 
   return (
     <div className="card day-detail">
-      <p className="muted small">{prettyDay(info.day)}{open ? ' · still open' : ''}{info.mode === 'daily' ? ` · $${info.penalty} penalty` : ''}</p>
+      <p className="muted small">{prettyDay(info.day)}{open ? ' · still open' : ''}{info.mode === 'daily' ? ` · ${$(info.penalty)} penalty` : ''}</p>
       {info.mode === 'weekly' ? (
         <p>{info.rest ? '😴 Rest day (lowers the weekly target by 1). ' : ''}Weekly-target group: money settles on Sunday. See the Board.</p>
       ) : info.rest ? (
         <p>😴 <strong>Rest day</strong>, nobody paid.</p>
       ) : (
         <p>
-          Pot <strong className="orange">${pot}</strong>
+          Pot <strong className="orange">{$(pot)}</strong>
           {info.showed.length
-            ? <> · <strong className="lime">${each.toFixed(2)}</strong> each to {info.showed.length}</>
+            ? <> · <strong className="lime">{$(each)}</strong> each to {info.showed.length}</>
             : ' · nobody showed, nobody pays'}
         </p>
       )}
@@ -119,8 +121,9 @@ function DayDetail({ info, open, members }) {
             <Avatar member={m} size={28} />
             <span className="grow">{m.name}</span>
             <span className="pill">
-              {showed.has(m.uid) ? (each ? `+$${each.toFixed(2)}` : 'In ✓')
-                : open ? 'Not yet' : info.mode === 'weekly' || info.rest || !info.showed.length ? 'Missed' : `−$${info.penalty}`}
+              {showed.has(m.uid) ? (each ? fmt(each, cur, { plus: true }) : 'In ✓')
+                : open && clock.stateFor(m.uid, info.day) !== 'closed' ? 'Not yet'
+                  : open || info.mode === 'weekly' || info.rest || !info.showed.length ? 'Missed' : fmt(-info.penalty, cur)}
             </span>
           </li>
         ))}

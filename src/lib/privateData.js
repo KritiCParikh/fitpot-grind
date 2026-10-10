@@ -5,7 +5,7 @@
 import { useEffect, useState } from 'react'
 import {
   collection, doc, onSnapshot, query, where, orderBy, limit,
-  addDoc, setDoc, deleteDoc, serverTimestamp,
+  addDoc, setDoc, deleteDoc, serverTimestamp, getDocs,
 } from 'firebase/firestore'
 import { db } from '../firebase'
 
@@ -64,3 +64,58 @@ export const addProgressPhoto = (uid, { date, fileId, note }) =>
 export const deleteProgressPhoto = (uid, id) => deleteDoc(doc(db, 'private', uid, 'progress', id))
 
 export const LB_PER_KG = 2.20462
+export const CM_PER_IN = 2.54
+
+// ---------- Training (phase 5.2) ----------
+// settings/training: goal, daysPerWeek, sessionMin, experience, restSec, limitations, equipment [keys], customEquipment [names]
+// workouts/{id}:     date, title, notes, exercises [{ key, name, muscle, sets [{ reps, kg }] }]  (kg always)
+// exercises/{id}:    your own exercises: name, muscle, eq [equipment keys]
+// routines/{id}:     name, items [{ key, name, muscle, sets, reps }]
+// measurements/{date}: date, cm { waist, chest, hips, arm, thigh, neck }, bodyFat
+export const useTraining = (uid) => useLive(() => doc(db, 'private', uid, 'settings', 'training'), [uid])
+export const saveTraining = (uid, patch) => setDoc(doc(db, 'private', uid, 'settings', 'training'), patch, { merge: true })
+
+export const useWorkouts = (uid) => useLive(() => col(uid, 'workouts'), [uid])
+export function saveWorkout(uid, w) {
+  const { id, createdMs: _c, ...data } = w
+  return id
+    ? setDoc(doc(db, 'private', uid, 'workouts', id), { ...data, updatedAt: serverTimestamp() }, { merge: true })
+    : addDoc(col(uid, 'workouts'), { ...data, createdAt: serverTimestamp() })
+}
+export const deleteWorkout = (uid, id) => deleteDoc(doc(db, 'private', uid, 'workouts', id))
+
+export const useCustomExercises = (uid) => useLive(() => col(uid, 'exercises'), [uid])
+export const addCustomExercise = (uid, ex) => addDoc(col(uid, 'exercises'), { ...ex, createdAt: serverTimestamp() })
+export const deleteCustomExercise = (uid, id) => deleteDoc(doc(db, 'private', uid, 'exercises', id))
+
+export const useRoutines = (uid) => useLive(() => col(uid, 'routines'), [uid])
+export function saveRoutine(uid, r) {
+  const { id, ...data } = r
+  return id
+    ? setDoc(doc(db, 'private', uid, 'routines', id), { ...data, updatedAt: serverTimestamp() })
+    : addDoc(col(uid, 'routines'), { ...data, createdAt: serverTimestamp() })
+}
+export const deleteRoutine = (uid, id) => deleteDoc(doc(db, 'private', uid, 'routines', id))
+
+export const useMeasurements = (uid) => useLive(() => col(uid, 'measurements'), [uid])
+export const logMeasurements = (uid, date, data) =>
+  setDoc(doc(db, 'private', uid, 'measurements', date), { ...data, date, at: serverTimestamp() })
+export const deleteMeasurements = (uid, date) => deleteDoc(doc(db, 'private', uid, 'measurements', date))
+
+/** Everything private, read once (for "Export my data"). */
+export async function readAllPrivate(uid) {
+  const names = ['meals', 'foods', 'weights', 'measurements', 'workouts', 'exercises', 'routines', 'progress', 'settings']
+  const out = {}
+  for (const n of names) {
+    const snap = await getDocs(col(uid, n))
+    out[n] = snap.docs.map((d) => ({ id: d.id, ...plain(d.data()) }))
+  }
+  return out
+}
+// Firestore timestamps → ISO strings so the export is plain JSON.
+function plain(v) {
+  if (v && typeof v.toDate === 'function') return v.toDate().toISOString()
+  if (Array.isArray(v)) return v.map(plain)
+  if (v && typeof v === 'object') return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, plain(x)]))
+  return v
+}

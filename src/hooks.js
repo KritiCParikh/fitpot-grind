@@ -86,3 +86,21 @@ export function useDayDocs(groupId, name, day) {
   }, [groupId, name, day])
   return docs
 }
+
+// Names and settings of all your groups, for the switcher (one listener each).
+// Returns { [groupId]: { id, name, photoRequired, … } | null } once loaded.
+export function useGroupsMeta(groupIds) {
+  const key = groupIds.join(',')
+  const [meta, setMeta] = useState({})
+  useEffect(() => {
+    if (!key) return
+    const ids = key.split(',')
+    const unsubs = ids.map((id) => onSnapshot(
+      doc(db, 'groups', id),
+      (s) => setMeta((m) => ({ ...m, [id]: s.exists() ? { id, ...s.data() } : null })),
+      () => setMeta((m) => ({ ...m, [id]: null })),
+    ))
+    return () => unsubs.forEach((u) => u())
+  }, [key])
+  return meta
+}

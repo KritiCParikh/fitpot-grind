@@ -3,24 +3,33 @@ import { NUTRIENTS } from '../lib/foods'
 import { useSettings, saveSettings, LB_PER_KG } from '../lib/privateData'
 import FoodLog from './FoodLog'
 import Progress from './Progress'
+import Training from './Training'
+import Measurements from '../components/Measurements'
+import ExportData from '../components/ExportData'
+import VerifyBanner from '../components/VerifyBanner'
 
 const TABS = [
   { key: 'food', label: '🍽 Food' },
+  { key: 'training', label: '🏋️ Training' },
   { key: 'progress', label: '⚖️ Progress' },
   { key: 'targets', label: '🎯 Targets' },
 ]
 
-// "Me": everything personal and private. Nobody in the group sees this tab's data.
-export default function Me({ user, group }) {
+// "Me": everything personal and private. Nobody in any group sees this tab's
+// data. It's where you land after signing in, and it works without a group.
+export default function Me({ user }) {
   const [tab, setTab] = useState('food')
+  const [, bump] = useState(0) // re-render once your email is confirmed
   return (
     <section>
       <h2>Me</h2>
+      <VerifyBanner user={user} onVerified={() => bump((n) => n + 1)} />
       <div className="segmented tabs3">
         {TABS.map((t) => <button key={t.key} className={tab === t.key ? 'on' : ''} onClick={() => setTab(t.key)}>{t.label}</button>)}
       </div>
-      {tab === 'food' && <FoodLog user={user} group={group} />}
-      {tab === 'progress' && <Progress user={user} group={group} />}
+      {tab === 'food' && <FoodLog user={user} />}
+      {tab === 'training' && <Training user={user} />}
+      {tab === 'progress' && <Progress user={user} />}
       {tab === 'targets' && <Targets user={user} />}
     </section>
   )
@@ -29,7 +38,15 @@ export default function Me({ user, group }) {
 function Targets({ user }) {
   const settings = useSettings(user.uid)
   if (settings === undefined) return <p className="muted">Loading…</p>
-  return <TargetsForm key={settings ? 'loaded' : 'empty'} uid={user.uid} settings={settings || {}} />
+  return (
+    <>
+      <TargetsForm key={settings ? 'loaded' : 'empty'} uid={user.uid} settings={settings || {}} />
+      <h3 className="section-title">📏 Body measurements</h3>
+      <Measurements uid={user.uid} settings={settings || {}} />
+      <h3 className="section-title">⬇️ Your data</h3>
+      <ExportData uid={user.uid} />
+    </>
+  )
 }
 
 function TargetsForm({ uid, settings }) {

@@ -1,14 +1,15 @@
 import { useEffect, useState } from 'react'
 import { useDayDocs } from '../hooks'
-import { todayInTz, addDays, prettyDay } from '../lib/dates'
+import { addDays, prettyDay } from '../lib/dates'
+import { tzLabel } from '../lib/clock'
 import { photosEnabled, photoUrl, isValidPhoto } from '../lib/photos'
 import { photoRequiredFor } from '../lib/group'
 import CameraCapture from '../components/CameraCapture'
 import Avatar from '../components/Avatar'
 
-export default function Wall({ user, group, members }) {
-  const tz = group.timezone
-  const today = todayInTz(tz)
+export default function Wall({ user, group, members, groupIds }) {
+  const { clock } = group
+  const today = clock.today() // your own day
   const [day, setDay] = useState(today)
   const [camera, setCamera] = useState(false)
   const photos = useDayDocs(group.id, 'photos', day)
@@ -25,7 +26,7 @@ export default function Wall({ user, group, members }) {
   }
 
   const list = (photos || [])
-    .filter((p) => isValidPhoto(p, tz))
+    .filter((p) => isValidPhoto(p, clock))
     .sort((a, b) => (b.createdAt?.toMillis?.() ?? Infinity) - (a.createdAt?.toMillis?.() ?? Infinity))
   const posted = list.some((p) => p.uid === user.uid)
   // If the group requires a photo and you haven't checked in, posting IS your check-in.
@@ -54,7 +55,7 @@ export default function Wall({ user, group, members }) {
           </div>
         )}
 
-      {camera && <CameraCapture user={user} group={group} checkIn={alsoCheckIn} onClose={() => setCamera(false)} />}
+      {camera && <CameraCapture user={user} group={group} groupIds={groupIds} checkIn={alsoCheckIn} onClose={() => setCamera(false)} />}
     </section>
   )
 }
@@ -68,7 +69,10 @@ function PhotoCard({ photo, member, user, group }) {
     return () => { alive = false }
   }, [user, group, photo.fileId])
 
-  const time = photo.createdAt?.toDate().toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit', timeZone: group.timezone })
+  // Shown in the poster's own local time, with their zone if it isn't yours.
+  const theirTz = group.clock.tzOn(photo.uid, photo.date)
+  const at = photo.createdAt?.toDate()
+  const time = at && `${at.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit', timeZone: theirTz })}${theirTz !== group.clock.myTz() ? ` ${tzLabel(theirTz, at)}` : ''}`
   return (
     <figure className="photo-card">
       {url ? <img src={url} alt={`${member?.name || 'Member'}'s workout`} loading="lazy" />

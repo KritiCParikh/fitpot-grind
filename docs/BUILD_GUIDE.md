@@ -15,9 +15,13 @@ A step-by-step record of how FitPot is built and deployed, from an empty GitHub 
 | 3 | Pot ledger, balances, board, rest days, penalty changes | ✅ Done |
 | 4 | Camera-only photos → Google Drive, photo wall | ✅ Done |
 | 4.5 | Group rules: weekly workout target, photo-required check-in, undo | ✅ Done |
-| 5 | Food logging: search (USDA + Open Food Facts), barcode, custom, AI plate scan, targets | ✅ Built, ready to deploy |
+| 5 | Me tab: food logging (INDB + USDA + Open Food Facts), barcode, recipes, targets, weight, progress photos | ✅ Done |
+| 5.1 | Each member's own timezone; pot currency (₹ $ £ C$) with conversion | ✅ Done |
+| 5.2 | Me-first sign-in, multiple groups (one check-in for all, Leave), Training tab (progressive overload), measurements, export | ✅ Built, ready to deploy |
+| 5.3 | Email + password sign-in, verification, Account page (name, password, delete account) | ✅ Built, ready to deploy |
 | 6 | Vision model (scratch → fine-tune → browser) | ⏳ Next |
 | 7 | Language model nudges + push notifications | |
+| 8 | Personalised training plans from your own model (uses the Training data) | |
 
 ---
 
@@ -146,14 +150,14 @@ Open the **Actions** tab.
 # Phase 1 — Groups + passcode join
 
 ### What was built
-- **Onboarding screen** after sign-in: **Join group** (enter a 6-character passcode) or **Create group** (name + daily penalty).
+- **Onboarding screen** after sign-in (since Phase 5.2 this lives in the **Group** tab, and sign-in lands on **Me**): **Join group** (enter a 6-character passcode) or **Create group** (name + daily penalty).
 - Creating a group generates a passcode like `K7QM3X` (no look-alike characters such as 0/O or 1/I).
 - **Group tab:** big passcode, **Invite friends** button (share sheet on phones, copies a message on desktop), penalty setting, member list with join dates, **Switch group**.
-- Group timezone is saved at creation (from the creator's phone). "Today" and the midnight cutoff use it for everyone.
+- Group timezone is saved at creation (from the creator's phone). Since Phase 5.1 it's only a fallback: each member's day follows their own phone's timezone.
 
 ### How the data is stored (Firestore)
 ```
-users/{uid}                        name, photoURL, groupId
+users/{uid}                        name, photoURL, groupId (group you're viewing), groupIds (all your groups, phase 5.2), leftGroupIds (5.3)
 passcodes/{code}                   groupId
 groups/{groupId}                   name, passcode, penalty, timezone, createdBy, createdAt
 groups/{groupId}/members/{uid}     name, photoURL, joinedAt (server time)
@@ -162,8 +166,10 @@ groups/{groupId}/restdays/{date}       votes {uid: server time}        (phase 3)
 groups/{groupId}/penalties/{id}        penalty, effectiveDate, setBy, setAt (phase 3)
 groups/{groupId}/photos/{date_uid}     uid, date, fileId (Google Drive), createdAt (phase 4)
 groups/{groupId}/targets/{id}          target (days/week), effectiveDate (a Monday), setBy, setAt (phase 4.5)
+groups/{groupId}/tzchanges/{id}        uid, timezone, effectiveDate, setAt (phase 5.1)
+groups/{groupId}/currencies/{id}       from, currency, rate, penalty, effectiveDate, setBy, setAt (phase 5.1)
 ```
-Groups also store `weeklyTarget` (1–7) and `photoRequired` (true/false) since phase 4.5.
+Groups also store `weeklyTarget` (1–7) and `photoRequired` (true/false) since phase 4.5, and `currency` since phase 5.1. Members store their own `timezone` since phase 5.1.
 
 ### Security built into the rules
 - Only group members can read the group, its members and check-ins.
@@ -496,6 +502,227 @@ Everything in **Me** is **optional** and **private**: only you can see it (Fires
 
 ### About the Indian food data
 INDB is published with an open-access research paper and a public GitHub repo, but the repo doesn't state an explicit licence. It's credited in the app. If you ever take FitPot beyond a friend group, confirm the licence with the authors first. The data lives in one file (`public/data/indb.json`), so it's easy to swap.
+
+---
+
+# Phase 5.1 — Each member's own timezone + pot currency
+
+Two changes for groups spread across countries (e.g. friends in India, the US, the UK and Canada).
+
+### What changed
+
+**1. Your day follows your own phone's timezone**
+- When you join (or create) a group, your phone's timezone is saved on your member record.
+- **Your** "today", check-in, undo, workout photo, rest-day vote and the photo watermark all use **your** local day: midnight to midnight where you are.
+- **The group settles a day only once it has ended for everyone**, i.e. after the midnight of the member furthest behind (furthest west). Weekly groups settle once Sunday has ended for everyone.
+  - Example: you're in New York, Asha is in India. At 10 PM Friday in New York it's already 7:30 AM Saturday for Asha. Asha's Friday is over (she either checked in or missed), but the group's Friday settles only at **your** midnight. On the Board it then shows "Settled through Fri".
+- **Today tab:** the crew list shows each friend's status for your day (**In ✓ / Not yet / Missed / Not started**) and their local time ("6:30 AM Sat there").
+- **Wall:** photo times show in the poster's own local time, with their zone if it differs from yours (e.g. "7:05 AM IST").
+- **Group tab:** each member's timezone and current local time.
+- **Travelling or moving:** if your phone's timezone changes, the app notices when you open it and switches you over **from your next day**. The day you're in never stretches or shrinks. Changes are logged permanently. Today shows a line like "switching to IST from tomorrow".
+- **Group settings** (penalty, target, currency) start from the day after the **furthest-ahead** member's today, so nobody's day changes once it has started.
+- Members who joined before 5.1 have no saved timezone and use the group's timezone. If their phone is somewhere else, the app logs the change automatically and it applies from their next day.
+- **Food log and progress** (Me tab) use your own day too.
+
+**2. Pot currency: ₹ INR · $ USD · £ GBP · C$ CAD**
+- Pick it when **creating** a group (pre-selected from your phone's timezone: India → ₹, UK → £, Canada → C$, else $). The default penalty follows: ₹100 or 5 in the others.
+- **Changing it:** **Group → Pot currency → Switch to…**
+  1. Choose the new currency. FitPot fetches **today's exchange rate** (European Central Bank rates via the free Frankfurter service; a second free source is used if that fails). You can edit the rate.
+  2. The new penalty is pre-filled at the same rate (₹100 × 0.0118 = $1.18). Round it to whatever the group agrees.
+  3. **Switch** → confirm. It starts **tomorrow** (same rule as penalty changes) and is logged permanently with the rate.
+- **From the switch day, every amount shows in the new currency, including all past months**, converted at the saved rate. Three months of ₹ balances become $ at that day's rate. The Board shows a note like "From Oct 10: 1 ₹ = 0.0118 $".
+- Switching again chains the rates (₹ → $ → £ multiplies both saved rates). Nothing stored is rewritten; the conversion is recalculated from the log, like every balance.
+- Existing groups start as **$ USD**. If your group's numbers were always meant as rupees, switch to ₹ and set the rate to **1**: that relabels the old amounts as ₹ without converting them (Step 28).
+- Penalty limit raised to 100,000 so rupee penalties fit.
+
+### Data added
+```
+groups/{groupId}                       + currency (base, set at creation)
+groups/{groupId}/members/{uid}         + timezone (your phone's, at join; locked)
+groups/{groupId}/tzchanges/{id}        uid, timezone, effectiveDate (your next day), setAt
+groups/{groupId}/currencies/{id}       from, currency, rate (1 old = rate new), penalty, effectiveDate, setBy, setAt
+```
+A currency switch also writes a normal `penalties` entry (the new penalty) in the same batch.
+
+### What you do
+
+**Step 26 — Update the Firestore rules.** Firebase → **Firestore Database → Rules** → select all → delete → paste the new `firestore.rules` → **Publish**.
+New in this phase: the `tzchanges` and `currencies` logs, the member `timezone` (locked once set), group `currency`, and the higher penalty limit. **Do this before uploading the code**, or the app's automatic timezone log will be refused.
+
+**Step 27 — Upload the new code.** See "Uploading an update". Drag in: `src`, `docs`, `firestore.rules` → **Commit changes**.
+No new secrets, no Apps Script change, no new libraries.
+
+**Step 28 — (Optional) set your existing group's currency.** Groups created before 5.1 start as **$ USD**. In the app: **Group → Pot currency → Switch to…**
+- Old amounts really were dollars → keep the fetched rate. Past amounts are converted at today's rate.
+- Old amounts were always meant as rupees (the app just showed "$") → change the rate to **1**. Past amounts keep their numbers and just show as ₹. Set the penalty you want.
+- **Switch**. It starts tomorrow.
+
+### Check it worked
+1. **Group** tab → each member shows their timezone and local time, and there's a **Pot currency** card.
+2. **Today** → the rule line ends with "your day runs on EDT" (or IST, etc.).
+3. A friend in another country opens the app → their Today shows **their** date; on your Today they show their local time.
+4. **Group → Pot currency → Switch to ₹** → a rate appears within a couple of seconds and the penalty is pre-filled → **Switch** → the card shows "→ ₹ from <tomorrow>".
+5. The day after: **Board** amounts are in ₹ with the conversion note; **Today** shows the ₹ penalty.
+6. Create a new test group from a phone set to India: the currency defaults to ₹ and the penalty to 100.
+
+### Phase 5.1 fixes
+
+| Problem | Fix |
+|---|---|
+| "Missing or insufficient permissions" when opening the app, switching currency, or after travelling | Rules not updated. Step 26. |
+| "Couldn't fetch today's rate" | Both free rate services were unreachable. Type the rate in yourself (search "1 INR to USD"). |
+| Board says "Settled through" a day earlier than expected | Normal when someone in the group is further west: the day settles at their midnight. |
+| A friend shows "Not started" | Your day hasn't begun for them yet (they're behind you). |
+| My Today shows tomorrow's date / yesterday's | Your phone's timezone changed. It switches from your next day; the Today rule line says so. |
+| Old group shows $ but we've always meant ₹ | Step 28 with rate **1** (relabels without converting). |
+| Photo folder names in Drive use New York dates | Folder names come from the Apps Script `TIMEZONE` property (organiser's). Only naming; the app uses each person's own day. |
+
+---
+
+# Phase 5.2 — Me first, several groups, Training (progressive overload)
+
+### What changed
+
+**1. Sign in → Me. Groups are optional.**
+- After sign-in you land on **Me** (now the first tab). Food, Training, Progress and Targets all work without a group.
+- **Today, Calendar, Wall and Board** show **"Join or create a group"** until you're in one.
+- **Group tab:** lists **your groups** (✓ Viewing / Switch), **＋ Join or create another group**, then the settings of the group you're viewing.
+- **Top bar:** a group switcher drop-down appears once you're in a group.
+
+**2. Several groups, one check-in.**
+- You can be in as many groups as you like. You're part of each pot **until you press Leave**, whichever group you're viewing.
+- **One check-in counts in every group you're in.** One workout photo (or one tap, if no group requires a photo) checks you in everywhere. Each group gets its own copy of the photo, so groups never see each other's walls.
+- If **any** of your groups requires a photo, CHECK IN opens the camera. Groups that require a photo are skipped (with a note) if photos aren't set up.
+- **Undo** undoes today's check-in in all your groups.
+- **Leave this group** (Group tab, bottom): you stop counting **from tomorrow**. Today still counts, and in a weekly group the week you've started still counts. Your past results stay on the Board, marked "(left)". Rejoining a group you left isn't supported yet.
+
+**3. Me → 🏋️ Training (progressive overload).** Five sections:
+- **📝 Log:** **＋ Start workout**, **↻ Repeat last**, or **▶** a saved routine. Add exercises from a built-in library (70+ exercises by muscle group, filtered to your equipment) or create your own. Each set is weight × reps.
+  - Every exercise shows **last time** and a **"beat it"** target: one more rep, or a bit more weight once you hit 12 reps.
+  - Tick ✓ on a set to start the **rest timer** (vibrates when done; +15 s / Skip).
+  - **Notes** per workout. On save, **🏆 new personal records** are celebrated.
+  - The history list shows this week's training days vs your target, and PRs per workout.
+- **💪 Muscles:** week by week (‹ ›), for every muscle group: **sets** and **volume** (weight × reps) vs last week, and each exercise's **best set this week vs last week**: ▲ beat it, ＝ matched, ▼ dropped, ★ new. This is the progressive-overload view.
+- **🏆 Records:** per exercise: heaviest weight, best **estimated 1-rep max**, most reps, and a chart of your estimated 1-rep max over time. (Estimated 1-rep max = weight × (1 + reps ÷ 30), the Epley formula, so 8 × 60 kg and 3 × 70 kg can be compared.) Filter by muscle group.
+- **📋 Routines:** save workouts you repeat (e.g. Push / Pull / Legs) with target sets × reps. Starting one pre-fills last time's weights.
+- **⚙️ Setup:** main goal, days per week, session length, experience, rest-timer length, **equipment you have** (checklist + your own items, add/remove any time), and **limitations / injuries**. Your body-weight target is the one in Targets. All of this is stored for the Phase 8 plan model.
+
+**4. Me → Targets** now also has:
+- **📏 Body measurements:** waist, chest, hips, arm, thigh, neck (cm or in) and body-fat %, by date, with change since your first entry.
+- **⬇️ Export my data:** Workouts, Food, Weight, Measurements as **CSV** (opens in Excel / Google Sheets), or **Everything as JSON**.
+
+Everything in Me is private (`private/{you}/…`, owner-only), as before.
+
+### Data added
+```
+users/{uid}                          + groupIds [all your groups]  (groupId = the one you're viewing)
+groups/{gid}/members/{uid}           + leftAt (server time, set once when you Leave)
+private/{uid}/settings/training      goal, daysPerWeek, sessionMin, experience, restSec, limitations, equipment [keys], customEquipment [names]
+private/{uid}/workouts/{id}          date, title, notes, exercises [{ key, name, muscle, sets [{ reps, kg }] }]
+private/{uid}/exercises/{id}         your own exercises: name, muscle, eq
+private/{uid}/routines/{id}          name, items [{ key, name, muscle, sets, reps }]
+private/{uid}/measurements/{date}    date, cm { waist, chest, hips, arm, thigh, neck }, bodyFat
+private/{uid}/settings/main          + measureUnit (cm | in)
+```
+Weights are always stored in kg; lb users see lb.
+
+### What you do
+
+**Step 29 — Update the Firestore rules.** Firebase → **Firestore Database → Rules** → select all → delete → paste the new `firestore.rules` → **Publish**.
+New: **Leave** (`leftAt`, set once, server time), and members who have left can no longer check in, post photos, vote rest days or change settings in that group.
+
+**Step 30 — Upload the new code.** See "Uploading an update". Drag in: `src`, `docs`, `firestore.rules`, `README.md` → **Commit changes**.
+⚠️ `src/screens/Onboarding.jsx` was moved to `src/components/JoinCreate.jsx`. Uploading doesn't delete files, so delete the old one on GitHub: open `src/screens/Onboarding.jsx` → **⋯ → Delete file** → **Commit changes**. (Leaving it is harmless; nothing imports it.)
+No new secrets, no Apps Script change, no new libraries.
+
+### Check it worked
+1. Sign in → you land on **Me**. The tab bar reads **Me · Today · Calendar · Wall · Board · Group**.
+2. Your existing group shows in the top-bar switcher and under **Group → Your groups**.
+3. On a fresh test account: **Today** says "Join or create a group".
+4. Join a second group → the switcher lists both → Today says "One check-in counts in all 2 of your groups" → check in → both groups show you as **In ✓**.
+5. **Me → Training → Setup** → pick your equipment → **Save setup**.
+6. **Log → ＋ Start workout → ＋ Add exercise** → Barbell bench press → enter sets → tick ✓ (the rest timer runs) → **Save workout**.
+7. Next time you add bench press, you see **Last time** and **beat it**. Beat it → 🏆 screen.
+8. **Muscles** shows this week vs last week; **Records** shows the 1-rep max chart after two sessions.
+9. **Targets → Body measurements** → save → shows latest. **Export my data → Workouts (CSV)** downloads a file.
+
+### Phase 5.2 fixes
+
+| Problem | Fix |
+|---|---|
+| "Missing or insufficient permissions" when leaving a group | Rules not updated. Step 29. |
+| After checking in, one group says "needs a photo" | That group requires a photo and you checked in without one (no group you're in had the camera on, or photos aren't set up). Post a photo from that group's Wall. |
+| I left a group but still see it in the Board history | By design: past results stay. It's removed from your switcher. |
+| "Rejoining a group you left isn't supported yet" | Ask the group to create a new group, or wait for a later phase. |
+| Exercise list is short | "Only what my equipment allows" is on. Untick it, or add equipment in Training → Setup. |
+| Export does nothing on iPhone | iOS opens the file in a preview: tap **Share → Save to Files**. |
+| Rest timer doesn't vibrate on iPhone | iPhones don't allow web apps to vibrate. Watch the bar turn orange. |
+
+---
+
+# Phase 5.3 — Email sign-in, verification, Account
+
+### What changed
+
+**1. Two ways to sign in.** The login screen has **Continue with Google**, and below it **email + password**:
+- **Create account:** your name (what friends see), email, password (at least 8 characters, 👁 to show/hide).
+- **Sign in**, and **Forgot password?**: Firebase emails a reset link that brings you back to FitPot.
+- Clear messages: wrong password, email already registered, too many attempts, no connection…
+- **One account per email.** If you signed up with Google, a password sign-in with the same Gmail says to use Google. You can add a password later (see 3).
+
+**2. Email verification.** New email accounts get a "confirm your email" link. Until it's clicked:
+- **Me works fully**, with a 📧 banner (**I've confirmed** · **Resend email**).
+- **Joining or creating a group is blocked.** The Group tab shows the banner instead of the join/create form, and the **Firestore rules** refuse it too. Google accounts count as verified.
+
+**3. ⚙️ Account** (top-right gear; **Sign out** moved here):
+- See your name, email, how you sign in, and whether your email is verified.
+- **Change display name:** updates your profile and your name in every group you're in.
+- **Change password** (email accounts): current + new password.
+- **Add a password** (Google accounts): then you can sign in with Google **or** your Gmail + that password.
+- **Delete my account:** confirm with your password (or Google), type `DELETE`. It:
+  - deletes your login and everything in **Me** (food, training, weight, measurements, targets);
+  - leaves every group you're in (and anonymises you in groups you left from 5.3 on); your **past check-ins stay**, so friends' balances don't change, and your name shows as **"Former member"**;
+  - leaves your progress photos in your own Drive (your files) and workout photos in the organiser's Drive.
+  Export your data first (Me → Targets) if you want a copy.
+
+### What you do
+
+**Step 31 — Turn on email sign-in in Firebase.**
+Firebase console → **Authentication → Sign-in method** → **Add new provider** → **Email/Password** → switch on **Email/Password** (leave "Email link (passwordless sign-in)" off) → **Save**.
+
+**Step 32 — (Recommended) Make the emails look like FitPot.**
+**Authentication → Templates**:
+- **Email address verification** → ✏️ → **Sender name:** `FitPot` → **Save**.
+- **Password reset** → ✏️ → **Sender name:** `FitPot` → **Save**.
+The emails come from `noreply@fitpot-grind.firebaseapp.com`; that's normal, and free. They can land in spam the first time.
+
+**Step 33 — Update the Firestore rules.** **Firestore Database → Rules** → select all → delete → paste the new `firestore.rules` → **Publish**. (New: creating or joining a group needs a verified email.)
+
+**Step 34 — Upload the new code.** Drag in `src`, `docs`, `firestore.rules`, `README.md` → **Commit changes**. No new secrets, no Apps Script change, no new libraries.
+
+### Check it worked
+1. Sign out (⚙️ → Sign out) → the login screen shows Google **and** email.
+2. **Create account** with a second email you own → you land on **Me** with the 📧 banner.
+3. **Group** tab → shows "Confirm your email" instead of join/create.
+4. Open the email → tap the link → back in FitPot → **I've confirmed** → the banner goes; Group now offers join/create.
+5. Sign out → **Sign in** with the email and password → works. Try a wrong password → "Email or password is wrong…".
+6. **Forgot password?** → reset email arrives → choose a new password → sign in with it.
+7. On your Google account: ⚙️ → **Add a password** → sign out → sign in with your Gmail + that password → same account, same groups.
+8. On a throwaway test account: ⚙️ → **Delete my account…** → the account is gone; in its group it shows as "Former member".
+
+### Phase 5.3 fixes
+
+| Problem | Fix |
+|---|---|
+| "Email sign-in isn't switched on yet" | Step 31. |
+| No verification / reset email | Check spam. Then ⚙️ → **Resend email**. Firebase limits how often it sends; wait a minute between tries. |
+| "I've confirmed" says not confirmed yet | Open the link from the **latest** email (older links expire), then press it again. |
+| "Missing or insufficient permissions" when joining or creating a group | Email not verified yet, or the rules weren't updated (Step 33). |
+| "Email or password is wrong" but you're sure | That email may use Google sign-in. Use **Continue with Google**, then ⚙️ → **Add a password**. |
+| "That email already has an account" when creating one | Sign in instead, or use Google if that's how you signed up. |
+| "For your security, sign in again and retry" | Firebase wants a recent sign-in for password changes and deletion. Sign out and in, then retry. |
+| A deleted account's name still shows in a group it left before Phase 5.3 | Older leaves weren't recorded on the profile. It only affects the name shown on old history. |
+| Reset/verify link opens a Firebase page instead of FitPot | The link works either way; the "Continue" button returns to FitPot. Check `kriticparikh.github.io` is in Authorized domains (Step 3.3). |
 
 ---
 

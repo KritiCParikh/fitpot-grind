@@ -1,12 +1,11 @@
 import { useState } from 'react'
-import { isValidCheckin } from '../lib/group'
+import { onItsDay } from '../lib/clock'
+import { fmt, currencyInfo } from '../lib/money'
 import { useCheckins } from '../hooks'
-import { todayInTz, addDays, currentStreak, bestStreak } from '../lib/dates'
+import { addDays, prettyDay, currentStreak, bestStreak } from '../lib/dates'
 import { settleUp } from '../lib/ledger'
 import { useLedgerInputs, runLedger } from '../lib/useLedger'
 import Avatar from '../components/Avatar'
-
-const money = (x) => `${x < 0 ? '−' : x > 0 ? '+' : ''}$${Math.abs(x).toFixed(2)}`
 
 function monthBounds(y, m) {
   const start = `${y}-${String(m + 1).padStart(2, '0')}-01`
@@ -15,18 +14,21 @@ function monthBounds(y, m) {
 }
 
 export default function Board({ user, group, members }) {
-  const tz = group.timezone
-  const today = todayInTz(tz)
-  const yesterday = addDays(today, -1)
+  const { clock, money } = group
+  const today = clock.today()
+  const cur = money.current()
+  const $ = (x, opts) => fmt(x, cur, opts)
+  // Settled through the last day that has ended for everyone in the group.
+  const closed = clock.closedThrough()
   const [offset, setOffset] = useState(0) // 0 = this month, -1 = last month
   const d = new Date(Date.UTC(+today.slice(0, 4), +today.slice(5, 7) - 1 + offset, 1))
   const { start, end } = monthBounds(d.getUTCFullYear(), d.getUTCMonth())
-  const settledTo = end < yesterday ? end : yesterday
+  const settledTo = end < closed ? end : closed
   const monthLabel = d.toLocaleDateString(undefined, { month: 'long', year: 'numeric', timeZone: 'UTC' })
 
   const inputs = useLedgerInputs(group, start, end)
   // Streaks look back 60 days (keeps database reads low).
-  const recent = useCheckins(group.id, addDays(today, -60), today)
+  const recent = useCheckins(group.id, addDays(today, -60), clock.latestDay())
 
   const byUid = Object.fromEntries(members.map((m) => [m.uid, m]))
   const name = (uid) => byUid[uid]?.name || 'Someone'
@@ -42,9 +44,9 @@ export default function Board({ user, group, members }) {
     const restDays = ledger.days.filter((x) => x.rest).length
 
     const daysByUid = {}
-    for (const c of recent) if (isValidCheckin(c, tz)) (daysByUid[c.uid] ||= new Set()).add(c.date)
+    for (const c of recent) if (onItsDay(c, clock)) (daysByUid[c.uid] ||= new Set()).add(c.date)
     const streaks = members
-      .map((m) => ({ m, cur: currentStreak(daysByUid[m.uid] || new Set(), today), best: bestStreak(daysByUid[m.uid] || new Set()) }))
+      .map((m) => ({ m, cur: currentStreak(daysByUid[m.uid] || new Set(), clock.todayOf(m.uid)), best: bestStreak(daysByUid[m.uid] || new Set()) }))
       .sort((a, b) => b.cur - a.cur || b.best - a.best)
 
     body = (
@@ -52,7 +54,7 @@ export default function Board({ user, group, members }) {
         <div className="stats-row">
           <div className="card stat">
             <p className="muted small">Pot moved</p>
-            <p className="stat-num orange">${potTotal.toFixed(0)}</p>
+            <p className="stat-num orange">{$(potTotal, { digits: 0 })}</p>
           </div>
           <div className="card stat">
             <p className="muted small">{ledger.weeks.length ? 'Weeks settled' : 'Days settled'}</p>
@@ -71,7 +73,7 @@ export default function Board({ user, group, members }) {
               <span className="rank">{i + 1}</span>
               <Avatar member={m} size={32} />
               <span className="grow">{m.name}{m.uid === user.uid ? ' (you)' : ''}{i === ranked.length - 1 && totals[m.uid] < 0 ? ' 🙈' : ''}</span>
-              <span className="pill">{money(totals[m.uid])}</span>
+              <span className="pill">{$(totals[m.uid], { plus: true })}</span>
             </li>
           ))}
         </ul>
@@ -82,7 +84,7 @@ export default function Board({ user, group, members }) {
             {transfers.map((t, i) => (
               <li key={i}>
                 <span className="grow"><strong>{name(t.from)}</strong> pays <strong>{name(t.to)}</strong></span>
-                <span className="pill">${t.amount.toFixed(2)}</span>
+                <span className="pill">{$(t.amount)}</span>
               </li>
             ))}
           </ul>
@@ -90,8 +92,13 @@ export default function Board({ user, group, members }) {
           <div className="card"><p className="muted">All square. Nobody owes anything{hasDays ? '' : ' yet'}.</p></div>
         )}
         <p className="muted small">
-          {offset === 0 ? 'Daily groups settle each midnight; weekly groups settle Sunday midnight. A week counts in the month it ends.' : 'Final for the month.'} Pay each other however you like; FitPot doesn't move money.
+          {offset === 0 ? `Settled through ${prettyDay(closed)}: a day settles once it has ended for everyone (weekly groups: Sunday). A week counts in the month it ends.` : 'Final for the month.'} Pay each other however you like; FitPot doesn't move money.
         </p>
+        {money.applied().length > 0 && (
+          <p className="muted small">
+            All amounts in {currencyInfo(cur).name}s. {money.applied().map((c) => `From ${prettyDay(c.effectiveDate).split(', ').slice(1).join(', ')}: 1 ${currencyInfo(c.from).symbol} = ${c.rate} ${currencyInfo(c.currency).symbol}`).join(' · ')}. Earlier amounts are converted at these rates.
+          </p>
+        )}
 
         {ledger.weeks?.length > 0 && (
           <>
@@ -101,7 +108,7 @@ export default function Board({ user, group, members }) {
                 <li key={w.mon}>
                   <span className="grow">
                     <strong>{new Date(w.mon + 'T12:00:00Z').toLocaleDateString(undefined, { month: 'short', day: 'numeric', timeZone: 'UTC' })} week</strong>
-                    <span className="muted small"> · target {w.needed}{w.restDays ? ` (${w.restDays} rest)` : ''} · pot ${w.pot.toFixed(0)}</span>
+                    <span className="muted small"> · target {w.needed}{w.restDays ? ` (${w.restDays} rest)` : ''} · pot {$(w.pot, { digits: 0 })}</span>
                   </span>
                   <span className="muted small week-counts">
                     {Object.entries(w.counts).map(([uid, c]) => `${name(uid).split(' ')[0]} ${c}${w.short[uid] ? '✗' : '✓'}`).join(' · ')}

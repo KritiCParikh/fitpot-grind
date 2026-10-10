@@ -116,7 +116,7 @@ Read it top to bottom once; after that, use it as a reference. The companion doc
 - **Analogy:** renting a fully-staffed office building instead of building your own.
 
 #### Firebase Authentication (Auth)
-- **What it is:** handles sign-in. We use "Sign in with Google".
+- **What it is:** handles sign-in. FitPot offers **Continue with Google** and, since phase 5.3, **email + password** (with verification emails and password-reset emails that Firebase sends for free).
 - **In FitPot:** after sign-in, each person gets a permanent **uid** (user ID) and a short-lived **ID token** that proves who they are to other services.
 - **Analogy:** the doorman who checks your ID once, then gives you a wristband (the token) that other staff recognise.
 
@@ -168,6 +168,11 @@ Read it top to bottom once; after that, use it as a reference. The companion doc
 - **What it is:** the web address apps use to create, read and delete files in someone's Drive.
 - **In FitPot:** progress photos are uploaded straight from your phone into **your own** Drive (`FitPot Progress/`) using the token above. They never pass through the organiser's script or Drive.
 
+#### Exchange rates: Frankfurter (phase 5.1)
+- **What it is:** a free, open web service that publishes the European Central Bank's daily exchange rates. No key, no account.
+- **In FitPot:** used only when someone switches the pot's currency: FitPot asks "1 ₹ = how many $ today?" and pre-fills the answer (editable). If it's unreachable, a second free source (the open `currency-api` files on jsDelivr) is tried. The rate is then saved in the group's log, so it's never looked up again.
+- **Analogy:** the exchange-rate board at the airport: you glance at it once when you swap money, then keep the receipt.
+
 ### Coming later
 - **Google Colab** (phases 6–7): free notebooks with GPUs for training the vision and language models.
 - **Hugging Face Hub / TensorFlow.js / MediaPipe** (phases 6–7): store trained models and run them in the browser.
@@ -213,16 +218,32 @@ When the app writes `serverTimestamp()`, Google fills in the time on *its* clock
 **Why:** otherwise someone could set their phone to yesterday and backdate a check-in.
 **Analogy:** a post office postmark vs the date you wrote on the letter yourself.
 
-### The group's timezone and "a day"
-Each group stores a timezone (e.g. `America/New_York`). "Today", midnight cutoffs and week boundaries all use it, so 11:30 PM counts for the same day for everyone.
-**Analogy:** a shared office clock on the wall, instead of everyone's own watch.
+### Your own timezone and "a day" (since phase 5.1)
+Every member's day follows **their own phone's timezone**, saved on their member record when they join. Your check-in, photo, undo and rest vote all belong to **your** local date, midnight to midnight where you are. (Before 5.1 the whole group shared the creator's timezone; older members still use it until their phone reports a different one.)
+**Analogy:** each friend wears their own watch, and each watch is honest because Google's server time is read through it.
+
+### The group's day closes after the last midnight
+A day counts toward the pot only once it has ended for **everyone**: after the midnight of the member furthest behind (furthest west). FitPot calls this the **closed-through** day. Weekly groups settle once Sunday has ended for everyone.
+**Example:** New York and India. At 10 PM Friday in New York it's 7:30 AM Saturday in India. Friday is over in India, but the group's Friday closes at New York's midnight.
+**Analogy:** a relay race across time zones: the day's results are posted only when the last runner crosses the line.
+
+### Timezone changes start tomorrow
+If your phone's timezone changes (you fly from Raleigh to Bengaluru), the app logs it in `tzchanges` and it takes effect from **your next day**. Otherwise someone could switch the setting to stretch the day they're in by hours. Each log entry is stamped with server time, and the ledger ignores any change that wasn't made before the day it starts.
+**Analogy:** changing your watch when you land, but only after today's results are posted.
+
+### Settings start after the furthest-ahead member's today
+Penalty, target and currency changes start the day after the **furthest-ahead** member's today. A friend in India whose Saturday has already begun never sees Saturday's stakes change mid-day.
+
+### One pot currency, converted when it changes
+Each group has one currency at a time: ₹ INR, $ USD, £ GBP or C$ CAD. Switching logs **the rate on the day** (1 old = rate new) and the new penalty; both start tomorrow. From then on **every** amount, including old months, is shown in the new currency: an old ₹ penalty × the saved rate. Several switches multiply their rates (₹ → $ → £). Nothing in the database is rewritten; like balances, the conversion is recalculated from the log.
+**Analogy:** converting your old travel receipts at the rate printed on the day you changed money, then keeping one set of books.
 
 ### Batched writes
 Several database changes that succeed or fail **together** (e.g. photo record + check-in; group + passcode + first member).
 **Analogy:** a bank transfer: money leaves one account only if it arrives in the other.
 
 ### Derived ledger (no stored balances)
-FitPot never stores "Asha has +$12". Balances are **recomputed** every time from the raw facts: check-ins, members, rest votes, penalty and target changes. Nobody can edit a balance because there is no balance to edit.
+FitPot never stores "Asha has +$12". Balances are **recomputed** every time from the raw facts: check-ins, members, rest votes, penalty, target, timezone and currency changes. Nobody can edit a balance because there is no balance to edit.
 **Analogy:** a scoreboard calculated from the match footage, not a number someone types in.
 
 ### Daily vs weekly settling
@@ -257,6 +278,41 @@ Database foods store nutrition per **100 g**. Each unit (g, bowl, plate, serving
 ### Recipes
 A recipe adds up its ingredients' nutrition, then divides by the number of servings. It's saved as one of your foods, so logging it is one tap.
 **Analogy:** a meal-prep box: weigh everything once, split into portions, label each portion.
+
+### Me first, groups optional (phase 5.2)
+After sign-in you land on **Me**, your private area. Groups are something you add: Today, Calendar, Wall and Board need one, Me never does.
+**Analogy:** your own gym notebook comes first; the friends' group chat is something you join.
+
+### Several groups, one check-in
+Your profile keeps a list of your groups (`groupIds`) and the one you're viewing (`groupId`). One check-in, or one workout photo, is written into **every** group you're in, each in its own batch so one group's problem never blocks the others. Each group gets its own copy of the photo, because the Drive script only shows a photo to members of the group it was uploaded for.
+**Analogy:** one gym badge scan that marks you present on every team roster you're on.
+
+### Leaving a group
+**Leave** stamps `leftAt` (server time) on your member record, once. You stop counting from your next day; today and a week you've started still count. Your past results stay, so balances never change after the fact. The rules stop someone who has left from checking in or changing settings there.
+**Analogy:** handing back your locker key. Your name stays on last season's scoreboard.
+
+### Progressive overload
+Getting stronger means slowly asking more of a muscle: one more rep, or a bit more weight, than last time. FitPot shows **last time** for every exercise and a **beat it** target (double progression: add reps until 12, then add weight and drop to 8).
+**Analogy:** a video game level you replay with the previous high score on screen.
+
+### Estimated 1-rep max and personal records
+Comparing "60 kg × 10" with "65 kg × 5" needs one number. The **Epley formula**, weight × (1 + reps ÷ 30), estimates the most you could lift once. FitPot walks your workouts in date order and marks a **PR** when you beat your heaviest weight, best estimated 1-rep max, or most reps. Your first session of an exercise sets the baseline.
+**Analogy:** converting different race distances into one pace so they can be compared.
+
+### Sets and volume per muscle, per week
+Every exercise belongs to a muscle group. Each week (Mon–Sun) FitPot totals **sets** and **volume** (weight × reps) per muscle and compares each exercise's best set with the week before. Like the pot, it's recomputed from your raw workouts, never stored.
+
+### Email verification (phase 5.3)
+A new email account gets a link to prove the address is real. Until it's clicked, the account works for Me but can't join or create groups; the rules check `email_verified` on the sign-in token. Google accounts are verified by Google. After clicking, the app refreshes the token so the rules see the change.
+**Analogy:** a gym membership that starts once you confirm your phone number.
+
+### One account, two keys
+Firebase keeps one account per email. A Google account can **add a password** ("linking"), so the same account opens with either key. Sensitive changes (new password, delete account) ask you to sign in again first (re-authentication).
+**Analogy:** one house, a front-door key and a back-door key; the locksmith asks for ID before changing a lock.
+
+### Deleting an account
+FitPot deletes your private Me data and your login, leaves your groups and renames you "Former member" there. Group history stays, because friends' balances are built from it.
+**Analogy:** leaving a club: your locker is emptied, but the old match results still show "a former player".
 
 ### Two different photo paths
 - **Workout photos** (group proof): phone → organiser's Apps Script → organiser's Drive; everyone in the group can see them.
@@ -329,30 +385,43 @@ A recipe adds up its ingredients' nutrition, then divides by the number of servi
 | File | What it does |
 |---|---|
 | `main.jsx` | The very first code that runs. Finds `<div id="root">` in `index.html` and tells React to draw `<App />` there. Loads `index.css`. |
-| `App.jsx` | The traffic controller. Decides what to show: **Setup notice** (Firebase not configured) → **Login** (not signed in) → **Onboarding** (signed in, no group) → the **Shell** (top bar, the five tabs, bottom navigation). Also routes URLs to screens. |
+| `App.jsx` | The traffic controller. **Setup notice** (Firebase not configured) → **Login** (not signed in) → the **Shell** (top bar with the group switcher, the tabs, bottom navigation), landing on **Me**. `GroupProvider` loads the group you're viewing with its timezone and currency logs and attaches `group.clock` and `group.money`; `NeedGroup` shows "Join or create a group" on group tabs until you're in one. Also watches your phone's timezone to log a change. |
+| `groupContext.js` | Shares the group you're viewing (status, group, members) with the screens that need it. |
 | `firebase.js` | Connects to Firebase using the `VITE_FIREBASE_*` values. Exports `auth` (sign-in), `db` (Firestore) and the Google sign-in provider. If the values are missing, `isConfigured` is false and the app shows the setup notice. |
 | `index.css` | All styling: the dark theme, lime/orange colours, fonts, cards, buttons, calendar grid, camera overlay, photo grid. Colours are defined once as variables (`--lime`, `--orange`…) and reused. |
-| `hooks.js` | **Live data subscriptions.** Small functions each screen calls to get data that updates itself: `useUserDoc` (your profile), `useGroup`, `useMembers`, `useCheckins` (by date range), `useMyCheckins` (for streaks), `useSubcollection` (rest votes, penalty/target logs), `useDayDocs` (e.g. today's photos). Each opens a Firestore listener and closes it when the screen goes away. |
+| `hooks.js` | **Live data subscriptions.** Small functions each screen calls to get data that updates itself: `useUserDoc` (your profile), `useGroup`, `useMembers`, `useCheckins` (by date range), `useMyCheckins` (for streaks), `useSubcollection` (rest votes, penalty/target logs), `useDayDocs` (e.g. today's photos), `useGroupsMeta` (names and settings of all your groups, for the switcher). Each opens a Firestore listener and closes it when the screen goes away. |
 
 #### `src/lib/` — logic (no screens)
 
 | File | What it does |
 |---|---|
-| `dates.js` | Date maths on `YYYY-MM-DD` strings in the group's timezone: today, add days, days in a month, weekday, Monday of a week, streaks (current and best). |
-| `group.js` | **Actions that write to the database:** create a group (generates the passcode, stores target/photo rule/timezone), join with a passcode, check in, undo a check-in, vote rest day, change penalty (from tomorrow), change weekly target (from next Monday), toggle photo requirement. Also validity checks: `isValidCheckin` (server time matches the date), `joinDay` (from server time). |
-| `ledger.js` | **The money engine, pure maths.** `computeLedger` turns raw facts into daily/weekly results and each member's net total, following the group's daily or weekly rule. `settleUp` works out who pays whom with the fewest transfers. `penaltyOn` / `targetOn` read the change logs. Has no Firebase code, so it can be tested on its own. |
-| `useLedger.js` | The bridge between the database and the money engine. `useLedgerInputs` loads check-ins, rest votes and change logs and cleans them up (ignores invalid entries); `runLedger` feeds them into `computeLedger` with the group's settings. |
+| `dates.js` | Date maths on `YYYY-MM-DD` strings: the day in a given timezone, add days, days in a month, weekday, Monday of a week, streaks (current and best). |
+| `clock.js` | **Each member's own clock, pure logic** (phase 5.1). `makeClock` knows every member's timezone and logged changes and answers: your today, a friend's today, which timezone someone used on a given date, whether a day is still open for them, the furthest-ahead day, and `closedThrough` (the last day that has ended for everyone). Also `validChanges` (drops setting changes made too late) and `onItsDay` (a check-in/photo counts only if server time falls on its date in that person's timezone). |
+| `money.js` | **Pot currency** (phase 5.1). The four currencies, formatting (`₹1,234.50`, `C$5.00`), today's exchange rate from Frankfurter (with a fallback), and `makeMoney`: the currency on any day and `factorOn(day)`, the multiplier that converts that day's amounts into today's currency. |
+| `group.js` | **Actions that write to the database:** create a group (generates the passcode, stores target/photo rule/currency), join with a passcode (saves your phone's timezone), check in, undo a check-in, vote rest day, change penalty, change weekly target (from next Monday), change currency (with rate and new penalty), log a timezone change, toggle photo requirement. Also `joinDay` (from server time, in your timezone). |
+| `ledger.js` | **The money engine, pure maths.** `computeLedger` turns raw facts into daily/weekly results and each member's net total, following the group's daily or weekly rule, with every penalty converted into today's currency. `settleUp` works out who pays whom with the fewest transfers. `penaltyOn` / `targetOn` read the change logs. Has no Firebase code, so it can be tested on its own. |
+| `useLedger.js` | The bridge between the database and the money engine. `useLedgerInputs` loads check-ins, rest votes and change logs and cleans them up using each member's own timezone (ignores invalid entries); `runLedger` feeds them into `computeLedger` with the group's settings. |
 | `foods.js` | **Food search.** Searches 🇮🇳 INDB (from the bundled file), 🇺🇸 USDA and 📦 Open Food Facts, plus ⭐ your own foods, and turns every result into the same shape (nutrition + units). Also barcode lookup, nutrient scaling and totals. |
-| `privateData.js` | **Your private data.** Live hooks and writes for meals, own foods and recipes, targets and settings, weight entries, progress-photo records, all under `private/{you}/`. |
+| `privateData.js` | **Your private data.** Live hooks and writes for meals, own foods and recipes, targets and settings, weight entries, progress-photo records, and (phase 5.2) training setup, workouts, your own exercises, routines and body measurements, all under `private/{you}/`. `readAllPrivate` reads everything once for the export. |
 | `myDrive.js` | **Your own Google Drive.** Loads Google's sign-in library, asks for the `drive.file` permission, creates the `FitPot Progress` folder, uploads, shows and deletes progress photos. |
 | `image.js` | Shrinks and compresses a picture before upload. |
-| `photos.js` | Talks to the Apps Script: `uploadPhoto` (send the photo, then record the photo, and the check-in if required, in one batch), `photoUrl` (fetch a photo and cache it on the phone), `isValidPhoto`. `photosEnabled` is true only if the Drive URL secret was set. |
+| `account.js` | **Sign-in and account** (phase 5.3): Google and email sign-in, create account, reset password, verification, `isVerified`, change name / password, add a password to a Google account, re-authentication, delete account. Also turns Firebase error codes into plain English. |
+| `everywhere.js` | **One check-in for all your groups** (phase 5.2). `myDayInGroups` works out your day in each group (and tells a group if your timezone changed); `checkInEverywhere` uploads the photo per group and writes each group's photo + check-in; `undoEverywhere` undoes today everywhere. |
+| `training.js` | **Training maths, pure logic** (phase 5.2). Muscle groups, equipment, the built-in exercise library, `e1rm` (Epley), `lastTime`, `beatIt`, `personalRecords`, `weekByMuscle` (sets, volume and best set vs last week), kg/lb display helpers. No Firebase, so it's testable on its own. |
+| `photos.js` | Talks to the Apps Script: `uploadToDrive` (one group), `uploadPhoto` (send the photo, then record the photo, and the check-in if required, in one batch), `photoUrl` (fetch a photo and cache it on the phone), `isValidPhoto`. `photosEnabled` is true only if the Drive URL secret was set. |
 
 #### `src/components/` — reusable pieces
 
 | File | What it does |
 |---|---|
 | `Avatar.jsx` | A member's round Google profile photo, or their initials if there isn't one. |
+| `VerifyBanner.jsx` | "Confirm your email" card with **I've confirmed** and **Resend email**; shown in Me, Account and instead of join/create until verified. |
+| `JoinCreate.jsx` | Join a group with a passcode, or create one (name, target, currency, penalty, photo rule). Shown in the Group tab. (Was `screens/Onboarding.jsx`.) |
+| `WorkoutEditor.jsx` | Log or edit a workout: exercises → sets (weight × reps), last time + beat-it target per exercise, ✓ starts the rest timer, notes, and the 🏆 PR screen on save. |
+| `ExercisePicker.jsx` | Exercise finder: search, muscle-group chips, "only what my equipment allows", create / delete your own exercises. |
+| `RestTimer.jsx` | Countdown bar after a set, +15 s / Skip, vibrates when done (Android). |
+| `Measurements.jsx` | Body measurements by date (cm or in), latest vs first, all entries. |
+| `ExportData.jsx` | Export my data: CSV per area, or everything as JSON. |
 | `BarcodeScanner.jsx` | Live camera view that reads a pack's barcode (or lets you type the number). |
 | `FoodPicker.jsx` | The food finder: search box, source chips (🇮🇳 🇺🇸 📦), Recent, My foods, barcode button, results list. |
 | `PortionPicker.jsx` | Choose amount × unit and the meal, see the nutrition live, add it, or ⭐ save it to My foods. |
@@ -364,15 +433,17 @@ A recipe adds up its ingredients' nutrition, then divides by the number of servi
 
 | File | Screen | What it does |
 |---|---|---|
-| `Onboarding.jsx` | Join / Create group | Join with a 6-character passcode, or create a group (name, workout days per week, penalty, photo rule). |
 | `Today.jsx` | **Today** tab | The big CHECK IN button (opens the camera when a photo is required), Undo check-in, this week's progress (weekly groups) or today's stakes (daily groups), your month balance, rest-day voting, the group's rule, and the crew's live status. |
 | `Calendar.jsx` | **Calendar** tab | Month grid coloured by your status (done / missed / rest / today), streak stats, and a day breakdown when you tap a date. |
 | `Wall.jsx` | **Wall** tab | The group's workout photos for a chosen day, plus the button to post (or check in with) a photo. |
 | `Board.jsx` | **Board** tab | Month balances (with the shame 🙈), settle-up list, weekly results, streak leaderboard, and totals. |
-| `Me.jsx` | **Me** tab | Private area with three sections: Food, Progress, Targets (the Targets form lives here). |
+| `Login.jsx` | Login | Continue with Google, or email + password: Sign in · Create account · Forgot password. |
+| `Account.jsx` | ⚙️ **Account** | Name, sign-in methods, verification, change or add a password, sign out, delete my account. |
+| `Me.jsx` | **Me** tab (where you land) | Private area with four sections: Food, Training, Progress, Targets (the Targets form, body measurements and data export live here). Works without a group. |
+| `Training.jsx` | Me → Training | Log (start / repeat / routine, history with PRs), Muscles (weekly progressive overload), Records (per exercise + 1-rep max chart), Routines, Setup (goal, days, length, experience, rest timer, equipment, limitations). |
 | `FoodLog.jsx` | Me → Food | Daily diary by meal, totals vs targets, add/remove entries, My foods & recipes list. |
 | `Progress.jsx` | Me → Progress | Manual weight log, trend chart, 7/30-day change, entry list, and optional progress photos in your own Drive with side-by-side compare. |
-| `Group.jsx` | **Group** tab | Passcode + invite, **Group rules** (weekly target, photo requirement, penalty), members list, timezone, switch group, disclaimer. |
+| `Group.jsx` | **Group** tab | Your groups (switch), join or create another, then for the group you're viewing: passcode + invite, **Group rules** (weekly target, photo requirement, penalty), **Pot currency** (switch with today's rate), members with their timezone and local time, Leave this group, disclaimer. |
 
 ### Generated / not in the repo
 | Folder | What it is |
@@ -396,13 +467,13 @@ A recipe adds up its ingredients' nutrition, then divides by the number of servi
 2. `main.jsx` starts React → `App.jsx` runs.
 3. `firebase.js` connects to **Firebase** with the baked-in config.
 4. **Auth** reports whether they're signed in. If not → Login screen → **Google sign-in** popup → Auth issues a **uid** and **ID token**.
-5. `hooks.js` subscribes to their profile in **Firestore**. No group → Onboarding. Group → the Shell with five tabs.
+5. `hooks.js` subscribes to their profile in **Firestore** → the Shell opens on **Me**. If they're in groups, the group they last viewed loads for the group tabs; if not, those tabs offer "Join or create a group".
 
 ### C. Creating and joining a group
 1. **Create:** `group.js` picks a random passcode, then writes **in one batch**: the group, a `passcodes/{code}` lookup, the creator's member record (with server `joinedAt`), and the creator's profile `groupId`. The **rules** check the creator is who they say, the passcode lookup matches the group, and `joinedAt` is server time.
 2. **Join:** `group.js` looks up `passcodes/{code}` → gets the group ID → writes the member record (rules verify the passcode really belongs to that group) + profile `groupId`.
 
-### D. Checking in (photo required)
+### D. Checking in (photo required) — see also P for several groups
 1. Tap **📸 CHECK IN** on Today → `CameraCapture` opens the live camera (first time: consent screen).
 2. Snap → watermark drawn → compressed JPEG.
 3. **Check in + post** → `photos.js` gets the user's **ID token** from Auth and sends `{photo, token, groupId}` to **Apps Script**.
@@ -452,6 +523,46 @@ Tap **Vote rest** → writes your vote into `restdays/{today}` with server time.
 3. **＋ Add progress photo** → choose camera or gallery → `image.js` compresses it → `myDrive.js` uploads it to **your** Drive's `FitPot Progress` folder → FitPot stores only the file ID and date in `private/{you}/progress`.
 4. Viewing: FitPot asks your Drive for each file with your token. Nobody else has a token for your Drive, so nobody else can see them.
 
+### M. A friend in another country (phase 5.1)
+1. Asha joins from India → her member record saves `timezone: Asia/Kolkata`.
+2. At 7:30 AM IST Saturday (10 PM Friday in New York) she checks in → the check-in is dated **Saturday**, her day. The ledger accepts it because Google's server time, read in IST, is Saturday.
+3. On your Today (still Friday), Asha shows **Missed** or **In ✓** for Friday, and "7:30 AM Sat there".
+4. At your midnight, Friday has ended for everyone → `closedThrough` becomes Friday → Board settles it.
+
+### N. Travelling
+1. You fly from New York to India and open the app.
+2. `App.jsx` sees the phone says `Asia/Kolkata` but FitPot has you on New York → writes `tzchanges` {you, Asia/Kolkata, effective: your tomorrow}.
+3. Today shows "switching to IST from tomorrow". The rest of your current day stays on New York time.
+
+### O. Switching the pot to dollars
+1. **Group → Pot currency → $ US dollar** → `money.js` asks Frankfurter for today's ₹→$ rate → pre-fills it and the penalty (₹100 × 0.0118 ≈ $1.18).
+2. **Switch** → one batch: a `currencies` entry {from ₹, to $, rate, penalty, effective tomorrow} + a `penalties` entry.
+3. From tomorrow, `factorOn` multiplies every older ₹ amount by the rate, so the Board's months, settle-up and Today all show $.
+
+### P. One check-in, two groups (phase 5.2)
+1. You're in *Morning Grinders* ($, weekly) and *Office Lifters* (₹, daily). Either requires a photo → **📸 CHECK IN** opens the camera.
+2. **Check in + post** → `everywhere.js` reads, for each group, your member record and timezone log → your date there → whether you're already in.
+3. For each group: upload the photo to Drive for that group → one batch with that group's photo record + check-in.
+4. Both groups' Today and Wall update live. **Undo** reverses both.
+
+### Q. Leaving a group
+**Group → Leave this group** → one batch: your member record gets `leftAt` (server time) and the group is removed from your `groupIds`. From tomorrow the ledger stops counting you; your history stays.
+
+### S. Signing up with email (phase 5.3)
+1. Login → **Create account** → name, email, password → `account.js` creates the Firebase user, saves the name, and asks Firebase to email a verification link.
+2. You land on **Me** with the 📧 banner. The Group tab shows the same banner instead of join/create.
+3. Tap the link in the email → back in FitPot → **I've confirmed** → the app reloads your account and gets a fresh token with `email_verified: true` → join/create appears, and the rules now allow it.
+
+### T. Deleting an account
+⚙️ → **Delete my account…** → confirm with password (or Google) → type DELETE → `account.js` deletes every document under `private/{you}`, marks you left and "Former member" in each group, deletes `users/{you}`, then deletes the login. Friends' Boards are unchanged.
+
+### R. Logging a workout and beating last week
+1. **Me → Training → ▶ Push day** → the editor opens with the routine's exercises, weights pre-filled from last time.
+2. Each exercise shows "Last time: 60 kg × 10, 62.5 kg × 8 · beat it: 60 kg × 11".
+3. Tick ✓ after each set → rest timer runs.
+4. **Save** → `privateData.js` writes `private/{you}/workouts/{id}` (kg) → `personalRecords` compares with every earlier session → 🏆 screen if you beat something.
+5. **Muscles** recomputes the week: chest sets and volume vs last week, bench ▲.
+
 ---
 
 ## 6. The data model
@@ -460,16 +571,16 @@ Firestore is organised as **collections → documents → fields**. Paths read l
 
 ```
 users/{uid}                              your profile
-  name, photoURL, groupId, photoConsent
+  name, photoURL, groupId (the group you're viewing), groupIds (all your groups), leftGroupIds, photoConsent
 
 passcodes/{CODE}                         lookup table for joining
   groupId
 
 groups/{groupId}                         one friend group
-  name, passcode, penalty (base), weeklyTarget (base), photoRequired, timezone, createdBy, createdAt
+  name, passcode, penalty (base), currency (base), weeklyTarget (base), photoRequired, timezone (fallback), createdBy, createdAt
 
   members/{uid}                          who's in the group
-    name, photoURL, passcode, joinedAt (server time), joinedDate
+    name, photoURL, passcode, timezone (your phone's, locked), joinedAt (server time), joinedDate, leftAt (when you left; set once)
 
   checkins/{YYYY-MM-DD_uid}              one per person per day
     uid, date, createdAt (server time)
@@ -486,12 +597,23 @@ groups/{groupId}                         one friend group
   targets/{autoId}                       log of weekly-target changes
     target, effectiveDate (a Monday), setBy, setAt
 
+  tzchanges/{autoId}                     log of members' timezone changes (phase 5.1)
+    uid, timezone, effectiveDate (their next day), setAt
+
+  currencies/{autoId}                    log of pot-currency switches (phase 5.1)
+    from, currency, rate (1 from = rate currency), penalty, effectiveDate, setBy, setAt
+
 private/{uid}/                           only you can read or write anything here
   settings/main                          targets { kcal, protein, carbs, fat, fibre }, weightUnit, goalWeightKg
   meals/{autoId}                         date, meal, name, qty, unit, nutrients, food (copy for Recent), createdAt
   foods/{autoId}                         your foods & recipes: name, kind, servingLabel, servingGrams, perServing, barcode?, ingredients?
   weights/{YYYY-MM-DD}                   kg, date
   progress/{autoId}                      date, fileId (in YOUR Google Drive), note
+  settings/training                      goal, daysPerWeek, sessionMin, experience, restSec, limitations, equipment, customEquipment
+  workouts/{autoId}                      date, title, notes, exercises [{ key, name, muscle, sets [{ reps, kg }] }]
+  exercises/{autoId}                     your own exercises: name, muscle, eq
+  routines/{autoId}                      name, items [{ key, name, muscle, sets, reps }]
+  measurements/{YYYY-MM-DD}              date, cm { waist, chest, hips, arm, thigh, neck }, bodyFat
 ```
 
 **Why the IDs look like `2026-09-28_abc123`:** using `<date>_<uid>` as the document ID makes "one per person per day" automatic. A second write to the same ID would be an *update*, which the rules forbid.
@@ -506,17 +628,19 @@ All enforced by `firestore.rules` on Google's servers (and, for photos, by `Code
 |---|---|---|---|
 | Your profile | any signed-in user (name, avatar) | you | you |
 | Passcode lookup | fetch one if you know it; never list all | only the group's creator, with the group | never |
-| Group | members | any signed-in user (as creator) | members: rename, photo rule only |
-| Members | members | yourself, with the real passcode, server join time | yourself; join time is locked |
-| Check-ins | members | yourself, server time, `<date>_<you>`; photo required if the group says so | delete your own within 24 h |
+| Group | members | any signed-in user with a **verified email** (as creator) | members: rename, photo rule only |
+| Members | members | yourself, with a **verified email** and the real passcode, server join time | yourself; join time and timezone are locked; **Leave** once (server time) |
+| Check-ins | members | yourself, while you haven't left, server time, `<date>_<you>`; photo required if the group says so | delete your own within 24 h |
 | Photos | members | yourself, server time, `<date>_<you>` | delete your own within 24 h |
 | Rest votes | members | add/remove **your own** vote, server time | never delete the day |
 | Penalty / target changes | members | any member, server time, valid values | never (permanent log) |
+| Timezone changes | members | **your own** only, server time | never (permanent log) |
+| Currency switches | members | any member, server time, one of ₹ $ £ C$, rate > 0 | never (permanent log) |
 | Photo files (Drive) | members of that group, via Apps Script | members, via Apps Script | only the organiser, in Drive |
-| Everything under `private/{you}/` (meals, foods, targets, weight, progress records) | **only you** | **only you** | **only you** |
+| Everything under `private/{you}/` (meals, foods, targets, weight, progress records, training, workouts, routines, measurements) | **only you** | **only you** | **only you** |
 | Progress photo files | **only you** (they're in your own Drive) | you | you |
 
-**What stays trust-based:** FitPot can prove *when* you checked in and that the photo was taken live in the app. It can't prove you actually trained. That's the friend group's job.
+**What stays trust-based:** FitPot can prove *when* you checked in and that the photo was taken live in the app. It can't prove you actually trained. That's the friend group's job. Likewise, the exchange rate on a currency switch is editable, and the log shows who set it; agree on it as a group.
 
 ---
 
@@ -525,6 +649,9 @@ All enforced by `firestore.rules` on Google's servers (and, for photos, by `Code
 | Term | Meaning |
 |---|---|
 | **Access token** | A short-lived key from Google that lets an app act in your account, only within the permission you granted. |
+| **Closed-through day** | The last day that has ended for every member; the ledger settles up to it. |
+| **Exchange rate** | How much of one currency equals one unit of another on a given day. |
+| **IANA timezone** | A timezone's standard name, like `Asia/Kolkata` or `America/New_York`; it knows the daylight-saving rules. |
 | **Barcode (EAN/UPC)** | The product number printed by the manufacturer; the same in every shop. |
 | **OAuth** | The standard "Allow this app to…" permission flow. |
 | **Scope** | Exactly which permission an app asks for (FitPot: `drive.file`). |
@@ -540,6 +667,14 @@ All enforced by `firestore.rules` on Google's servers (and, for photos, by `Code
 | **CORS** | Browser rule about which websites may call which servers. The app calls Apps Script with a "simple" request to stay within it. |
 | **Deploy** | Publishing a new version so people can use it. |
 | **Hook** | A React function starting with `use…` that gives a component data or behaviour. |
+| **1RM / estimated 1-rep max** | The most you could lift once; estimated from any set with the Epley formula. |
+| **PR (personal record)** | Your best ever on an exercise: heaviest weight, best estimated 1RM, or most reps. |
+| **Progressive overload** | Doing a little more than last time (reps or weight) so muscles keep adapting. |
+| **Routine** | A saved list of exercises with target sets × reps, started in one tap. |
+| **Volume** | Weight × reps, added up over sets; a rough measure of total work. |
+| **Email verification** | Clicking a link sent to your inbox to prove the address is yours. |
+| **Linking** | Adding a second way to sign in (e.g. a password) to the same account. |
+| **Re-authentication** | Signing in again right before a sensitive change, so a borrowed phone can't change your password or delete your account. |
 | **ID token** | Short-lived signed proof of who you are, issued by Firebase Auth. |
 | **JSON** | The `{"key": "value"}` text format used to send data around. |
 | **Lint** | Automatic checking of code for mistakes. |

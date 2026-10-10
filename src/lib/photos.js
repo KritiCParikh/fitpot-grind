@@ -1,6 +1,6 @@
 import { doc, writeBatch, serverTimestamp } from 'firebase/firestore'
 import { db } from '../firebase'
-import { dayInTz, todayInTz } from './dates'
+import { onItsDay } from './clock'
 
 export const DRIVE_URL = import.meta.env.VITE_DRIVE_UPLOAD_URL || ''
 export const photosEnabled = Boolean(DRIVE_URL)
@@ -27,12 +27,18 @@ function blobToBase64(blob) {
   })
 }
 
+// Send a photo to the organiser's Drive for one group. Returns { fileId }.
+export async function uploadToDrive(user, groupId, blob) {
+  const idToken = await user.getIdToken()
+  return callDrive({ action: 'upload', idToken, groupId, imageBase64: await blobToBase64(blob) })
+}
+
 // Upload to Drive, then record the photo — and, when `checkIn` is true, the
 // check-in too, in one batch (the rules require the photo when the group does).
+// Single-group version; the app now uses checkInEverywhere (everywhere.js).
 export async function uploadPhoto(user, group, blob, { checkIn = false } = {}) {
-  const idToken = await user.getIdToken()
-  const res = await callDrive({ action: 'upload', idToken, groupId: group.id, imageBase64: await blobToBase64(blob) })
-  const day = todayInTz(group.timezone)
+  const res = await uploadToDrive(user, group.id, blob)
+  const day = group.clock.today() // your own day, in your timezone
   const id = `${day}_${user.uid}`
   const batch = writeBatch(db)
   batch.set(doc(db, 'groups', group.id, 'photos', id), {
@@ -47,7 +53,7 @@ export async function uploadPhoto(user, group, blob, { checkIn = false } = {}) {
   return res
 }
 
-export const isValidPhoto = (p, tz) => !p.createdAt || dayInTz(p.createdAt.toDate(), tz) === p.date
+export const isValidPhoto = (p, clock) => onItsDay(p, clock)
 
 // Photos are private in Drive, so they're fetched through the script and
 // cached on the phone (Cache Storage) so each one downloads only once.

@@ -2,14 +2,15 @@ import { useEffect, useRef, useState } from 'react'
 import { doc, setDoc } from 'firebase/firestore'
 import { db } from '../firebase'
 import { useUserDoc } from '../hooks'
-import { uploadPhoto } from '../lib/photos'
+import { checkInEverywhere } from '../lib/everywhere'
 
 const MAX_SIDE = 1080
 const TARGET_BYTES = 500 * 1024
 
 // Live camera only: there is no file picker anywhere, so gallery photos
 // can't be submitted. Works on phones and on laptops with a webcam.
-export default function CameraCapture({ user, group, onClose, onUploaded, checkIn = false }) {
+// The photo goes to every group you're in (one check-in for all groups).
+export default function CameraCapture({ user, group, groupIds, onClose, onUploaded, checkIn = false }) {
   const profile = useUserDoc(user.uid)
   const videoRef = useRef(null)
   const streamRef = useRef(null)
@@ -44,7 +45,7 @@ export default function CameraCapture({ user, group, onClose, onUploaded, checkI
     canvas.width = w; canvas.height = h
     const ctx = canvas.getContext('2d')
     ctx.drawImage(video, 0, 0, w, h)
-    watermark(ctx, w, h, user.displayName || 'FitPot', group.timezone)
+    watermark(ctx, w, h, user.displayName || 'FitPot', group.clock.myTz()) // your local time
 
     let blob = await new Promise((r) => canvas.toBlob(r, 'image/jpeg', 0.75))
     if (blob.size > TARGET_BYTES) blob = await new Promise((r) => canvas.toBlob(r, 'image/jpeg', 0.55))
@@ -56,8 +57,9 @@ export default function CameraCapture({ user, group, onClose, onUploaded, checkI
   async function send() {
     setPhase('uploading'); setError('')
     try {
-      await uploadPhoto(user, group, shot.blob, { checkIn })
-      onUploaded?.()
+      const result = await checkInEverywhere(user, groupIds, { blob: shot.blob, photoOnly: !checkIn })
+      if (!result.done.length && result.skipped.length) throw new Error(result.skipped.map((x) => `${x.name}: ${x.reason}`).join(' · '))
+      onUploaded?.(result)
       onClose()
     } catch (e) {
       setError(e.message || String(e)); setPhase('review')

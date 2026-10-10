@@ -4,8 +4,12 @@
 //
 // The group's "workout days per week" target picks the mode, per week:
 //
+// Members count from the day they join until the day before `leftDay`
+// (the day after they pressed Leave). In weekly mode, a week they had started
+// still counts.
+//
 // DAILY mode (target 7), for each finished day D:
-//   active  = members who had joined by D
+//   active  = members who had joined by D (and hadn't left)
 //   rest day (majority voted before D ended) → nobody pays
 //   missed  = active members with no check-in on D
 //   pot     = missed × penalty(D), split evenly among those who checked in
@@ -17,16 +21,26 @@
 //   short   = max(0, target − workouts that week)
 //   each member pays short × penalty(Monday); the pot is split evenly among
 //   everyone who hit the target. If nobody hit it, nobody pays.
+//
+// CURRENCY: each penalty is in the currency in force on its day. `factorOn(day)`
+// converts it into the currency shown today (at the rate saved when the group
+// switched), so every result and total comes out in one currency.
 
 import { addDays, mondayOf } from './dates.js'
 
 const cents = (x) => Math.round(x * 100) / 100
+const inOn = (m, day) => m.joinDay <= day && (!m.leftDay || day < m.leftDay)
+const inForWeek = (m, mon) => m.joinDay <= mon && (!m.leftDay || m.leftDay > mon)
 
-/** Latest change with effectiveDate <= day, else the base value. */
+const stamp = (c) => (c.setAt ? +c.setAt : Infinity)
+
+/** Latest change with effectiveDate <= day (two on the same day: the later one wins), else the base value. */
 export function valueOn(day, base, changes, key) {
-  let v = base, latest = ''
+  let v = base, best = null
   for (const c of changes) {
-    if (c.effectiveDate <= day && c.effectiveDate > latest) { latest = c.effectiveDate; v = c[key] }
+    if (c.effectiveDate > day) continue
+    if (!best || c.effectiveDate > best.effectiveDate
+      || (c.effectiveDate === best.effectiveDate && stamp(c) >= stamp(best))) { best = c; v = c[key] }
   }
   return v
 }
@@ -42,7 +56,7 @@ export function isRestDay(day, votes, activeUids) {
 }
 
 /**
- * members:   [{ uid, joinDay }]
+ * members:   [{ uid, joinDay, leftDay? }]
  * doneByDay: { 'YYYY-MM-DD': Set<uid> }             (valid check-ins only)
  * restVotes: { 'YYYY-MM-DD': { uid: voteDay } }
  * Daily-mode days are included when the day is in [from, to].
@@ -53,6 +67,7 @@ export function isRestDay(day, votes, activeUids) {
 export function computeLedger({
   from, to, members, doneByDay, restVotes,
   basePenalty, penaltyChanges, baseTarget = 7, targetChanges = [], startDay,
+  factorOn = () => 1,
 }) {
   const totals = Object.fromEntries(members.map((m) => [m.uid, 0]))
   const days = [], weeks = []
@@ -65,9 +80,9 @@ export function computeLedger({
       // ---- daily mode ----
       for (let day = mon; day <= sun; day = addDays(day, 1)) {
         if (day < from || day > to || (startDay && day < startDay)) continue
-        const active = members.filter((m) => m.joinDay <= day).map((m) => m.uid)
+        const active = members.filter((m) => inOn(m, day)).map((m) => m.uid)
         if (!active.length) continue
-        const penalty = penaltyOn(day, basePenalty, penaltyChanges)
+        const penalty = penaltyOn(day, basePenalty, penaltyChanges) * factorOn(day)
         const done = doneByDay[day] || new Set()
         const showed = active.filter((u) => done.has(u))
         const missed = active.filter((u) => !done.has(u))
@@ -88,11 +103,11 @@ export function computeLedger({
     // Per-day info (for the calendar), no money attached.
     for (let day = mon; day <= sun; day = addDays(day, 1)) {
       if (day < from || day > to || (startDay && day < startDay)) continue
-      const active = members.filter((m) => m.joinDay <= day).map((m) => m.uid)
+      const active = members.filter((m) => inOn(m, day)).map((m) => m.uid)
       if (!active.length) continue
       const done = doneByDay[day] || new Set()
       days.push({
-        day, mode: 'weekly', penalty: penaltyOn(mon, basePenalty, penaltyChanges),
+        day, mode: 'weekly', penalty: penaltyOn(mon, basePenalty, penaltyChanges) * factorOn(mon),
         rest: isRestDay(day, restVotes[day], active),
         showed: active.filter((u) => done.has(u)), missed: active.filter((u) => !done.has(u)),
         pot: 0, each: 0,
@@ -101,7 +116,7 @@ export function computeLedger({
 
     if (sun < from || sun > to) continue // settle only weeks that END inside the range
     if (startDay && mon < startDay) continue // the group's first partial week is free
-    const active = members.filter((m) => m.joinDay <= mon).map((m) => m.uid)
+    const active = members.filter((m) => inForWeek(m, mon)).map((m) => m.uid)
     if (!active.length) continue
 
     let restDays = 0
@@ -112,7 +127,7 @@ export function computeLedger({
       if (done) for (const u of active) if (done.has(u)) counts[u]++
     }
     const needed = Math.max(0, target - restDays)
-    const penalty = penaltyOn(mon, basePenalty, penaltyChanges)
+    const penalty = penaltyOn(mon, basePenalty, penaltyChanges) * factorOn(mon)
     const short = Object.fromEntries(active.map((u) => [u, Math.max(0, needed - counts[u])]))
     const hit = active.filter((u) => short[u] === 0)
     const missedUids = active.filter((u) => short[u] > 0)
