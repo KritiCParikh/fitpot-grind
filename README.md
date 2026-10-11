@@ -45,3 +45,4 @@ It then opens full screen from its own icon, like a normal app.
 - [ ] Phase 6 - AI model (scratch -> fine-tune -> browser) + push notifications + personalised training plans from our model, built on the Training data
 
 > FitPot tracks informal debts between friends. It does not move money.
+
