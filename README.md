@@ -36,8 +36,8 @@ It then opens full screen from its own icon, like a normal app.
 - [x] Phase 5.1 - each member's own timezone (group settles after the last midnight); pot currency ₹ / $ / £ / C$ with conversion at the day's rate
 - [x] Phase 5.2 - Me-first sign-in, several groups (one check-in for all, Leave), Training tab (progressive overload, PRs, routines, rest timer), body measurements, data export
 - [x] Phase 5.3 - email + password sign-in, email verification, Account page (name, password, add a password to Google, delete account)
-- [x] Phase 5.4 - kg / lb and km / mi switches, cardio logging (10 activities, pace, records), plain text with no emojis
-- [x] Phase 5.5 - installed app on iPhone and Android (free): install card, offline, shortcuts, update bar, icons and splash, Android APK via PWABuilder
+- [x] Phase 5.4 - kg / lb and km / mi switches, cardio logging (10 activities, pace, records)
+- [x] Phase 5.5 - installed app on iPhone and Android (free): install card, offline, shortcuts, update bar, icons and splash
 - [x] Phase 5.6 - up to 4 photos a day with an optional activity tag, flip tiles on the Wall, delete a single photo
 - [x] Phase 5.7 - bigger text and new navigation features
 - [x] Phase 5.8 - kind daily reminders: three push notifications a day in our own time, quiet once we've checked in
