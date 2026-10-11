@@ -110,8 +110,10 @@ export default function WorkoutEditor({ uid, initial, workouts, exercises, have,
     return (
       <div className="sheet">
         <div className="card pr-card">
+          <img className="pr-art" src={`${import.meta.env.BASE_URL}rewards/pr-hanuman.jpg`} alt="Hanuman ji with his gold gada" />
           <p className="pr-big">New best</p>
           <h3>{prs.length} personal record{prs.length > 1 ? 's' : ''}</h3>
+          <p className="muted small pr-line">Strength like Bajrang Bali. Your crew will be proud.</p>
           <ul className="member-list">
             {prs.map((p, i) => (
               <li key={i} className="in">

@@ -13,10 +13,10 @@ export default defineConfig({
     VitePWA({
       // 'prompt': a new version waits until you tap "Update" (see UpdateBar.jsx).
       registerType: 'prompt',
-      includeAssets: ['icon.svg', 'icons/*.png', 'splash/*.png', 'data/indb.json', 'push-sw.js'],
+      includeAssets: ['icon.svg', 'icons/*.png', 'splash/*.png', 'rewards/*.jpg', 'data/indb.json', 'push-sw.js'],
       workbox: {
         importScripts: ['push-sw.js'], // reminders (phase 5.8)
-        globPatterns: ['**/*.{js,css,html,svg,json,png}'],
+        globPatterns: ['**/*.{js,css,html,svg,json,png,jpg}'],
         globIgnores: ['splash/**'], // splash screens are only fetched by iPhones at install
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
       },
@@ -32,11 +32,12 @@ export default defineConfig({
         start_url: base,
         scope: base,
         categories: ['health', 'fitness', 'lifestyle'],
+        // Phase 5.9: the gullak kettlebell. PNGs only, so phones always pick the
+        // detailed icon (icon.svg is the simple version for browser tabs).
         icons: [
           { src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
           { src: 'icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
           { src: 'icons/maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
-          { src: 'icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' },
         ],
         // Long-press the app icon for these.
         shortcuts: [

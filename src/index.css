@@ -198,7 +198,7 @@ section > .cal-head { margin-bottom: 4px; }
 .chip.on { background: rgba(198, 255, 61, 0.14); color: var(--lime); border-color: rgba(198, 255, 61, 0.4); }
 .action-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
 
-.sheet { position: fixed; inset: 0; z-index: 40; background: var(--bg); overflow-y: auto; padding: calc(12px + env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom)); max-width: 560px; margin: 0 auto; }
+.sheet { position: fixed; inset: 0; z-index: 42; /* above the Me barbell (40), so Save buttons are never covered (fix in phase 5.9) */ background: var(--bg); overflow-y: auto; padding: calc(12px + env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom)); max-width: 560px; margin: 0 auto; }
 .sheet-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
 .sheet .wide { margin-top: 12px; }
 
@@ -273,8 +273,11 @@ button.plain { background: none; border: 0; color: inherit; font: inherit; text-
 .rest-bar i { position: absolute; left: 0; top: 0; bottom: 0; background: rgba(198, 255, 61, 0.12); pointer-events: none; }
 .rest-bar.done { border-color: var(--orange); }
 .sheet:has(.rest-bar) { padding-bottom: 96px; }
-.pr-card { text-align: center; margin-top: 15vh; }
+.pr-card { text-align: center; margin-top: 6vh; }
 .pr-big { font-size: 3rem; margin: 0; }
+/* Phase 5.9: Hanuman ji with the gold gada on the new personal record screen */
+.pr-art { display: block; width: min(220px, 60vw); aspect-ratio: 1; margin: 0 auto 12px; border-radius: 22px; object-fit: cover; box-shadow: 0 10px 30px rgba(255, 122, 26, 0.18); }
+.pr-line { margin: 4px 0 14px; }
 .muscle-card summary { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; cursor: pointer; list-style: none; }
 .muscle-card summary::-webkit-details-marker { display: none; }
 .muscle-card .member-list { margin-top: 10px; }
@@ -355,6 +358,9 @@ body { line-height: 1.45; }
 /* header */
 .icon-btn { display: inline-grid; place-items: center; width: 44px; height: 44px; border-radius: 14px; border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; flex: none; }
 .topbar .small-logo { font-size: 1.35rem; flex: none; }
+/* Phase 5.9: the gullak kettlebell mark next to the name */
+.brand { display: flex; align-items: center; gap: 6px; flex: none; }
+.mark { display: block; flex: none; }
 .topbar .group-switch { flex: 1; max-width: none; min-height: 40px; font-size: 0.9rem; }
 .quick-check { flex: none; min-height: 44px; padding: 0 16px; border-radius: 999px; border: 0; background: var(--lime); color: #0b0d0c; font: inherit; font-weight: 800; font-size: 0.92rem; cursor: pointer; }
 .quick-check.done { background: transparent; color: var(--lime); border: 1.5px solid var(--lime); }

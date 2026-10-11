@@ -9,7 +9,7 @@ self.addEventListener('push', (event) => {
   event.waitUntil(self.registration.showNotification(title, {
     body: d.body || '',
     icon: 'icons/icon-192.png',
-    badge: 'icons/icon-192.png',
+    badge: 'icons/badge-96.png', // white outline for Android's status bar (phase 5.9)
     tag: d.tag || 'fitpot',
     renotify: false,
     data: { url: d.url || './' },

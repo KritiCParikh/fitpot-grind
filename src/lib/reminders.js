@@ -79,6 +79,6 @@ export async function testReminder(name) {
   const registration = await navigator.serviceWorker.ready
   await registration.showNotification(`Hello, ${name || 'there'}`, {
     body: 'This is how your FitPot reminders will look. Kind words, three times a day.',
-    icon: 'icons/icon-192.png', badge: 'icons/icon-192.png', tag: 'fitpot-test',
+    icon: 'icons/icon-192.png', badge: 'icons/badge-96.png', tag: 'fitpot-test',
   })
 }

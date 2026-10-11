@@ -22,6 +22,7 @@ import QuickCheck from './nav/QuickCheck'
 import useSwipe from './nav/useSwipe'
 import { currentKey } from './nav/pages'
 import OfflineBar from './components/OfflineBar'
+import Mark from './nav/Mark'
 
 function SetupNotice() {
   return (
@@ -130,7 +131,7 @@ function Shell({ user, profile }) {
           <button className="icon-btn menu-btn" onClick={() => setMenu(true)} aria-label="Open menu" aria-expanded={menu}>
             <Icon name="menu" size={26} />
           </button>
-          <span className="logo small-logo">FitPot</span>
+          <span className="brand"><Mark size={28} /><span className="logo small-logo">FitPot</span></span>
           <GroupSwitcher user={user} groupIds={groupIds} activeId={activeId} meta={meta} />
           <QuickCheck user={user} />
         </header>
