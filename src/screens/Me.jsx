@@ -3,14 +3,13 @@ import { NUTRIENTS } from '../lib/foods'
 import { useSettings, saveSettings, useMealsOn, LB_PER_KG } from '../lib/privateData'
 import FoodLog from './FoodLog'
 import Progress from './Progress'
-import Training from './Training'
+import Training, { TRAINING_SECTIONS } from './Training'
 import Measurements from '../components/Measurements'
 import ExportData from '../components/ExportData'
 import VerifyBanner from '../components/VerifyBanner'
 import InstallCard from '../components/InstallCard'
 import { useLocation, useNavigate } from 'react-router-dom'
 import MeBar, { ME_TABS } from '../nav/MeBar'
-import TrainingDial, { TRAINING_SECTIONS } from '../nav/TrainingDial'
 import FoodPlate from '../nav/FoodPlate'
 import { myToday } from '../lib/clock'
 import { local } from '../lib/device'
@@ -21,8 +20,8 @@ import { local } from '../lib/device'
 // Sections (phase 5.7): Food, Training (Log, Muscles, Records, Routines,
 // Setup), Progress, Targets. The current one lives in the address
 // (#/?me=training&t=records), so the menu, shortcuts and Back all work.
-// The bottom barbell switches sections; tapping the plate you're on opens
-// the Training dial or the food plate.
+// The bottom barbell switches sections. Tapping the Food plate again opens
+// the food plate. Training switches with its tabs at the top (phase 5.7.1).
 export default function Me({ user }) {
   const params = new URLSearchParams(useLocation().search)
   const navigate = useNavigate()
@@ -30,13 +29,13 @@ export default function Me({ user }) {
   const lastSection = local.get('fitpot-training-section')
   const section = TRAINING_SECTIONS.some((s) => s.key === params.get('t')) ? params.get('t')
     : TRAINING_SECTIONS.some((s) => s.key === lastSection) ? lastSection : 'log'
-  const [chooser, setChooser] = useState(null) // null | 'dial' | 'plate'
+  const [chooser, setChooser] = useState(null) // null | 'plate'
   const [foodCmd, setFoodCmd] = useState(null) // what the food plate asked the diary to open
   const [, bump] = useState(0) // re-render once your email is confirmed
 
   const go = (me, t) => navigate(`/?me=${me}${me === 'training' ? `&t=${t || section}` : ''}`)
   function onTab(key) {
-    if (key === tab && key === 'training') return setChooser('dial')
+    if (key === tab && key === 'training') return // already here: the tabs at the top switch sections
     if (key === tab && key === 'food') return setChooser('plate')
     go(key)
   }
@@ -49,19 +48,15 @@ export default function Me({ user }) {
       <InstallCard />
       {tab === 'food' && <FoodLog user={user} command={foodCmd} onOpenPlate={() => setChooser('plate')} />}
       {tab === 'training' && (
-        <Training user={user} section={section} onOpenDial={() => setChooser('dial')} />
+        <Training user={user} section={section} onSection={(t) => {
+          local.set('fitpot-training-section', t)
+          go('training', t)
+        }} />
       )}
       {tab === 'progress' && <Progress user={user} />}
       {tab === 'targets' && <Targets user={user} />}
 
       <MeBar tab={tab} sectionLabel={sectionLabel} onTab={onTab} />
-      {chooser === 'dial' && (
-        <TrainingDial section={section} onClose={() => setChooser(null)} onPick={(t) => {
-          local.set('fitpot-training-section', t)
-          setChooser(null)
-          go('training', t)
-        }} />
-      )}
       {chooser === 'plate' && <FoodPlateFor user={user} onClose={() => setChooser(null)} onPick={(w) => {
         setChooser(null)
         setFoodCmd({ w, n: Date.now() })

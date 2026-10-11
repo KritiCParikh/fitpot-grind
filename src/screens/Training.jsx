@@ -12,8 +12,11 @@ import WorkoutEditor from '../components/WorkoutEditor'
 import ExercisePicker from '../components/ExercisePicker'
 import WeightChart from '../components/WeightChart'
 import UnitSwitch from '../components/UnitSwitch'
+import Icon from '../nav/Icon'
 
-const VIEWS = [
+// Training's sections, shown as tabs at the top (phase 5.7.1: the plate dial
+// was removed, the tabs are the one way to switch).
+export const TRAINING_SECTIONS = [
   { key: 'log', label: 'Log' },
   { key: 'muscles', label: 'Muscles' },
   { key: 'records', label: 'Records' },
@@ -23,7 +26,7 @@ const VIEWS = [
 const short = (d) => prettyDay(d).split(', ').slice(1).join(', ')
 
 // Me → Training: a private progressive-overload tracker.
-export default function Training({ user, section = 'log', onOpenDial }) {
+export default function Training({ user, section = 'log', onSection }) {
   const uid = user.uid
   const today = myToday()
   const training = useTraining(uid)
@@ -33,6 +36,7 @@ export default function Training({ user, section = 'log', onOpenDial }) {
   const routines = useRoutines(uid)
   const view = section
   const [editor, setEditor] = useState(null) // initial workout for the editor
+  const [planNote, setPlanNote] = useState(false)
 
   const workouts = useMemo(() => (rawWorkouts || []).map((w) => ({ ...w, createdMs: w.createdAt?.toMillis?.() || 0 })), [rawWorkouts])
   const exercises = useMemo(() => allExercises(custom || []), [custom])
@@ -46,10 +50,17 @@ export default function Training({ user, section = 'log', onOpenDial }) {
 
   return (
     <>
-      {/* Where you are in Training. Tap to open the dial (same as tapping the Training plate again). */}
-      <button className="section-switch" onClick={onOpenDial} aria-label="Change Training section">
-        {VIEWS.map((v) => <span key={v.key} className={view === v.key ? 'on' : ''}>{v.label}</span>)}
+      {/* Training's sections. Tap one to go there. My plan is the safe for Phase 8. */}
+      <nav className="section-switch" aria-label="Training sections">
+        {TRAINING_SECTIONS.map((v) => (
+          <button key={v.key} type="button" className={view === v.key ? 'on' : ''} aria-current={view === v.key ? 'page' : undefined}
+            onClick={() => onSection?.(v.key)}>{v.label}</button>
+        ))}
+      </nav>
+      <button type="button" className="plan-safe" aria-expanded={planNote} onClick={() => setPlanNote((x) => !x)}>
+        <Icon name="lock" size={14} /> My plan <span className="muted">· coming soon</span>
       </button>
+      {planNote && <p className="muted small plan-note">My plan is being built (Phase 8): a training plan made from your own workouts.</p>}
       {view === 'log' && <LogView {...ctx} />}
       {view === 'muscles' && <MusclesView {...ctx} />}
       {view === 'records' && <RecordsView {...ctx} />}
