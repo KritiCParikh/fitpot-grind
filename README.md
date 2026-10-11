@@ -41,6 +41,7 @@ It then opens full screen from its own icon, like a normal app.
 - [x] Phase 5.6 - up to 4 photos a day with an optional activity tag, flip tiles on the Wall, delete a single photo
 - [x] Phase 5.7 - bigger text and new navigation features
 - [x] Phase 5.8 - kind daily reminders: three push notifications a day in our own time, quiet once we've checked in
+- [x] Phase 5.9 - the gullak kettlebell icon in every size, mark in the header, white reminder badge, Hanuman ji with the gold gada on the PR screen
 - [ ] Phase 6 - AI model (scratch -> fine-tune -> browser) + push notifications + personalised training plans from our model, built on the Training data
 
 > FitPot tracks informal debts between friends. It does not move money.
