@@ -30,7 +30,7 @@ It then opens full screen from its own icon, like a normal app.
 - [x] Phase 1 - groups + passcode join
 - [x] Phase 2 - daily check in + calendar
 - [x] Phase 3 - pot ledger, balances, leaderboard, rest days
-- [x] Phase 4 - camera-only photos -> Drive, photo wall
+- [x] Phase 4 - camera only photos -> Drive, photo wall
 - [x] Phase 4.5 - group rules: weekly workout target, photo required check in, undo
 - [x] Phase 5 - Me tab: food log (India, USA and packaged foods, your own foods and recipes, barcode), targets, weight log, private progress photos
 - [x] Phase 5.1 - each member's own timezone (group settles after the last midnight); pot currency ₹ / $ / £ / C$ with conversion at the day's rate
