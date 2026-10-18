@@ -26,16 +26,16 @@ fitpot/
 It then opens full screen from its own icon, like a normal app.
 
 ## Roadmap
-- [x] Phase 0 - repo, PWA shell, Google sign-in, auto-deploy
+- [x] Phase 0 - repo, PWA shell, Google sign in, auto deploy
 - [x] Phase 1 - groups + passcode join
-- [x] Phase 2 - daily check-in + calendar
+- [x] Phase 2 - daily check in + calendar
 - [x] Phase 3 - pot ledger, balances, leaderboard, rest days
-- [x] Phase 4 - camera-only photos → Drive, photo wall
-- [x] Phase 4.5 - group rules: weekly workout target, photo-required check-in, undo
+- [x] Phase 4 - camera-only photos -> Drive, photo wall
+- [x] Phase 4.5 - group rules: weekly workout target, photo required check in, undo
 - [x] Phase 5 - Me tab: food log (India, USA and packaged foods, your own foods and recipes, barcode), targets, weight log, private progress photos
 - [x] Phase 5.1 - each member's own timezone (group settles after the last midnight); pot currency ₹ / $ / £ / C$ with conversion at the day's rate
-- [x] Phase 5.2 - Me-first sign-in, several groups (one check-in for all, Leave), Training tab (progressive overload, PRs, routines, rest timer), body measurements, data export
-- [x] Phase 5.3 - email + password sign-in, email verification, Account page (name, password, add a password to Google, delete account)
+- [x] Phase 5.2 - Me first sign in, several groups (one check in for all, Leave), Training tab (progressive overload, PRs, routines, rest timer), body measurements, data export
+- [x] Phase 5.3 - email + password sign in, email verification, Account page (name, password, add a password to Google, delete account)
 - [x] Phase 5.4 - kg / lb and km / mi switches, cardio logging (10 activities, pace, records)
 - [x] Phase 5.5 - installed app on iPhone and Android (free): install card, offline, shortcuts, update bar, icons and splash
 - [x] Phase 5.6 - up to 4 photos a day with an optional activity tag, flip tiles on the Wall, delete a single photo
