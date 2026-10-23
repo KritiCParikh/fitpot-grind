@@ -10,21 +10,51 @@
 
 import { addDays, mondayOf } from './dates.js'
 
+// Muscle groups, each with optional specific parts (phase 5.10, after the
+// MuscleWiki breakdown). A part's key is also its region on the body map.
+// Groups with no parts use their own key as the region. Old workouts only
+// carry the group key, and that still works everywhere.
+const P = (key, label) => ({ key, label })
 export const MUSCLES = [
-  { key: 'chest', label: 'Chest' },
-  { key: 'back', label: 'Back' },
-  { key: 'shoulders', label: 'Shoulders' },
-  { key: 'biceps', label: 'Biceps' },
-  { key: 'triceps', label: 'Triceps' },
-  { key: 'forearms', label: 'Forearms' },
-  { key: 'quads', label: 'Quads' },
-  { key: 'hamstrings', label: 'Hamstrings' },
-  { key: 'glutes', label: 'Glutes' },
-  { key: 'calves', label: 'Calves' },
-  { key: 'core', label: 'Core' },
-  { key: 'fullbody', label: 'Full body' },
-  { key: 'cardio', label: 'Cardio' },
+  { key: 'neck', label: 'Neck', parts: [] },
+  { key: 'traps', label: 'Traps', parts: [P('traps_upper', 'Upper traps'), P('traps_mid', 'Mid-back traps'), P('traps_lower', 'Lower traps')] },
+  { key: 'shoulders', label: 'Shoulders', parts: [P('delt_front', 'Front delts'), P('delt_side', 'Side delts'), P('delt_rear', 'Rear delts')] },
+  { key: 'chest', label: 'Chest', parts: [P('chest_upper', 'Upper chest'), P('chest_lower', 'Mid and lower chest')] },
+  { key: 'back', label: 'Back', parts: [P('lats', 'Lats'), P('lower_back', 'Lower back')] },
+  { key: 'biceps', label: 'Biceps', parts: [P('bi_long', 'Long head'), P('bi_short', 'Short head')] },
+  { key: 'triceps', label: 'Triceps', parts: [P('tri_long', 'Long head'), P('tri_lat', 'Lateral head'), P('tri_med', 'Medial head')] },
+  { key: 'forearms', label: 'Forearms', parts: [P('fa_flex', 'Wrist flexors'), P('fa_ext', 'Wrist extensors'), P('grip', 'Grip and hands')] },
+  { key: 'core', label: 'Abs and core', parts: [P('abs_upper', 'Upper abs'), P('abs_lower', 'Lower abs'), P('obliques', 'Obliques')] },
+  { key: 'glutes', label: 'Glutes', parts: [P('glute_max', 'Glute max'), P('glute_med', 'Glute med')] },
+  { key: 'quads', label: 'Quads', parts: [P('quad_rf', 'Rectus femoris'), P('quad_in', 'Inner quad'), P('quad_out', 'Outer quad')] },
+  { key: 'hamstrings', label: 'Hamstrings', parts: [P('ham_in', 'Inner hamstrings'), P('ham_out', 'Outer hamstrings')] },
+  { key: 'adductors', label: 'Inner thigh / Groin', parts: [] },
+  { key: 'calves', label: 'Calves', parts: [P('gastroc', 'Gastrocnemius'), P('soleus', 'Soleus')] },
+  { key: 'shins', label: 'Shins', parts: [] },
+  { key: 'feet', label: 'Feet', parts: [] },
+  { key: 'fullbody', label: 'Full body', parts: [], noMap: true },
+  { key: 'cardio', label: 'Cardio', parts: [], noMap: true },
 ]
+const PART_INFO = Object.fromEntries(MUSCLES.flatMap((m) => m.parts.map((p) => [p.key, { ...p, muscle: m.key }])))
+/** Label of a specific part, e.g. 'traps_mid' -> 'Mid-back traps'. */
+export const partLabel = (k) => PART_INFO[k]?.label || ''
+/** Which group a part belongs to. */
+export const muscleOfPart = (k) => PART_INFO[k]?.muscle || ''
+/** "Traps / Mid-back traps", or just "Traps". */
+export const muscleText = (muscle, part) => (part && PART_INFO[part] ? `${muscleLabel(muscle)} / ${partLabel(part)}` : muscleLabel(muscle))
+/** Body map regions of a group: its parts, or the group itself. */
+export function regionsOf(muscle) {
+  const m = MUSCLES.find((x) => x.key === muscle)
+  if (!m || m.noMap) return []
+  return m.parts.length ? m.parts.map((p) => p.key) : [m.key]
+}
+/** The group and part for a tapped region of the body map. */
+export function fromRegion(region) {
+  if (PART_INFO[region]) return { muscle: PART_INFO[region].muscle, part: region }
+  return MUSCLES.some((m) => m.key === region) ? { muscle: region, part: '' } : null
+}
+/** Label for a body map region. */
+export const regionLabel = (r) => partLabel(r) || muscleLabel(r)
 export const muscleLabel = (k) => MUSCLES.find((m) => m.key === k)?.label || 'Other'
 
 // Equipment checklist. 'bodyweight' is always available.
@@ -53,60 +83,79 @@ export const EQUIPMENT = [
   { key: 'pool', label: 'Swimming pool' },
 ]
 
-// Built-in exercises: key, name, primary muscle, equipment (any one of these works).
-const X = (key, name, muscle, eq) => ({ key, name, muscle, eq })
+// Built-in exercises: key, name, primary muscle, equipment (any one of these works),
+// and the specific part it targets most, where that's clear (optional).
+const X = (key, name, muscle, eq, part) => ({ key, name, muscle, eq, ...(part ? { part } : {}) })
 // Cardio: metric 'distance' logs distance + time; 'time' logs time + a count (floors, jumps).
 const C = (key, name, eq, metric = 'distance', countLabel = '') => ({ key, name, muscle: 'cardio', eq, kind: 'cardio', metric, countLabel })
 export const LIBRARY = [
   // chest
-  X('bench', 'Barbell bench press', 'chest', ['barbell']),
-  X('incline-bench', 'Incline barbell bench press', 'chest', ['barbell']),
-  X('db-bench', 'Dumbbell bench press', 'chest', ['dumbbell']),
-  X('incline-db', 'Incline dumbbell press', 'chest', ['dumbbell']),
-  X('db-fly', 'Dumbbell fly', 'chest', ['dumbbell']),
-  X('cable-fly', 'Cable fly / crossover', 'chest', ['cable']),
-  X('chest-press', 'Chest press machine', 'chest', ['machine']),
-  X('smith-bench', 'Smith machine bench press', 'chest', ['smith']),
-  X('pushup', 'Push-up', 'chest', ['bodyweight']),
-  X('dips', 'Dips', 'chest', ['dip']),
+  X('bench', 'Barbell bench press', 'chest', ['barbell'], 'chest_lower'),
+  X('incline-bench', 'Incline barbell bench press', 'chest', ['barbell'], 'chest_upper'),
+  X('db-bench', 'Dumbbell bench press', 'chest', ['dumbbell'], 'chest_lower'),
+  X('incline-db', 'Incline dumbbell press', 'chest', ['dumbbell'], 'chest_upper'),
+  X('db-fly', 'Dumbbell fly', 'chest', ['dumbbell'], 'chest_lower'),
+  X('cable-fly', 'Cable fly / crossover', 'chest', ['cable'], 'chest_lower'),
+  X('chest-press', 'Chest press machine', 'chest', ['machine'], 'chest_lower'),
+  X('incline-cable-fly', 'Low to high cable fly', 'chest', ['cable'], 'chest_upper'),
+  X('smith-bench', 'Smith machine bench press', 'chest', ['smith'], 'chest_lower'),
+  X('pushup', 'Push-up', 'chest', ['bodyweight'], 'chest_lower'),
+  X('dips', 'Dips', 'chest', ['dip'], 'chest_lower'),
   // back
   X('deadlift', 'Deadlift', 'back', ['barbell']),
   X('bb-row', 'Barbell row', 'back', ['barbell']),
-  X('db-row', 'One-arm dumbbell row', 'back', ['dumbbell']),
+  X('db-row', 'One-arm dumbbell row', 'back', ['dumbbell'], 'lats'),
   X('tbar-row', 'T-bar row', 'back', ['barbell', 'machine']),
-  X('pullup', 'Pull-up', 'back', ['pullup']),
-  X('chinup', 'Chin-up', 'back', ['pullup']),
-  X('lat-pulldown', 'Lat pulldown', 'back', ['cable', 'machine']),
+  X('pullup', 'Pull-up', 'back', ['pullup'], 'lats'),
+  X('chinup', 'Chin-up', 'back', ['pullup'], 'lats'),
+  X('lat-pulldown', 'Lat pulldown', 'back', ['cable', 'machine'], 'lats'),
   X('cable-row', 'Seated cable row', 'back', ['cable']),
   X('machine-row', 'Machine row', 'back', ['machine']),
   X('band-row', 'Band row', 'back', ['bands']),
+  X('back-ext', 'Back extension', 'back', ['machine', 'bodyweight'], 'lower_back'),
+  X('bird-dog', 'Bird dog', 'back', ['bodyweight'], 'lower_back'),
+  // traps
+  X('bb-shrug', 'Barbell shrug', 'traps', ['barbell'], 'traps_upper'),
+  X('db-shrug', 'Dumbbell shrug', 'traps', ['dumbbell'], 'traps_upper'),
+  X('cs-row', 'Chest-supported row', 'traps', ['dumbbell', 'machine'], 'traps_mid'),
+  X('prone-t', 'Prone T raise', 'traps', ['dumbbell', 'bodyweight'], 'traps_mid'),
+  X('prone-y', 'Prone Y raise', 'traps', ['dumbbell', 'bodyweight'], 'traps_lower'),
+  X('scap-pullup', 'Scapular pull-up', 'traps', ['pullup'], 'traps_lower'),
   // shoulders
-  X('ohp', 'Overhead press (barbell)', 'shoulders', ['barbell']),
-  X('db-ohp', 'Dumbbell shoulder press', 'shoulders', ['dumbbell']),
-  X('arnold', 'Arnold press', 'shoulders', ['dumbbell']),
-  X('lateral', 'Lateral raise', 'shoulders', ['dumbbell']),
-  X('cable-lateral', 'Cable lateral raise', 'shoulders', ['cable']),
-  X('rear-fly', 'Rear delt fly', 'shoulders', ['dumbbell', 'machine']),
-  X('face-pull', 'Face pull', 'shoulders', ['cable', 'bands']),
-  X('shoulder-press-m', 'Shoulder press machine', 'shoulders', ['machine']),
-  X('pike-pushup', 'Pike push-up', 'shoulders', ['bodyweight']),
+  X('ohp', 'Overhead press (barbell)', 'shoulders', ['barbell'], 'delt_front'),
+  X('db-ohp', 'Dumbbell shoulder press', 'shoulders', ['dumbbell'], 'delt_front'),
+  X('arnold', 'Arnold press', 'shoulders', ['dumbbell'], 'delt_front'),
+  X('lateral', 'Lateral raise', 'shoulders', ['dumbbell'], 'delt_side'),
+  X('cable-lateral', 'Cable lateral raise', 'shoulders', ['cable'], 'delt_side'),
+  X('rear-fly', 'Rear delt fly', 'shoulders', ['dumbbell', 'machine'], 'delt_rear'),
+  X('face-pull', 'Face pull', 'shoulders', ['cable', 'bands'], 'delt_rear'),
+  X('shoulder-press-m', 'Shoulder press machine', 'shoulders', ['machine'], 'delt_front'),
+  X('pike-pushup', 'Pike push-up', 'shoulders', ['bodyweight'], 'delt_front'),
+  X('front-raise', 'Front raise', 'shoulders', ['dumbbell', 'cable'], 'delt_front'),
+  X('upright-row', 'Upright row', 'shoulders', ['barbell', 'cable'], 'delt_side'),
+  X('rev-pec-deck', 'Reverse pec deck', 'shoulders', ['machine'], 'delt_rear'),
   // biceps
   X('bb-curl', 'Barbell curl', 'biceps', ['barbell']),
   X('ez-curl', 'EZ-bar curl', 'biceps', ['ezbar']),
   X('db-curl', 'Dumbbell curl', 'biceps', ['dumbbell']),
-  X('hammer', 'Hammer curl', 'biceps', ['dumbbell']),
+  X('hammer', 'Hammer curl', 'biceps', ['dumbbell'], 'bi_long'),
   X('cable-curl', 'Cable curl', 'biceps', ['cable']),
-  X('preacher', 'Preacher curl', 'biceps', ['ezbar', 'machine', 'dumbbell']),
+  X('preacher', 'Preacher curl', 'biceps', ['ezbar', 'machine', 'dumbbell'], 'bi_short'),
   X('band-curl', 'Band curl', 'biceps', ['bands']),
+  X('incline-curl', 'Incline dumbbell curl', 'biceps', ['dumbbell'], 'bi_long'),
+  X('spider-curl', 'Spider curl', 'biceps', ['dumbbell', 'ezbar'], 'bi_short'),
   // triceps
-  X('pushdown', 'Triceps pushdown', 'triceps', ['cable']),
-  X('oh-ext', 'Overhead triceps extension', 'triceps', ['dumbbell', 'cable']),
-  X('skull', 'Skull crusher', 'triceps', ['ezbar', 'barbell']),
-  X('cg-bench', 'Close-grip bench press', 'triceps', ['barbell']),
+  X('pushdown', 'Triceps pushdown', 'triceps', ['cable'], 'tri_lat'),
+  X('oh-ext', 'Overhead triceps extension', 'triceps', ['dumbbell', 'cable'], 'tri_long'),
+  X('skull', 'Skull crusher', 'triceps', ['ezbar', 'barbell'], 'tri_long'),
+  X('cg-bench', 'Close-grip bench press', 'triceps', ['barbell'], 'tri_lat'),
   X('bench-dip', 'Bench dip', 'triceps', ['bodyweight']),
+  X('rev-pushdown', 'Reverse-grip pushdown', 'triceps', ['cable'], 'tri_med'),
   // forearms
-  X('wrist-curl', 'Wrist curl', 'forearms', ['dumbbell', 'barbell']),
-  X('farmer', "Farmer's carry", 'forearms', ['dumbbell', 'kettlebell']),
+  X('wrist-curl', 'Wrist curl', 'forearms', ['dumbbell', 'barbell'], 'fa_flex'),
+  X('farmer', "Farmer's carry", 'forearms', ['dumbbell', 'kettlebell'], 'grip'),
+  X('rev-wrist-curl', 'Reverse wrist curl', 'forearms', ['dumbbell', 'barbell'], 'fa_ext'),
+  X('dead-hang', 'Dead hang', 'forearms', ['pullup'], 'grip'),
   // quads
   X('squat', 'Back squat', 'quads', ['rack']),
   X('front-squat', 'Front squat', 'quads', ['rack']),
@@ -114,29 +163,48 @@ export const LIBRARY = [
   X('leg-press', 'Leg press', 'quads', ['legpress']),
   X('hack', 'Hack squat', 'quads', ['machine']),
   X('smith-squat', 'Smith machine squat', 'quads', ['smith']),
-  X('leg-ext', 'Leg extension', 'quads', ['machine']),
+  X('leg-ext', 'Leg extension', 'quads', ['machine'], 'quad_rf'),
   X('bulgarian', 'Bulgarian split squat', 'quads', ['dumbbell', 'bodyweight']),
   X('lunge', 'Lunge', 'quads', ['dumbbell', 'bodyweight']),
   X('bw-squat', 'Bodyweight squat', 'quads', ['bodyweight']),
+  X('sissy-squat', 'Sissy squat', 'quads', ['bodyweight'], 'quad_rf'),
   // hamstrings
   X('rdl', 'Romanian deadlift', 'hamstrings', ['barbell', 'dumbbell']),
   X('leg-curl', 'Lying leg curl', 'hamstrings', ['machine']),
   X('seated-curl', 'Seated leg curl', 'hamstrings', ['machine']),
   X('good-morning', 'Good morning', 'hamstrings', ['barbell']),
   // glutes
-  X('hip-thrust', 'Hip thrust', 'glutes', ['barbell', 'dumbbell', 'machine']),
-  X('glute-bridge', 'Glute bridge', 'glutes', ['bodyweight']),
-  X('kickback', 'Cable kickback', 'glutes', ['cable']),
+  X('hip-thrust', 'Hip thrust', 'glutes', ['barbell', 'dumbbell', 'machine'], 'glute_max'),
+  X('glute-bridge', 'Glute bridge', 'glutes', ['bodyweight'], 'glute_max'),
+  X('kickback', 'Cable kickback', 'glutes', ['cable'], 'glute_max'),
+  X('band-walk', 'Banded side walk', 'glutes', ['bands'], 'glute_med'),
+  X('cable-abduction', 'Cable hip abduction', 'glutes', ['cable', 'machine'], 'glute_med'),
+  X('side-leg-raise', 'Side-lying leg raise', 'glutes', ['bodyweight'], 'glute_med'),
+  // inner thigh
+  X('copenhagen', 'Copenhagen plank', 'adductors', ['bodyweight']),
+  X('adductor-machine', 'Adductor machine', 'adductors', ['machine']),
+  X('sumo-squat', 'Sumo squat', 'adductors', ['dumbbell', 'kettlebell']),
   // calves
-  X('calf-raise', 'Standing calf raise', 'calves', ['machine', 'dumbbell', 'bodyweight', 'smith']),
-  X('seated-calf', 'Seated calf raise', 'calves', ['machine']),
+  X('calf-raise', 'Standing calf raise', 'calves', ['machine', 'dumbbell', 'bodyweight', 'smith'], 'gastroc'),
+  X('seated-calf', 'Seated calf raise', 'calves', ['machine'], 'soleus'),
+  // shins and feet
+  X('tib-raise', 'Tibialis raise', 'shins', ['bodyweight']),
+  X('heel-walk', 'Heel walk', 'shins', ['bodyweight']),
+  X('towel-scrunch', 'Towel scrunch', 'feet', ['bodyweight']),
+  X('single-leg-balance', 'Single-leg balance', 'feet', ['bodyweight']),
   // core
   X('plank', 'Plank (reps = seconds)', 'core', ['bodyweight']),
-  X('crunch', 'Crunch', 'core', ['bodyweight']),
-  X('hanging-raise', 'Hanging leg raise', 'core', ['pullup']),
-  X('cable-crunch', 'Cable crunch', 'core', ['cable']),
-  X('russian-twist', 'Russian twist', 'core', ['bodyweight', 'dumbbell', 'kettlebell']),
+  X('crunch', 'Crunch', 'core', ['bodyweight'], 'abs_upper'),
+  X('hanging-raise', 'Hanging leg raise', 'core', ['pullup'], 'abs_lower'),
+  X('cable-crunch', 'Cable crunch', 'core', ['cable'], 'abs_upper'),
+  X('russian-twist', 'Russian twist', 'core', ['bodyweight', 'dumbbell', 'kettlebell'], 'obliques'),
   X('ab-wheel', 'Ab wheel rollout', 'core', ['abwheel']),
+  X('rev-crunch', 'Reverse crunch', 'core', ['bodyweight'], 'abs_lower'),
+  X('side-plank', 'Side plank (reps = seconds)', 'core', ['bodyweight'], 'obliques'),
+  X('pallof', 'Pallof press', 'core', ['cable', 'bands'], 'obliques'),
+  // neck
+  X('neck-iso', 'Neck isometric hold (reps = seconds)', 'neck', ['bodyweight']),
+  X('plate-neck-curl', 'Plate neck curl', 'neck', ['barbell']),
   // full body
   X('kb-swing', 'Kettlebell swing', 'fullbody', ['kettlebell']),
   X('clean-press', 'Clean and press', 'fullbody', ['barbell', 'dumbbell', 'kettlebell']),
@@ -163,7 +231,7 @@ export const countLabel = (ex) => KNOWN[ex.key]?.countLabel || ex.countLabel || 
 /** Library + your own exercises (custom ones keep their Firestore id as key). */
 export function allExercises(custom = []) {
   return [...LIBRARY, ...custom.map((c) => ({
-    key: `my:${c.id}`, name: c.name, muscle: c.muscle || 'fullbody', eq: c.eq?.length ? c.eq : ['bodyweight'], custom: true, id: c.id,
+    key: `my:${c.id}`, name: c.name, muscle: c.muscle || 'fullbody', ...(c.part ? { part: c.part } : {}), eq: c.eq?.length ? c.eq : ['bodyweight'], custom: true, id: c.id,
     ...(c.muscle === 'cardio' ? { kind: 'cardio', metric: c.metric || 'distance', countLabel: c.countLabel || '' } : {}),
   }))]
 }
@@ -389,6 +457,39 @@ export function weekByMuscle(workouts, day) {
     return { muscle: k, sets: cur.sets, prevSets: prev.sets, volume: Math.round(cur.volume), prevVolume: Math.round(prev.volume), exercises }
   })
   return { mon, sun, sessions: thisW.length, prevSessions: prevW.length, muscles, cardio }
+}
+
+/**
+ * Sets per body map region between two dates (inclusive), for the muscle map.
+ * A set tagged with a part counts for that part. A set with only a group
+ * counts for every part of that group, since it works the whole group.
+ */
+export function setsByRegion(workouts, from, to) {
+  const out = {}
+  for (const w of workouts) {
+    if (w.date < from || w.date > to) continue
+    for (const ex of w.exercises || []) {
+      const n = realSets(ex).length
+      if (!n) continue
+      const regions = ex.part && PART_INFO[ex.part] ? [ex.part] : regionsOf(ex.muscle)
+      for (const r of regions) out[r] = (out[r] || 0) + n
+    }
+  }
+  return out
+}
+
+/** Muscle groups trained in the 3 weeks before `mon` but not yet from `mon` to `to`. */
+export function quietMuscles(workouts, mon, to) {
+  const before = new Set(), now = new Set()
+  const from = addDays(mon, -21)
+  for (const w of workouts) {
+    if (w.date < from || w.date > to) continue
+    for (const ex of w.exercises || []) {
+      if (!realSets(ex).length || !regionsOf(ex.muscle).length) continue
+      ;(w.date >= mon ? now : before).add(ex.muscle)
+    }
+  }
+  return MUSCLES.filter((m) => before.has(m.key) && !now.has(m.key)).map((m) => m.key)
 }
 
 function compare(best, prev) {

@@ -4,7 +4,7 @@ import {
 } from '../lib/privateData'
 import {
   MUSCLES, EQUIPMENT, muscleLabel, allExercises, personalRecords, weekByMuscle, historyOf, units,
-  isCardio, cardioHistory, cardioMetric, countLabel,
+  isCardio, cardioHistory, cardioMetric, countLabel, setsByRegion, quietMuscles, regionLabel, fromRegion, muscleText,
 } from '../lib/training'
 import { addDays, prettyDay, mondayOf } from '../lib/dates'
 import { myToday } from '../lib/clock'
@@ -12,6 +12,8 @@ import WorkoutEditor from '../components/WorkoutEditor'
 import ExercisePicker from '../components/ExercisePicker'
 import WeightChart from '../components/WeightChart'
 import UnitSwitch from '../components/UnitSwitch'
+import BodyMap, { HEAT_COLORS } from '../components/BodyMap'
+import SortableList, { rowId } from '../components/Sortable'
 import Icon from '../nav/Icon'
 
 // Training's sections, shown as tabs at the top (phase 5.7.1: the plate dial
@@ -144,7 +146,7 @@ function fromRoutine(it, workouts) {
   // Strength: pre-fill each set with last time's weight for that exercise, else empty.
   const h = historyOf(workouts, it.key)
   const kg = h.length ? h[h.length - 1].best?.kg || 0 : 0
-  return { key: it.key, name: it.name, muscle: it.muscle, sets: Array.from({ length: it.sets || 3 }, () => ({ reps: it.reps || 0, kg })) }
+  return { key: it.key, name: it.name, muscle: it.muscle, ...(it.part ? { part: it.part } : {}), sets: Array.from({ length: it.sets || 3 }, () => ({ reps: it.reps || 0, kg })) }
 }
 
 // ---------------- Muscles (weekly progressive overload) ----------------
@@ -162,6 +164,7 @@ function MusclesView({ today, workouts, u }) {
         <strong>Week of {short(week.mon)}</strong>
         <button className="btn-ghost" onClick={() => setDay((d) => addDays(d, 7))} disabled={week.sun >= today} aria-label="Next week">›</button>
       </div>
+      <MuscleMap workouts={workouts} mon={week.mon} sun={week.sun} today={today} />
       <p className="muted small">{week.sessions} workouts this week (last week {week.prevSessions}). Progressive overload: beat each exercise's best set from last week by a rep or a little weight. ▲ beat it, = matched, ▼ dropped, new = first time this week.</p>
       {!week.muscles.length && !week.cardio && <div className="card"><p className="muted">Nothing logged this week or last week.</p></div>}
       {week.cardio && (
@@ -207,6 +210,34 @@ function MusclesView({ today, workouts, u }) {
         </details>
       ))}
     </>
+  )
+}
+
+// The week on the body: deeper lime = more sets. Tap a muscle to see its sets.
+// A set logged against a specific part lights just that part; one logged
+// against a whole muscle lights all of it (phase 5.10).
+const level = (n) => (!n ? 0 : n <= 5 ? 1 : n <= 10 ? 2 : 3)
+function MuscleMap({ workouts, mon, sun, today }) {
+  const [picked, setPicked] = useState(null)
+  const to = sun < today ? sun : today
+  const sets = useMemo(() => setsByRegion(workouts, mon, sun), [workouts, mon, sun])
+  const quiet = useMemo(() => (sun >= today ? quietMuscles(workouts, mon, to) : []), [workouts, mon, sun, today, to])
+  const heat = Object.fromEntries(Object.entries(sets).map(([r, n]) => [r, level(n)]))
+  const shown = picked && fromRegion(picked)
+  const n = picked ? sets[picked] || 0 : 0
+  const names = quiet.slice(0, 3).map((k) => muscleLabel(k).toLowerCase())
+  const list = names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}` : names[0]
+  return (
+    <div className="card muscle-map">
+      <BodyMap heat={heat} bright={picked ? [picked] : []} onPick={setPicked} />
+      <div className="heat-legend" aria-label="Colour key">
+        {['0 sets', '1 to 5', '6 to 10', '11+'].map((t, i) => <span key={t}><i style={{ background: HEAT_COLORS[i] }} />{t}</span>)}
+      </div>
+      <p className="small map-detail">{shown
+        ? <><strong className="lime">{regionLabel(picked)}</strong>{shown.part ? <span className="muted"> ({muscleLabel(shown.muscle)})</span> : null}: {n ? `${n} set${n === 1 ? '' : 's'} this week` : 'not trained this week yet'}</>
+        : <span className="muted">Tap a muscle to see its sets this week.</span>}</p>
+      {list && <p className="small map-nudge">{list[0].toUpperCase() + list.slice(1)} {names.length > 1 ? 'have' : 'has'} been quiet so far this week. No stress, maybe slot {names.length > 1 ? 'them' : 'it'} into your next session.</p>}
+    </div>
   )
 }
 
@@ -335,43 +366,63 @@ function RoutinesView({ uid, routines, exercises, have, workouts, start, today }
   )
 }
 
+// Rows carry a rowId while you edit, so they can be dragged; it's left out when saved.
+const stripRow = ({ rowId: _r, ...it }) => it
+
 function RoutineForm({ uid, initial, exercises, have, onClose }) {
   const [name, setName] = useState(initial.name)
-  const [items, setItems] = useState(initial.items)
+  const [items, setItems] = useState(() => initial.items.map((it) => ({ ...it, rowId: rowId() })))
   const [picking, setPicking] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [orderSaved, setOrderSaved] = useState(false)
   if (picking) {
     return <ExercisePicker uid={uid} exercises={exercises} have={have} title="Add to routine" onClose={() => setPicking(false)}
-      onPick={(ex) => { setPicking(false); setItems((l) => [...l, isCardio(ex) ? { key: ex.key, name: ex.name, muscle: 'cardio', kind: 'cardio', min: 20 } : { key: ex.key, name: ex.name, muscle: ex.muscle, sets: 3, reps: 10 }]) }} />
+      onPick={(ex) => { setPicking(false); setItems((l) => [...l, { rowId: rowId(), ...(isCardio(ex) ? { key: ex.key, name: ex.name, muscle: 'cardio', kind: 'cardio', min: 20 } : { key: ex.key, name: ex.name, muscle: ex.muscle, ...(ex.part ? { part: ex.part } : {}), sets: 3, reps: 10 }) }]) }} />
   }
   const setIt = (i, patch) => setItems((l) => l.map((x, j) => (j === i ? { ...x, ...patch } : x)))
   async function save() {
     setBusy(true)
-    try { await saveRoutine(uid, { id: initial.id, name: name.trim() || 'Routine', items }); onClose() } finally { setBusy(false) }
+    try { await saveRoutine(uid, { id: initial.id, name: name.trim() || 'Routine', items: items.map(stripRow) }); onClose() } finally { setBusy(false) }
+  }
+  // A saved routine keeps its new order as soon as you let go (with any other
+  // changes on screen). A new routine is saved with the button as usual.
+  function reorder(next) {
+    setItems(next)
+    if (!initial.id) return
+    saveRoutine(uid, { id: initial.id, name: name.trim() || 'Routine', items: next.map(stripRow) })
+      .then(() => { setOrderSaved(true); setTimeout(() => setOrderSaved(false), 1500) })
+      .catch(() => {})
   }
   return (
     <div className="card form">
       <label>Routine name
         <input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Push day" maxLength={40} />
       </label>
-      {items.map((it, i) => (
-        <div className="row routine-row" key={i}>
-          <span className="grow">{it.name}</span>
-          {isCardio(it) ? (
-            <>
-              <input className="text-input mini" type="number" min="1" max="300" value={it.min} aria-label="Minutes" onChange={(e) => setIt(i, { min: +e.target.value })} />
-              <span className="muted small">min</span>
-            </>
-          ) : (
-            <>
-              <input className="text-input mini" type="number" min="1" max="10" value={it.sets} aria-label="Sets" onChange={(e) => setIt(i, { sets: +e.target.value })} />
-              <span className="muted">×</span>
-              <input className="text-input mini" type="number" min="1" max="50" value={it.reps} aria-label="Reps" onChange={(e) => setIt(i, { reps: +e.target.value })} />
-            </>
-          )}
-          <button className="btn-ghost" aria-label={`Remove ${it.name}`} onClick={() => setItems((l) => l.filter((_, j) => j !== i))}>✕</button>
+      {items.length > 1 && <p className="muted small reorder-tip">{orderSaved ? <span className="lime">Order saved</span> : 'Hold the grip to drag an exercise into place, or use the arrows.'}</p>}
+      <SortableList items={items} onChange={reorder}>{(it, i, controls) => (
+        <div className="routine-row">
+          <div className="routine-top">
+            {controls}
+            <span className="grow-col"><span>{it.name}</span><span className="muted small">{muscleText(it.muscle, it.part)}</span></span>
+            <button className="btn-ghost x" aria-label={`Remove ${it.name}`} onClick={() => setItems((l) => l.filter((_, j) => j !== i))}>✕</button>
+          </div>
+          <div className="routine-nums">
+            {isCardio(it) ? (
+              <>
+                <input className="text-input mini" type="number" min="1" max="300" value={it.min} aria-label={`${it.name} minutes`} onChange={(e) => setIt(i, { min: +e.target.value })} />
+                <span className="muted small">min</span>
+              </>
+            ) : (
+              <>
+                <input className="text-input mini" type="number" min="1" max="10" value={it.sets} aria-label={`${it.name} sets`} onChange={(e) => setIt(i, { sets: +e.target.value })} />
+                <span className="muted small">sets of</span>
+                <input className="text-input mini" type="number" min="1" max="50" value={it.reps} aria-label={`${it.name} reps`} onChange={(e) => setIt(i, { reps: +e.target.value })} />
+                <span className="muted small">reps</span>
+              </>
+            )}
+          </div>
         </div>
-      ))}
+      )}</SortableList>
       <button className="btn-ghost" onClick={() => setPicking(true)}>+ Add exercise</button>
       <button className="btn-primary" onClick={save} disabled={busy || !items.length}>{busy ? 'Saving...' : 'Save routine'}</button>
       <div className="action-row">

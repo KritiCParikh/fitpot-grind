@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { saveWorkout, deleteWorkout, saveSettings } from '../lib/privateData'
 import {
-  muscleLabel, lastTime, beatIt, personalRecords, units, isCardio, cardioMetric, countLabel, lastCardio, KM_PER_MI,
+  muscleText, lastTime, beatIt, personalRecords, units, isCardio, cardioMetric, countLabel, lastCardio, KM_PER_MI,
 } from '../lib/training'
 import ExercisePicker from './ExercisePicker'
 import RestTimer from './RestTimer'
 import UnitSwitch from './UnitSwitch'
+import SortableList, { rowId } from './Sortable'
 
 const PR_LABEL = {
   weight: 'Heaviest weight', e1rm: 'Best estimated 1 rep max', reps: 'Most reps',
@@ -17,6 +18,8 @@ const LB = 2.20462
 // distance and time (or time and a count, for stair climber and skipping).
 // Each exercise shows last time and a target to beat. Ticking a strength set
 // starts the rest timer. New personal records are shown when you save.
+// Exercises can be dragged into a new order mid-workout (phase 5.10), e.g.
+// when the machine you wanted is taken.
 //
 // `initial`: an existing workout to edit, or { date, title, exercises } to start from.
 export default function WorkoutEditor({ uid, initial, workouts, exercises, have, u: u0, restSec = 90, today, onClose }) {
@@ -80,7 +83,7 @@ export default function WorkoutEditor({ uid, initial, workouts, exercises, have,
         })),
       }
       : {
-        key: x.key, name: x.name, muscle: x.muscle,
+        key: x.key, name: x.name, muscle: x.muscle, ...(x.part ? { part: x.part } : {}),
         sets: x.sets.filter((s) => Number(s.reps) > 0).map((s) => ({ reps: Math.round(Number(s.reps)), kg: Math.round(u.toKg(s.w) * 100) / 100 })),
       })).filter((x) => x.sets.length)
     if (!clean.length) return alert('Add at least one set with reps, or a distance or time for cardio.')
@@ -152,17 +155,18 @@ export default function WorkoutEditor({ uid, initial, workouts, exercises, have,
         </div>
       )}
 
-      {items.map((x, i) => (x.cardio
-        ? <CardioCard key={i} x={x} u={u} others={others} date={date}
+      {items.length > 1 && <p className="muted small reorder-tip">Hold the grip to drag an exercise, or use the arrows.</p>}
+      <SortableList items={items} onChange={setItems}>{(x, i, controls) => (x.cardio
+        ? <CardioCard x={x} u={u} others={others} date={date} controls={controls}
           onSet={(k, patch) => setSet(i, k, patch)} onTick={(k) => tick(i, k)}
           onRemoveSet={(k) => setItem(i, (y) => ({ ...y, sets: y.sets.filter((_, j) => j !== k) }))}
           onAddSet={() => setItem(i, (y) => ({ ...y, sets: [...y.sets, { d: '', min: '', count: '', done: false }] }))}
           onRemove={() => setItems((l) => l.filter((_, j) => j !== i))} />
-        : <StrengthCard key={i} x={x} u={u} others={others} date={date} stepKg={stepKg}
+        : <StrengthCard x={x} u={u} others={others} date={date} stepKg={stepKg} controls={controls}
           onSet={(k, patch) => setSet(i, k, patch)} onTick={(k) => tick(i, k)}
           onRemoveSet={(k) => setItem(i, (y) => ({ ...y, sets: y.sets.filter((_, j) => j !== k) }))}
           onAddSet={() => setItem(i, (y) => ({ ...y, sets: [...y.sets, { ...(y.sets[y.sets.length - 1] || { w: '', reps: '' }), done: false }] }))}
-          onRemove={() => setItems((l) => l.filter((_, j) => j !== i))} />))}
+          onRemove={() => setItems((l) => l.filter((_, j) => j !== i))} />)}</SortableList>
 
       <button className="btn-ghost wide" onClick={() => setPicking(true)}>+ Add exercise</button>
       <label className="form notes">Notes (how it felt, form cues, anything)
@@ -179,7 +183,7 @@ export default function WorkoutEditor({ uid, initial, workouts, exercises, have,
 
 // Editor rows keep what you typed, in the units on screen.
 function toItem(ex, sets, u, done) {
-  const base = { key: ex.key, name: ex.name, muscle: ex.muscle }
+  const base = { rowId: rowId(), key: ex.key, name: ex.name, muscle: ex.muscle, ...(ex.part ? { part: ex.part } : {}) }
   if (isCardio(ex)) {
     return {
       ...base, muscle: 'cardio', cardio: true, metric: cardioMetric(ex), countLabel: countLabel(ex),
@@ -191,24 +195,25 @@ function toItem(ex, sets, u, done) {
 
 const shortDate = (d) => new Date(d + 'T12:00:00Z').toLocaleDateString(undefined, { month: 'short', day: 'numeric', timeZone: 'UTC' })
 
-function CardHead({ x, onRemove }) {
+function CardHead({ x, onRemove, controls }) {
   return (
     <div className="ex-head">
+      {controls}
       <span className="grow-col">
         <strong>{x.name}</strong>
-        <span className="muted small">{muscleLabel(x.muscle)}</span>
+        <span className="muted small">{muscleText(x.muscle, x.part)}</span>
       </span>
       <button className="btn-ghost" aria-label={`Remove ${x.name}`} onClick={onRemove}>✕</button>
     </div>
   )
 }
 
-function StrengthCard({ x, u, others, date, stepKg, onSet, onTick, onRemoveSet, onAddSet, onRemove }) {
+function StrengthCard({ x, u, others, date, stepKg, controls, onSet, onTick, onRemoveSet, onAddSet, onRemove }) {
   const last = lastTime(others, x.key, { before: date })
   const goal = beatIt(last, { stepKg })
   return (
     <div className="card ex-card">
-      <CardHead x={x} onRemove={onRemove} />
+      <CardHead x={x} onRemove={onRemove} controls={controls} />
       {last
         ? <p className="muted small">Last time ({shortDate(last.date)}): {last.sets.map((s) => u.show(s.kg, s.reps)).join(', ')}{goal && <>. <span className="lime">Beat it: {u.show(goal.kg, goal.reps)}</span></>}</p>
         : <p className="muted small">First time logging this. Today sets your baseline.</p>}
@@ -226,14 +231,14 @@ function StrengthCard({ x, u, others, date, stepKg, onSet, onTick, onRemoveSet, 
   )
 }
 
-function CardioCard({ x, u, others, date, onSet, onTick, onRemoveSet, onAddSet, onRemove }) {
+function CardioCard({ x, u, others, date, controls, onSet, onTick, onRemoveSet, onAddSet, onRemove }) {
   const last = lastCardio(others, x.key, { before: date })
   const timeOnly = x.metric === 'time'
   const totalKm = x.sets.reduce((t, s) => t + u.toKm(s.d), 0)
   const totalMin = x.sets.reduce((t, s) => t + (Number(s.min) || 0), 0)
   return (
     <div className="card ex-card">
-      <CardHead x={x} onRemove={onRemove} />
+      <CardHead x={x} onRemove={onRemove} controls={controls} />
       {last
         ? <p className="muted small">Last time ({shortDate(last.date)}): {u.showCardio(last, x.metric, x.countLabel)}. <span className="lime">{timeOnly ? 'Go a little longer' : 'Go a little further or faster'}.</span></p>
         : <p className="muted small">First time logging this. Today sets your baseline.</p>}
