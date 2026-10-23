@@ -1,25 +1,24 @@
 import { useEffect, useMemo, useState } from 'react'
-import { searchIndia, searchUSA, searchPackaged, searchMine, lookupBarcode, fromMyFood, SOURCE_LABEL } from '../lib/foods'
+import { searchIndia, searchWorld, searchUSA, searchPackaged, searchMine, fromMyFood, SOURCE_LABEL } from '../lib/foods'
 import { useMyFoods, useRecentMeals } from '../lib/privateData'
-import BarcodeScanner from './BarcodeScanner'
 
 const SOURCES = [
   { key: 'india', label: 'India' },
-  { key: 'usa', label: 'USA' },
+  { key: 'world', label: 'World' },
+  { key: 'usa', label: 'US brands' },
   { key: 'packaged', label: 'Packaged' },
 ]
 
-// Full-screen food finder: Recent · My foods · search across India / USA /
-// packaged foods · barcode. Calls onPick(food) with a normalised food.
-export default function FoodPicker({ uid, title = 'Add food', onPick, onClose, onCreate, onBarcodeMissing, extraActions, startScan = false }) {
+// Full-screen food finder: Recent · My foods · search across India / World /
+// US brands / packaged foods. Every result has everyday measures (katori,
+// cup, tbsp, piece), so no scale is needed. Calls onPick(food) with a normalised food.
+export default function FoodPicker({ uid, title = 'Add food', onPick, onClose, onCreate, extraActions }) {
   const myFoodsRaw = useMyFoods(uid)
   const recentMeals = useRecentMeals(uid)
   const [q, setQ] = useState('')
-  const [on, setOn] = useState({ india: true, usa: true, packaged: true })
+  const [on, setOn] = useState({ india: true, world: true, usa: true, packaged: true })
   const [results, setResults] = useState({})
   const [errors, setErrors] = useState({})
-  const [scan, setScan] = useState(Boolean(startScan))
-  const [scanMsg, setScanMsg] = useState('')
 
   const myFoods = useMemo(() => (myFoodsRaw || []).map(fromMyFood), [myFoodsRaw])
   const recents = useMemo(() => {
@@ -46,23 +45,12 @@ export default function FoodPicker({ uid, title = 'Add food', onPick, onClose, o
           .catch((e) => { if (e.name !== 'AbortError') { setResults((r) => ({ ...r, [key]: [] })); setErrors((x) => ({ ...x, [key]: e.message })) } })
       }
       run('india', searchIndia)
+      run('world', searchWorld)
       run('usa', searchUSA)
       run('packaged', searchPackaged)
     }, 350)
     return () => { clearTimeout(t); ctrl.abort() }
   }, [q, on])
-
-  async function onCode(code) {
-    setScan(false); setScanMsg('Looking up...')
-    const mine = myFoods.find((f) => f.barcode === code)
-    if (mine) { setScanMsg(''); return onPick(mine) }
-    try {
-      const food = await lookupBarcode(code)
-      if (food) { setScanMsg(''); return onPick(food) }
-    } catch { /* treat as not found */ }
-    setScanMsg('')
-    onBarcodeMissing?.(code)
-  }
 
   const term = q.trim()
   const mineHits = term.length >= 2 ? searchMine(myFoods, term) : []
@@ -84,11 +72,9 @@ export default function FoodPicker({ uid, title = 'Add food', onPick, onClose, o
       </div>
 
       <div className="action-row">
-        <button className="btn-ghost" onClick={() => setScan(true)}>Scan barcode</button>
         {onCreate && <button className="btn-ghost" onClick={() => onCreate()}>+ Create food</button>}
         {extraActions}
       </div>
-      {scanMsg && <p className="muted small">{scanMsg}</p>}
 
       {term.length < 2 ? (
         <>
@@ -105,7 +91,6 @@ export default function FoodPicker({ uid, title = 'Add food', onPick, onClose, o
         </>
       )}
 
-      {scan && <BarcodeScanner onCode={onCode} onClose={() => setScan(false)} />}
     </div>
   )
 }

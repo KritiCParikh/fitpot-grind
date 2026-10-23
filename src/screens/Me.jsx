@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { NUTRIENTS } from '../lib/foods'
 import { useSettings, saveSettings, useMealsOn, LB_PER_KG } from '../lib/privateData'
 import FoodLog from './FoodLog'
@@ -6,6 +6,7 @@ import Progress from './Progress'
 import Training, { TRAINING_SECTIONS } from './Training'
 import Measurements from '../components/Measurements'
 import ExportData from '../components/ExportData'
+import CalorieCalculator from '../components/CalorieCalculator'
 import VerifyBanner from '../components/VerifyBanner'
 import InstallCard from '../components/InstallCard'
 import { useLocation, useNavigate } from 'react-router-dom'
@@ -32,6 +33,10 @@ export default function Me({ user }) {
   const [chooser, setChooser] = useState(null) // null | 'plate'
   const [foodCmd, setFoodCmd] = useState(null) // what the food plate asked the diary to open
   const [, bump] = useState(0) // re-render once your email is confirmed
+
+  // The food plate belongs to Food: switching to another tab closes it
+  // (phase 5.11). Leaving Me unmounts this page, which closes it too.
+  useEffect(() => { if (tab !== 'food') setChooser(null) }, [tab])
 
   const go = (me, t) => navigate(`/?me=${me}${me === 'training' ? `&t=${t || section}` : ''}`)
   function onTab(key) {
@@ -80,7 +85,10 @@ function Targets({ user }) {
   if (settings === undefined) return <p className="muted">Loading...</p>
   return (
     <>
-      <TargetsForm key={settings ? 'loaded' : 'empty'} uid={user.uid} settings={settings || {}} />
+      {/* Remounts when targets change, e.g. after "Use as my targets". */}
+      <TargetsForm key={settings ? JSON.stringify(settings.targets || {}) : 'empty'} uid={user.uid} settings={settings || {}} />
+      <h3 className="section-title">Calorie calculator</h3>
+      <CalorieCalculator uid={user.uid} settings={settings || {}} />
       <h3 className="section-title">Body measurements</h3>
       <Measurements uid={user.uid} settings={settings || {}} />
       <h3 className="section-title">Your data</h3>

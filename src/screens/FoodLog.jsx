@@ -6,6 +6,7 @@ import { addDays, prettyDay } from '../lib/dates'
 import FoodPicker from '../components/FoodPicker'
 import PortionPicker from '../components/PortionPicker'
 import { MyFoodForm, RecipeBuilder } from '../components/MyFoodForms'
+import FoodDoodle from '../components/FoodDoodle'
 
 // Private, optional food diary. Nothing here affects check-ins or the pot.
 export default function FoodLog({ user, command, onOpenPlate }) {
@@ -16,12 +17,12 @@ export default function FoodLog({ user, command, onOpenPlate }) {
   const settings = useSettings(uid)
   const myFoods = useMyFoods(uid)
   const [view, setView] = useState({ name: 'log' })
+  const [doodle, setDoodle] = useState(null) // foods to sketch after logging (phase 5.11)
 
-  // The food plate (Me barbell) opens a meal, My foods or the scanner here.
+  // The food plate (Me barbell) opens a meal or My foods here.
   useEffect(() => {
     if (!command) return
     if (command.w === 'myfoods') setView({ name: 'myfoods' })
-    else if (command.w === 'scan') setView({ name: 'pick', meal: 'Snacks', scan: true })
     else setView({ name: 'pick', meal: command.w })
   }, [command])
 
@@ -31,11 +32,10 @@ export default function FoodLog({ user, command, onOpenPlate }) {
   // ---- sub-screens ----
   if (view.name === 'pick') {
     return (
-      <FoodPicker uid={uid} title={`Add to ${view.meal}`} startScan={view.scan}
+      <FoodPicker uid={uid} title={`Add to ${view.meal}`}
         onPick={(food) => setView({ name: 'portion', meal: view.meal, food })}
         onClose={back}
         onCreate={() => setView({ name: 'create', meal: view.meal })}
-        onBarcodeMissing={(code) => setView({ name: 'create', meal: view.meal, barcode: code })}
         extraActions={<button className="btn-ghost" disabled title="Arrives with your own vision model (phase 6)"> Scan plate · soon</button>}
       />
     )
@@ -46,12 +46,15 @@ export default function FoodLog({ user, command, onOpenPlate }) {
         onBack={() => setView({ name: 'pick', meal: view.meal })}
         onDone={async ({ food, qty, unit, nutrients, meal }) => {
           await logMeal(uid, { date: day, meal, food, qty, unit, nutrients })
+          // Sketch what you just logged, plus what's already in that meal.
+          const earlier = (meals || []).filter((m) => m.meal === meal).map((m) => m.name)
+          setDoodle([food.name, ...earlier.reverse()])
           back()
         }} />
     )
   }
-  if (view.name === 'create') return <MyFoodForm uid={uid} barcode={view.barcode} onSaved={() => setView({ name: 'pick', meal: view.meal || 'Snacks' })} onBack={() => setView({ name: 'pick', meal: view.meal || 'Snacks' })} />
-  if (view.name === 'editFood') return <MyFoodForm uid={uid} initial={view.food} onSaved={() => setView({ name: 'myfoods' })} onBack={() => setView({ name: 'myfoods' })} />
+  if (view.name === 'create') return <MyFoodForm uid={uid} onRecipe={() => setView({ name: 'recipe', food: null })} onSaved={() => setView({ name: 'pick', meal: view.meal || 'Snacks' })} onBack={() => setView({ name: 'pick', meal: view.meal || 'Snacks' })} />
+  if (view.name === 'editFood') return <MyFoodForm uid={uid} initial={view.food} onRecipe={view.food ? null : () => setView({ name: 'recipe', food: null })} onSaved={() => setView({ name: 'myfoods' })} onBack={() => setView({ name: 'myfoods' })} />
   if (view.name === 'recipe') return <RecipeBuilder uid={uid} initial={view.food} onSaved={() => setView({ name: 'myfoods' })} onBack={() => setView({ name: 'myfoods' })} />
   if (view.name === 'myfoods') {
     return (
@@ -72,7 +75,7 @@ export default function FoodLog({ user, command, onOpenPlate }) {
                 <button onClick={() => setView({ name: f.kind === 'recipe' ? 'recipe' : 'editFood', food: f })}>
                   <span className="grow-col">
                     <span className="food-name">{f.name}{f.kind === 'recipe' ? <span className="muted small"> (recipe)</span> : null}</span>
-                    <span className="muted small">{Math.round(f.perServing?.kcal || 0)} kcal / {f.servingLabel || 'serving'}{f.barcode ? ' · barcode' : ''}</span>
+                    <span className="muted small">{Math.round(f.perServing?.kcal || 0)} kcal / {f.servingLabel || 'serving'}</span>
                   </span>
                   <span className="muted small">Edit</span>
                 </button>
@@ -88,7 +91,8 @@ export default function FoodLog({ user, command, onOpenPlate }) {
   const totals = sumNutrients((meals || []).map((m) => m.nutrients))
   return (
     <>
-      {onOpenPlate && <button className="btn-ghost wide plate-hint" onClick={onOpenPlate}>Open the food plate: meals, My foods, Scan</button>}
+      {doodle && <FoodDoodle foods={doodle} onDone={() => setDoodle(null)} />}
+      {onOpenPlate && <button className="btn-ghost wide plate-hint" onClick={onOpenPlate}>Open the food plate: meals and My foods</button>}
       <div className="cal-head">
         <button className="btn-ghost" onClick={() => setDay((d) => addDays(d, -1))} aria-label="Previous day">‹</button>
         <strong>{day === today ? 'Today' : prettyDay(day)}</strong>
@@ -136,7 +140,7 @@ export default function FoodLog({ user, command, onOpenPlate }) {
       })}
 
       <button className="btn-ghost wide" style={{ marginTop: 16 }} onClick={() => setView({ name: 'myfoods' })}>My foods & recipes</button>
-      <p className="muted small">Food logging is optional and private. Only you can see it, and it never affects the pot. Indian dishes: Indian Nutrient Databank (INDB). US foods: USDA FoodData Central. Packaged: Open Food Facts.</p>
+      <p className="muted small">Food logging is optional and private. Only you can see it, and it never affects the pot. Indian dishes: Indian Nutrient Databank (INDB). World dishes and ingredients, and US brands: USDA FoodData Central. Packaged: Open Food Facts. Katori, cup, tbsp and piece amounts are typical weights, close enough to count without a scale.</p>
     </>
   )
 }

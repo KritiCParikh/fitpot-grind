@@ -1,7 +1,7 @@
 import Icon from './Icon'
 
 // Me's bottom bar: a barbell with four plates. Tap a plate to go there.
-// Tap the Food plate again to open the food plate (meals, My foods, Scan).
+// Tap the Food plate again to open the food plate (meals and My foods).
 // Training switches sections with its own tabs (phase 5.7.1).
 export const ME_TABS = [
   { key: 'food', label: 'Food', icon: 'food' },

@@ -17,7 +17,7 @@ export default function PortionPicker({ uid, food, meal, showMeal = true, action
 
   async function saveToMine() {
     await saveMyFood(uid, {
-      kind: 'food', name: food.name, barcode: food.barcode || null,
+      kind: 'food', name: food.name,
       servingLabel: unit.label, servingGrams: unit.grams || null,
       perServing: scale(food.base, unit.factor),
     })

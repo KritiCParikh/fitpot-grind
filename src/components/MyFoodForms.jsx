@@ -6,24 +6,45 @@ import PortionPicker from './PortionPicker'
 
 const blankNutrients = () => Object.fromEntries(NUTRIENTS.map((n) => [n.key, '']))
 
-// Create or edit one of your own foods (values per serving, e.g. from a label).
-export function MyFoodForm({ uid, initial, barcode, onSaved, onBack }) {
+// Create or edit one of your own foods (values per serving). Fill it from a
+// food in the databases with an everyday amount (phase 5.11), so no label or
+// scale is needed, or type the values from a label.
+export function MyFoodForm({ uid, initial, onSaved, onBack, onRecipe }) {
   const [name, setName] = useState(initial?.name || '')
   const [servingLabel, setServingLabel] = useState(initial?.servingLabel || 'serving')
   const [servingGrams, setServingGrams] = useState(initial?.servingGrams ?? '')
   const [values, setValues] = useState(initial?.perServing ? Object.fromEntries(NUTRIENTS.map((n) => [n.key, initial.perServing[n.key] ?? ''])) : blankNutrients())
   const [busy, setBusy] = useState(false)
+  const [step, setStep] = useState('form') // form | pick | portion
+  const [picked, setPicked] = useState(null)
+  const [filledFrom, setFilledFrom] = useState('')
 
   async function save() {
     setBusy(true)
     try {
       await saveMyFood(uid, {
-        id: initial?.id, kind: 'food', name: name.trim(), barcode: initial?.barcode || barcode || null,
+        id: initial?.id, kind: 'food', name: name.trim(),
         servingLabel: servingLabel.trim() || 'serving', servingGrams: Number(servingGrams) || null,
         perServing: Object.fromEntries(NUTRIENTS.map((n) => [n.key, Number(values[n.key]) || 0])),
       })
       onSaved()
     } finally { setBusy(false) }
+  }
+
+  if (step === 'pick') return <FoodPicker uid={uid} title="Fill from a food" onPick={(f) => { setPicked(f); setStep('portion') }} onClose={() => setStep('form')} />
+  if (step === 'portion') {
+    return (
+      <PortionPicker uid={uid} food={picked} showMeal={false} actionLabel="Use these values" onBack={() => setStep('pick')}
+        onDone={({ food, qty, unit, nutrients, grams }) => {
+          const amount = `${qty} ${unit.label.split(' (')[0]}`
+          if (!name.trim()) setName(food.name)
+          setServingLabel(amount)
+          setServingGrams(grams ?? '')
+          setValues(Object.fromEntries(NUTRIENTS.map((n) => [n.key, nutrients[n.key] ?? ''])))
+          setFilledFrom(`${amount} of ${food.name}`)
+          setStep('form')
+        }} />
+    )
   }
 
   return (
@@ -33,7 +54,12 @@ export function MyFoodForm({ uid, initial, barcode, onSaved, onBack }) {
         <strong>{initial?.id ? 'Edit food' : 'Create food'}</strong>
         <span style={{ width: 40 }} />
       </div>
-      {barcode && !initial && <p className="muted small">Barcode {barcode} wasn't found. Enter the label once and it'll scan instantly next time.</p>}
+      <div className="card fill-card">
+        <p className="small">No label, no scale? Pick the closest food and an everyday amount like 1 katori or 2 tbsp, and the nutrition fills in for you.</p>
+        <button className="btn-ghost" onClick={() => setStep('pick')}>Fill from a food</button>
+        {onRecipe && <button className="btn-ghost" onClick={onRecipe}>Home dish? Build it from ingredients</button>}
+        {filledFrom && <p className="muted small">Filled from {filledFrom}. Change anything below.</p>}
+      </div>
       <div className="card form">
         <label>Name<input className="text-input" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Mom's rajma, Yoga Bar protein bar" /></label>
         <div className="row">
@@ -106,6 +132,7 @@ export function RecipeBuilder({ uid, initial, onSaved, onBack }) {
       </div>
 
       <h3 className="section-title">Ingredients · {items.length}</h3>
+      <p className="muted small">Add each ingredient with an everyday amount (1 katori, 2 tbsp, 1 piece) or grams. Calories, protein, carbs, fat and fibre add up on their own.</p>
       <ul className="member-list">
         {items.map((it, i) => (
           <li key={i}>

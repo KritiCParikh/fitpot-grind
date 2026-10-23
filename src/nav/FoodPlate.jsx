@@ -1,15 +1,15 @@
 import { useEffect } from 'react'
 
-// The food plate: a dinner plate with a wedge for each meal, My foods and
-// Scan, and today's calories in the middle. Picking a wedge opens that part
+// The food plate: a dinner plate with a wedge for each meal and My foods,
+// and today's calories in the middle. Picking a wedge opens that part
 // of the Food diary straight away.
+// Five wedges, 72 degrees each, starting at the top and going clockwise.
 const WEDGES = [
   { key: 'Breakfast', label: 'Breakfast', at: [50, 15] },
-  { key: 'Lunch', label: 'Lunch', at: [80, 33] },
-  { key: 'Dinner', label: 'Dinner', at: [80, 67] },
-  { key: 'Snacks', label: 'Snacks', at: [50, 85] },
-  { key: 'scan', label: 'Scan', sub: 'barcode', at: [20, 67] },
-  { key: 'myfoods', label: 'My foods', sub: '& recipes', at: [20, 33] },
+  { key: 'Lunch', label: 'Lunch', at: [83, 39] },
+  { key: 'Dinner', label: 'Dinner', at: [71, 78] },
+  { key: 'Snacks', label: 'Snacks', at: [29, 78] },
+  { key: 'myfoods', label: 'My foods', sub: '& recipes', at: [17, 39] },
 ]
 
 export default function FoodPlate({ kcalByMeal = {}, total = 0, target = 0, onPick, onClose }) {

@@ -427,7 +427,7 @@ body { line-height: 1.45; }
 @keyframes plate-in { from { opacity: 0; transform: translateY(40px) rotate(-90deg) scale(0.6); } to { opacity: 1; transform: none; } }
 .food-plate { position: absolute; left: 0; right: 0; margin: 0 auto; bottom: calc(112px + env(safe-area-inset-bottom)); width: min(340px, 92vw); aspect-ratio: 1; animation: plate-in 260ms cubic-bezier(.2,.8,.3,1) both; }
 .plate-rim { position: absolute; inset: 0; border-radius: 50%; background: #e8ebe7; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6); }
-.plate-face { position: absolute; inset: 5%; border-radius: 50%; background: conic-gradient(#1d2421 0 60deg, #222a26 60deg 120deg, #1d2421 120deg 180deg, #222a26 180deg 240deg, #1d2421 240deg 300deg, #222a26 300deg 360deg); }
+.plate-face { position: absolute; inset: 5%; border-radius: 50%; background: conic-gradient(from -36deg, #1d2421 0 72deg, #222a26 72deg 144deg, #1d2421 144deg 216deg, #222a26 216deg 288deg, #1a201d 288deg 360deg); }
 .wedge { position: absolute; width: 96px; margin: -26px 0 0 -48px; padding: 6px 2px; border-radius: 12px; background: none; border: 0; color: var(--text); font: inherit; text-align: center; cursor: pointer; display: flex; flex-direction: column; gap: 1px; }
 .wedge strong { font-size: 0.9rem; }
 .wedge span { font-size: 0.75rem; color: var(--muted); font-weight: 600; }
@@ -530,3 +530,40 @@ body { line-height: 1.45; }
 .routine-nums span { white-space: nowrap; max-width: none; }
 .reorder-tip { margin: 4px 0; max-width: none; }
 .ex-head { align-items: center; }
+
+/* ---------- Phase 5.11: food ---------- */
+.fill-card { display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px; }
+.fill-card p { margin: 0; max-width: none; }
+.calc .row { align-items: flex-end; }
+.calc-unit { padding-bottom: 10px; }
+.calc-result { display: flex; flex-direction: column; gap: 10px; padding: 14px; border-radius: 16px; background: var(--bg); border: 1px solid var(--border); }
+.calc-big { display: flex; align-items: baseline; gap: 8px; }
+.calc-big b { font-family: 'Anton', 'Arial Black', sans-serif; font-size: 2.4rem; color: var(--lime); font-weight: 400; }
+.calc-big span { color: var(--muted); font-weight: 600; }
+.calc-lines { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 16px; }
+.calc-lines li { display: flex; justify-content: space-between; gap: 8px; font-size: 0.92rem; }
+.calc-lines li span:first-child { color: var(--muted); }
+.calc-learn .small { max-width: none; display: flex; flex-direction: column; gap: 8px; }
+.calc-learn p { margin: 0; line-height: 1.5; }
+@media (max-width: 380px) { .calc-lines { grid-template-columns: 1fr; } }
+
+/* Food doodles after logging (phase 5.11): a see-through layer, sketches draw themselves */
+.doodle-layer { position: fixed; inset: 0; z-index: 60; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 24px; background: rgba(11, 13, 12, 0.45); backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px); animation: doodle-in 250ms ease-out both; cursor: pointer; }
+.doodle-layer.leaving { animation: doodle-out 400ms ease-in both; }
+@keyframes doodle-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes doodle-out { from { opacity: 1; } to { opacity: 0; } }
+.doodle-stage { position: relative; width: min(300px, 78vw); aspect-ratio: 1; }
+.doodle-plate { position: absolute; inset: 0; width: 100%; height: 100%; fill: none; stroke: var(--text); stroke-width: 2.2; stroke-linecap: round; opacity: 0.55; }
+.doodle-plate .inner { stroke-width: 1.4; opacity: 0.6; }
+.doodle-plate path { stroke-dasharray: 1; stroke-dashoffset: 1; animation: doodle-draw 700ms ease-out forwards; }
+.doodle { position: absolute; width: 34%; height: 34%; transform: translate(-50%, -50%) rotate(-4deg); fill: none; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; overflow: visible; filter: drop-shadow(0 0 6px rgba(198, 255, 61, 0.25)); }
+.doodle path { stroke-dasharray: 1; stroke-dashoffset: 1; animation: doodle-draw 900ms ease-out forwards; animation-delay: var(--d, 300ms); }
+.doodle.solo { width: 46%; height: 46%; }
+.doodle:nth-of-type(2n) { transform: translate(-50%, -50%) rotate(5deg); }
+@keyframes doodle-draw { to { stroke-dashoffset: 0; } }
+.doodle-names { margin: 6px 0 0; font-family: 'Anton', 'Arial Black', sans-serif; font-size: 1.35rem; letter-spacing: 0.03em; color: var(--lime); text-align: center; max-width: 320px; text-shadow: 0 2px 10px rgba(0, 0, 0, 0.6); }
+.doodle-line { margin: 0; color: var(--text); font-weight: 600; text-align: center; text-shadow: 0 2px 10px rgba(0, 0, 0, 0.6); }
+@media (prefers-reduced-motion: reduce) {
+  .doodle path, .doodle-plate path { animation: none; stroke-dashoffset: 0; }
+  .doodle-layer, .doodle-layer.leaving { animation: none; }
+}
