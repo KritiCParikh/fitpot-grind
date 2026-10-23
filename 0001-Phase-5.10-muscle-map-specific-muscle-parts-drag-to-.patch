@@ -1,0 +1,1101 @@
+Mon Sep 17 00:00:00 2001
+Date: Thu, 22 Oct 2026 23:34:48 -0400
+Subject: [PATCH] Phase 5.10: muscle map, specific muscle parts, drag to
+ reorder
+
+- Exercise picker: Muscle dropdown plus an optional Specific part
+  dropdown (16 groups and their parts, after MuscleWiki), with a
+  tappable front and back body map beside them
+- Picked exercises keep the chosen part; 33 new exercises for the new
+  groups and part tags on many existing ones
+- Muscles tab: weekly heat map on the body, tap for sets, kind note
+  for muscles that have been quiet
+- Drag (or arrows) to reorder exercises in routines and during a
+  live workout; saved routines keep the new order on drop
+- Adds dnd-kit
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01LeJosKUZz8KcUXkuMuxAaH
+---
+ README.md                         |   1 +
+ package-lock.json                 |  71 ++++++++++
+ package.json                      |   4 +
+ src/components/BodyMap.jsx        |  99 ++++++++++++++
+ src/components/ExercisePicker.jsx |  80 ++++++++---
+ src/components/Sortable.jsx       |  77 +++++++++++
+ src/components/WorkoutEditor.jsx  |  31 +++--
+ src/index.css                     |  42 ++++++
+ src/lib/training.js               | 215 ++++++++++++++++++++++--------
+ src/screens/Training.jsx          |  95 ++++++++++---
+ 10 files changed, 604 insertions(+), 111 deletions(-)
+ create mode 100644 src/components/BodyMap.jsx
+ create mode 100644 src/components/Sortable.jsx
+
+diff --git a/README.md b/README.md
+index 3031a18..9a38a55 100644
+--- a/README.md
++++ b/README.md
+@@ -42,6 +42,7 @@ It then opens full screen from its own icon, like a normal app.
+ - [x] Phase 5.7 - bigger text and new navigation features
+ - [x] Phase 5.8 - kind daily reminders: three push notifications a day in our own time, quiet once we've checked in
+ - [x] Phase 5.9 - the gullak kettlebell icon in every size, mark in the header, white reminder badge, Hanuman ji with the gold gada on the PR screen
++- [x] Phase 5.10 - muscle picker with specific parts (after MuscleWiki) and a tappable body map, weekly muscle heat map, drag to reorder exercises in routines and live workouts
+ - [ ] Phase 6 - AI model (scratch -> fine-tune -> browser) + push notifications + personalised training plans from our model, built on the Training data
+ 
+ > FitPot tracks informal debts between friends. It does not move money.
+diff --git a/package-lock.json b/package-lock.json
+index f633a11..a2e5345 100644
+--- a/package-lock.json
++++ b/package-lock.json
+@@ -8,6 +8,10 @@
+       "name": "fitpot",
+       "version": "0.0.0",
+       "dependencies": {
++        "@dnd-kit/core": "^6.3.1",
++        "@dnd-kit/modifiers": "^9.0.0",
++        "@dnd-kit/sortable": "^10.0.0",
++        "@dnd-kit/utilities": "^3.2.2",
+         "barcode-detector": "^3.2.2",
+         "firebase": "^12.19.0",
+         "react": "^19.2.8",
+@@ -1582,6 +1586,73 @@
+         "node": ">=6.9.0"
+       }
+     },
++    "node_modules/@dnd-kit/accessibility": {
++      "version": "3.1.1",
++      "resolved": "https://registry.npmjs.org/@dnd-kit/accessibility/-/accessibility-3.1.1.tgz",
++      "integrity": "sha512-2P+YgaXF+gRsIihwwY1gCsQSYnu9Zyj2py8kY5fFvUM1qm2WA2u639R6YNVfU4GWr+ZM5mqEsfHZZLoRONbemw==",
++      "license": "MIT",
++      "dependencies": {
++        "tslib": "^2.0.0"
++      },
++      "peerDependencies": {
++        "react": ">=16.8.0"
++      }
++    },
++    "node_modules/@dnd-kit/core": {
++      "version": "6.3.1",
++      "resolved": "https://registry.npmjs.org/@dnd-kit/core/-/core-6.3.1.tgz",
++      "integrity": "sha512-xkGBRQQab4RLwgXxoqETICr6S5JlogafbhNsidmrkVv2YRs5MLwpjoF2qpiGjQt8S9AoxtIV603s0GIUpY5eYQ==",
++      "license": "MIT",
++      "dependencies": {
++        "@dnd-kit/accessibility": "^3.1.1",
++        "@dnd-kit/utilities": "^3.2.2",
++        "tslib": "^2.0.0"
++      },
++      "peerDependencies": {
++        "react": ">=16.8.0",
++        "react-dom": ">=16.8.0"
++      }
++    },
++    "node_modules/@dnd-kit/modifiers": {
++      "version": "9.0.0",
++      "resolved": "https://registry.npmjs.org/@dnd-kit/modifiers/-/modifiers-9.0.0.tgz",
++      "integrity": "sha512-ybiLc66qRGuZoC20wdSSG6pDXFikui/dCNGthxv4Ndy8ylErY0N3KVxY2bgo7AWwIbxDmXDg3ylAFmnrjcbVvw==",
++      "license": "MIT",
++      "dependencies": {
++        "@dnd-kit/utilities": "^3.2.2",
++        "tslib": "^2.0.0"
++      },
++      "peerDependencies": {
++        "@dnd-kit/core": "^6.3.0",
++        "react": ">=16.8.0"
++      }
++    },
++    "node_modules/@dnd-kit/sortable": {
++      "version": "10.0.0",
++      "resolved": "https://registry.npmjs.org/@dnd-kit/sortable/-/sortable-10.0.0.tgz",
++      "integrity": "sha512-+xqhmIIzvAYMGfBYYnbKuNicfSsk4RksY2XdmJhT+HAC01nix6fHCztU68jooFiMUB01Ky3F0FyOvhG/BZrWkg==",
++      "license": "MIT",
++      "dependencies": {
++        "@dnd-kit/utilities": "^3.2.2",
++        "tslib": "^2.0.0"
++      },
++      "peerDependencies": {
++        "@dnd-kit/core": "^6.3.0",
++        "react": ">=16.8.0"
++      }
++    },
++    "node_modules/@dnd-kit/utilities": {
++      "version": "3.2.2",
++      "resolved": "https://registry.npmjs.org/@dnd-kit/utilities/-/utilities-3.2.2.tgz",
++      "integrity": "sha512-+MKAJEOfaBe5SmV6t34p80MMKhjvUz0vRrvVJbPT0WElzaOJ/1xs+D+KDv+tD/NE5ujfrChEcshd4fLn0wpiqg==",
++      "license": "MIT",
++      "dependencies": {
++        "tslib": "^2.0.0"
++      },
++      "peerDependencies": {
++        "react": ">=16.8.0"
++      }
++    },
+     "node_modules/@firebase/ai": {
+       "version": "2.16.0",
+       "resolved": "https://registry.npmjs.org/@firebase/ai/-/ai-2.16.0.tgz",
+diff --git a/package.json b/package.json
+index 076f69d..eecb993 100644
+--- a/package.json
++++ b/package.json
+@@ -10,6 +10,10 @@
+     "preview": "vite preview"
+   },
+   "dependencies": {
++    "@dnd-kit/core": "^6.3.1",
++    "@dnd-kit/modifiers": "^9.0.0",
++    "@dnd-kit/sortable": "^10.0.0",
++    "@dnd-kit/utilities": "^3.2.2",
+     "barcode-detector": "^3.2.2",
+     "firebase": "^12.19.0",
+     "react": "^19.2.8",
+diff --git a/src/components/BodyMap.jsx b/src/components/BodyMap.jsx
+new file mode 100644
+index 0000000..bd3483c
+--- /dev/null
++++ b/src/components/BodyMap.jsx
+@@ -0,0 +1,99 @@
++// Front and back body outline with one shape per muscle region (phase 5.10).
++// Our own drawing, in FitPot's colours. A region's key is a muscle part key
++// (traps_mid) or, for groups with no parts, the group key (neck).
++//
++// Two ways to use it:
++//   • picker: `bright` regions in full lime, `soft` ones dimmer (the rest of
++//     the chosen group). Tapping a region calls onPick(region).
++//   • heat map: `heat` gives each region a level 0 to 3.
++// The dropdowns next to it are the keyboard-friendly way to choose; tapping
++// the body is a shortcut.
++
++const HEAT = ['#2a332e', '#3e5220', '#7fa62a', '#c6ff3d']
++const BASE = '#2a332e', SOFT = '#55701f', LIME = '#c6ff3d'
++
++// [region, shape, attributes]. Shapes come in left and right pairs.
++const e = (region, cx, cy, rx, ry) => [region, 'ellipse', { cx, cy, rx, ry }]
++const pair = (region, cx, cy, rx, ry) => [e(region, cx, cy, rx, ry), e(region, 160 - cx, cy, rx, ry)]
++const r = (region, x, y, width, height, rx) => [region, 'rect', { x, y, width, height, rx }]
++const poly = (region, points) => [region, 'polygon', { points }]
++
++const FRONT = [
++  r('neck', 72, 40, 16, 12, 3),
++  poly('traps_upper', '72,46 52,60 70,58'), poly('traps_upper', '88,46 108,60 90,58'),
++  ...pair('delt_side', 40, 76, 5, 11),
++  ...pair('delt_front', 50, 72, 10, 11),
++  r('chest_upper', 60, 58, 19, 14, 3), r('chest_upper', 81, 58, 19, 14, 3),
++  r('chest_lower', 60, 73, 19, 20, 4), r('chest_lower', 81, 73, 19, 20, 4),
++  ...pair('bi_long', 40, 104, 4.5, 15),
++  ...pair('bi_short', 48, 104, 4.5, 15),
++  ...pair('fa_ext', 37, 138, 4.5, 17),
++  ...pair('fa_flex', 45, 138, 4.5, 17),
++  ...pair('grip', 40, 165, 6, 6),
++  r('abs_upper', 68, 96, 24, 22, 4),
++  r('abs_lower', 68, 120, 24, 28, 4),
++  poly('obliques', '60,96 66,96 66,146 58,138'), poly('obliques', '100,96 94,96 94,146 102,138'),
++  poly('adductors', '72,152 79,152 79,178'), poly('adductors', '88,152 81,152 81,178'),
++  ...pair('quad_out', 61, 196, 5.5, 28),
++  ...pair('quad_in', 76, 212, 4, 15),
++  ...pair('quad_rf', 69, 192, 5.5, 30),
++  ...pair('shins', 66, 264, 5, 24),
++  ...pair('feet', 66, 318, 10, 6),
++]
++
++const BACK = [
++  r('neck', 72, 40, 16, 12, 3),
++  poly('traps_upper', '80,42 56,60 80,66 104,60'),
++  poly('traps_mid', '66,64 94,64 88,88 72,88'),
++  poly('traps_lower', '72,90 88,90 80,110'),
++  ...pair('delt_side', 40, 76, 5, 11),
++  ...pair('delt_rear', 50, 72, 10, 11),
++  poly('lats', '58,80 68,90 76,128 62,120 56,98'), poly('lats', '102,80 92,90 84,128 98,120 104,98'),
++  r('lower_back', 70, 112, 9, 32, 3), r('lower_back', 81, 112, 9, 32, 3),
++  ...pair('tri_lat', 40, 100, 4.5, 13),
++  ...pair('tri_long', 48, 102, 4.5, 15),
++  ...pair('tri_med', 44, 120, 5, 5),
++  ...pair('fa_ext', 40, 138, 5, 17),
++  ...pair('fa_flex', 48, 140, 4, 15),
++  ...pair('grip', 40, 165, 6, 6),
++  ...pair('glute_med', 63, 148, 7, 6),
++  ...pair('glute_max', 71, 161, 10, 12),
++  ...pair('ham_out', 63, 203, 5.5, 26),
++  ...pair('ham_in', 72, 203, 5.5, 26),
++  ...pair('gastroc', 66, 252, 7, 16),
++  ...pair('soleus', 66, 279, 5, 10),
++  ...pair('feet', 66, 318, 8, 6),
++]
++const IN_FRONT = new Set(FRONT.map((s) => s[0]))
++const IN_BACK = new Set(BACK.map((s) => s[0]))
++
++export default function BodyMap({ bright = [], soft = [], heat = null, onPick, size = 132 }) {
++  const b = new Set(bright), s = new Set(soft)
++  const fill = (region) => (heat ? HEAT[heat[region] || 0] : b.has(region) ? LIME : s.has(region) ? SOFT : BASE)
++  const lit = [...b, ...s]
++  const frontOn = !heat && lit.some((x) => IN_FRONT.has(x))
++  const backOn = !heat && lit.some((x) => IN_BACK.has(x))
++
++  const view = (shapes, label, on) => (
++    <figure className="body-view">
++      <svg viewBox="0 0 160 340" width={size} height={Math.round(size * 340 / 160)} role="img" aria-label={`${label} view of the body`}>
++        <circle cx="80" cy="24" r="16" fill="#1e2522" />
++        {shapes.map(([region, Tag, attrs], i) => (
++          <Tag key={i} {...attrs} fill={fill(region)} className={onPick ? 'region tap' : 'region'}
++            onClick={onPick ? () => onPick(region) : undefined} />
++        ))}
++      </svg>
++      <figcaption className={on ? 'lime' : 'muted'}>{label.toUpperCase()}</figcaption>
++    </figure>
++  )
++
++  return (
++    <div className="body-map">
++      {view(FRONT, 'Front', frontOn)}
++      {view(BACK, 'Back', backOn)}
++    </div>
++  )
++}
++
++/** The colour scale used by the heat map, for its legend. */
++export const HEAT_COLORS = HEAT
+diff --git a/src/components/ExercisePicker.jsx b/src/components/ExercisePicker.jsx
+index d8fa0e2..3806d71 100644
+--- a/src/components/ExercisePicker.jsx
++++ b/src/components/ExercisePicker.jsx
+@@ -1,12 +1,17 @@
+ import { useMemo, useState } from 'react'
+-import { MUSCLES, EQUIPMENT, muscleLabel, doable } from '../lib/training'
++import { MUSCLES, EQUIPMENT, muscleLabel, muscleText, partLabel, doable, regionsOf, fromRegion } from '../lib/training'
+ import { addCustomExercise, deleteCustomExercise } from '../lib/privateData'
++import BodyMap from './BodyMap'
+ 
+-// Full-screen exercise finder: search, filter by muscle group, optionally only
+-// what your equipment allows, and create your own exercises.
++// Full-screen exercise finder: search, pick a muscle (and, optionally, a
++// specific part) from the dropdowns or by tapping the body map, optionally
++// only what your equipment allows, and create your own exercises.
++// Exercises picked while a part is chosen are logged against that part, so
++// the muscle map can show exactly what you trained (phase 5.10).
+ export default function ExercisePicker({ uid, exercises, have, onPick, onClose, title = 'Add exercise' }) {
+   const [q, setQ] = useState('')
+   const [muscle, setMuscle] = useState('')
++  const [part, setPart] = useState('')
+   const [onlyMine, setOnlyMine] = useState(have.size > 0)
+   const [creating, setCreating] = useState(false)
+ 
+@@ -14,8 +19,13 @@ export default function ExercisePicker({ uid, exercises, have, onPick, onClose,
+     const term = q.trim().toLowerCase()
+     return exercises
+       .filter((e) => (!muscle || e.muscle === muscle) && (!term || e.name.toLowerCase().includes(term)) && (!onlyMine || e.custom || doable(e, have)))
+-      .sort((a, b) => (b.custom ? 1 : 0) - (a.custom ? 1 : 0) || a.name.localeCompare(b.name))
+-  }, [exercises, q, muscle, onlyMine, have])
++      // With a part chosen, exercises that target it come first.
++      .sort((a, b) => (part ? (b.part === part ? 1 : 0) - (a.part === part ? 1 : 0) : 0)
++        || (b.custom ? 1 : 0) - (a.custom ? 1 : 0) || a.name.localeCompare(b.name))
++  }, [exercises, q, muscle, part, onlyMine, have])
++
++  // The chosen part goes with the exercise, unless it already targets a part.
++  const pick = (e) => onPick(part && !e.part && e.muscle === muscle ? { ...e, part } : e)
+ 
+   if (creating) return <CreateExercise uid={uid} onClose={() => setCreating(false)} onCreated={(ex) => { setCreating(false); onPick(ex) }} />
+ 
+@@ -26,10 +36,7 @@ export default function ExercisePicker({ uid, exercises, have, onPick, onClose,
+         <button className="btn-ghost" onClick={onClose}>Close</button>
+       </div>
+       <input className="text-input search" placeholder="Search exercises" value={q} onChange={(e) => setQ(e.target.value)} autoFocus />
+-      <div className="chips">
+-        <button className={`chip ${!muscle ? 'on' : ''}`} onClick={() => setMuscle('')}>All</button>
+-        {MUSCLES.map((m) => <button key={m.key} className={`chip ${muscle === m.key ? 'on' : ''}`} onClick={() => setMuscle(muscle === m.key ? '' : m.key)}>{m.label}</button>)}
+-      </div>
++      <MusclePicker muscle={muscle} part={part} onChange={(m, pt) => { setMuscle(m); setPart(pt) }} />
+       {have.size > 0 && (
+         <label className="check small muted">
+           <input type="checkbox" checked={onlyMine} onChange={(e) => setOnlyMine(e.target.checked)} /> Only what my equipment allows
+@@ -38,10 +45,10 @@ export default function ExercisePicker({ uid, exercises, have, onPick, onClose,
+       <ul className="food-list">
+         {list.map((e) => (
+           <li key={e.key}>
+-            <button onClick={() => onPick(e)}>
++            <button onClick={() => pick(e)}>
+               <span className="grow-col">
+                 <span className="food-name">{e.name}{e.custom ? <span className="muted small"> (mine)</span> : null}</span>
+-                <span className="muted small">{muscleLabel(e.muscle)}</span>
++                <span className="muted small">{muscleText(e.muscle, e.part)}</span>
+               </span>
+             </button>
+           </li>
+@@ -55,7 +62,7 @@ export default function ExercisePicker({ uid, exercises, have, onPick, onClose,
+           <ul className="member-list">
+             {exercises.filter((e) => e.custom).map((e) => (
+               <li key={e.key}>
+-                <span className="grow">{e.name} <span className="muted small">· {muscleLabel(e.muscle)}</span></span>
++                <span className="grow">{e.name} <span className="muted small">· {muscleText(e.muscle, e.part)}</span></span>
+                 <button className="btn-ghost" aria-label={`Delete ${e.name}`} onClick={() => confirm(`Delete "${e.name}"? Past workouts keep their entries.`) && deleteCustomExercise(uid, e.id)}>✕</button>
+               </li>
+             ))}
+@@ -66,9 +73,46 @@ export default function ExercisePicker({ uid, exercises, have, onPick, onClose,
+   )
+ }
+ 
++/**
++ * Muscle dropdown, then an optional specific part, with the body map beside
++ * them. Tapping the body sets both. onChange(muscle, part); '' means all / any.
++ */
++export function MusclePicker({ muscle, part, onChange, allowAll = true }) {
++  const m = MUSCLES.find((x) => x.key === muscle)
++  const parts = m?.parts || []
++  const bright = part ? [part] : parts.length ? [] : regionsOf(muscle)
++  const soft = regionsOf(muscle).filter((r) => !bright.includes(r))
++  return (
++    <div className="muscle-pick">
++      <div className="muscle-selects form">
++        <label>Muscle
++          <select value={muscle} onChange={(e) => onChange(e.target.value, '')}>
++            {allowAll && <option value="">All muscles</option>}
++            {MUSCLES.map((x) => <option key={x.key} value={x.key}>{x.label}</option>)}
++          </select>
++        </label>
++        <label>Specific part (optional)
++          <select value={part} disabled={!parts.length} onChange={(e) => onChange(muscle, e.target.value)}>
++            <option value="">{parts.length ? 'Any' : 'None for this muscle'}</option>
++            {parts.map((x) => <option key={x.key} value={x.key}>{x.label}</option>)}
++          </select>
++        </label>
++        <p className="muscle-caption">{muscle
++          ? <><span className="lime">{(part ? partLabel(part) : muscleLabel(muscle)).toUpperCase()}</span>{part && <span className="muted"> in {muscleLabel(muscle)}</span>}</>
++          : <span className="muted">Tap a muscle on the body to pick it</span>}</p>
++      </div>
++      <BodyMap bright={bright} soft={soft} size={120} onPick={(region) => {
++        const hit = fromRegion(region)
++        if (hit) onChange(hit.muscle, hit.part)
++      }} />
++    </div>
++  )
++}
++
+ function CreateExercise({ uid, onClose, onCreated }) {
+   const [name, setName] = useState('')
+   const [muscle, setMuscle] = useState('chest')
++  const [part, setPart] = useState('')
+   const [eq, setEq] = useState([])
+   const [busy, setBusy] = useState(false)
+ 
+@@ -77,8 +121,8 @@ function CreateExercise({ uid, onClose, onCreated }) {
+     if (!name.trim()) return
+     setBusy(true)
+     try {
+-      const ref = await addCustomExercise(uid, { name: name.trim(), muscle, eq })
+-      onCreated({ key: `my:${ref.id}`, name: name.trim(), muscle, eq: eq.length ? eq : ['bodyweight'], custom: true, id: ref.id })
++      const ref = await addCustomExercise(uid, { name: name.trim(), muscle, eq, ...(part ? { part } : {}) })
++      onCreated({ key: `my:${ref.id}`, name: name.trim(), muscle, ...(part ? { part } : {}), eq: eq.length ? eq : ['bodyweight'], custom: true, id: ref.id })
+     } finally { setBusy(false) }
+   }
+ 
+@@ -92,11 +136,9 @@ function CreateExercise({ uid, onClose, onCreated }) {
+         <label>Name
+           <input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Hammer Strength chest press" maxLength={60} autoFocus />
+         </label>
+-        <label>Main muscle group
+-          <select value={muscle} onChange={(e) => setMuscle(e.target.value)}>
+-            {MUSCLES.map((m) => <option key={m.key} value={m.key}>{m.label}</option>)}
+-          </select>
+-        </label>
++      </form>
++      <MusclePicker muscle={muscle} part={part} allowAll={false} onChange={(m, pt) => { setMuscle(m); setPart(pt) }} />
++      <form className="card form" onSubmit={save}>
+         <p className="muted small">Equipment it needs (optional)</p>
+         <div className="chips">
+           {EQUIPMENT.map((x) => (
+diff --git a/src/components/Sortable.jsx b/src/components/Sortable.jsx
+new file mode 100644
+index 0000000..2cd000a
+--- /dev/null
++++ b/src/components/Sortable.jsx
+@@ -0,0 +1,77 @@
++import {
++  DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors,
++} from '@dnd-kit/core'
++import {
++  SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable, arrayMove,
++} from '@dnd-kit/sortable'
++import { restrictToVerticalAxis, restrictToParentElement } from '@dnd-kit/modifiers'
++import { CSS } from '@dnd-kit/utilities'
++
++// Drag to reorder (phase 5.10). Used for a routine's exercises and for the
++// exercises in a workout while you're doing it.
++//
++// Each row gets a grip handle (hold and drag, with mouse or finger) plus up and
++// down arrows for anyone who finds dragging fiddly. Only the grip starts a
++// drag, so typing in a row's inputs and scrolling the page work as usual.
++// Keyboard: focus the grip, press Space, move with the arrow keys, Space again.
++
++let n = 0
++/** A row id that stays put while rows move around. Never saved. */
++export const rowId = () => `row-${Date.now().toString(36)}-${++n}`
++
++/**
++ * items: the rows, each with a stable `rowId`. onChange(newItems) after a move.
++ * children(item, index, controls): draws a row; put {controls} where the grip
++ * and arrows should go.
++ */
++export default function SortableList({ items, onChange, children }) {
++  const sensors = useSensors(
++    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
++    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
++  )
++  const ids = items.map((x) => x.rowId)
++  const move = (from, to) => {
++    if (to < 0 || to >= items.length || from === to) return
++    onChange(arrayMove(items, from, to))
++  }
++  return (
++    <DndContext sensors={sensors} collisionDetection={closestCenter} modifiers={[restrictToVerticalAxis, restrictToParentElement]}
++      onDragEnd={({ active, over }) => over && move(ids.indexOf(active.id), ids.indexOf(over.id))}>
++      <SortableContext items={ids} strategy={verticalListSortingStrategy}>
++        <div className="sortable-list">
++          {items.map((item, i) => (
++            <SortableRow key={item.rowId} id={item.rowId} name={item.name} first={i === 0} last={i === items.length - 1}
++              onUp={() => move(i, i - 1)} onDown={() => move(i, i + 1)}>
++              {(controls) => children(item, i, controls)}
++            </SortableRow>
++          ))}
++        </div>
++      </SortableContext>
++    </DndContext>
++  )
++}
++
++function SortableRow({ id, name, first, last, onUp, onDown, children }) {
++  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id })
++  const style = { transform: CSS.Translate.toString(transform), transition, position: 'relative', zIndex: isDragging ? 5 : undefined }
++  const controls = (
++    <span className="reorder">
++      <button type="button" className="grip" ref={setActivatorNodeRef} {...attributes} {...listeners} aria-label={`Drag to move ${name}`}>
++        <svg width="14" height="20" viewBox="0 0 14 20" aria-hidden="true">
++          {[4, 10, 16].map((y) => <g key={y}><circle cx="4" cy={y} r="1.8" /><circle cx="10" cy={y} r="1.8" /></g>)}
++        </svg>
++      </button>
++      <button type="button" className="move" onClick={onUp} disabled={first} aria-label={`Move ${name} up`}>
++        <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 15l6-6 6 6" /></svg>
++      </button>
++      <button type="button" className="move" onClick={onDown} disabled={last} aria-label={`Move ${name} down`}>
++        <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
++      </button>
++    </span>
++  )
++  return (
++    <div ref={setNodeRef} style={style} className={`sortable-row ${isDragging ? 'dragging' : ''}`}>
++      {children(controls)}
++    </div>
++  )
++}
+diff --git a/src/components/WorkoutEditor.jsx b/src/components/WorkoutEditor.jsx
+index 3ad6e0d..69bf5f3 100644
+--- a/src/components/WorkoutEditor.jsx
++++ b/src/components/WorkoutEditor.jsx
+@@ -1,11 +1,12 @@
+ import { useState } from 'react'
+ import { saveWorkout, deleteWorkout, saveSettings } from '../lib/privateData'
+ import {
+-  muscleLabel, lastTime, beatIt, personalRecords, units, isCardio, cardioMetric, countLabel, lastCardio, KM_PER_MI,
++  muscleText, lastTime, beatIt, personalRecords, units, isCardio, cardioMetric, countLabel, lastCardio, KM_PER_MI,
+ } from '../lib/training'
+ import ExercisePicker from './ExercisePicker'
+ import RestTimer from './RestTimer'
+ import UnitSwitch from './UnitSwitch'
++import SortableList, { rowId } from './Sortable'
+ 
+ const PR_LABEL = {
+   weight: 'Heaviest weight', e1rm: 'Best estimated 1 rep max', reps: 'Most reps',
+@@ -17,6 +18,8 @@ const LB = 2.20462
+ // distance and time (or time and a count, for stair climber and skipping).
+ // Each exercise shows last time and a target to beat. Ticking a strength set
+ // starts the rest timer. New personal records are shown when you save.
++// Exercises can be dragged into a new order mid-workout (phase 5.10), e.g.
++// when the machine you wanted is taken.
+ //
+ // `initial`: an existing workout to edit, or { date, title, exercises } to start from.
+ export default function WorkoutEditor({ uid, initial, workouts, exercises, have, u: u0, restSec = 90, today, onClose }) {
+@@ -80,7 +83,7 @@ export default function WorkoutEditor({ uid, initial, workouts, exercises, have,
+         })),
+       }
+       : {
+-        key: x.key, name: x.name, muscle: x.muscle,
++        key: x.key, name: x.name, muscle: x.muscle, ...(x.part ? { part: x.part } : {}),
+         sets: x.sets.filter((s) => Number(s.reps) > 0).map((s) => ({ reps: Math.round(Number(s.reps)), kg: Math.round(u.toKg(s.w) * 100) / 100 })),
+       })).filter((x) => x.sets.length)
+     if (!clean.length) return alert('Add at least one set with reps, or a distance or time for cardio.')
+@@ -152,17 +155,18 @@ export default function WorkoutEditor({ uid, initial, workouts, exercises, have,
+         </div>
+       )}
+ 
+-      {items.map((x, i) => (x.cardio
+-        ? <CardioCard key={i} x={x} u={u} others={others} date={date}
++      {items.length > 1 && <p className="muted small reorder-tip">Hold the grip to drag an exercise, or use the arrows.</p>}
++      <SortableList items={items} onChange={setItems}>{(x, i, controls) => (x.cardio
++        ? <CardioCard x={x} u={u} others={others} date={date} controls={controls}
+           onSet={(k, patch) => setSet(i, k, patch)} onTick={(k) => tick(i, k)}
+           onRemoveSet={(k) => setItem(i, (y) => ({ ...y, sets: y.sets.filter((_, j) => j !== k) }))}
+           onAddSet={() => setItem(i, (y) => ({ ...y, sets: [...y.sets, { d: '', min: '', count: '', done: false }] }))}
+           onRemove={() => setItems((l) => l.filter((_, j) => j !== i))} />
+-        : <StrengthCard key={i} x={x} u={u} others={others} date={date} stepKg={stepKg}
++        : <StrengthCard x={x} u={u} others={others} date={date} stepKg={stepKg} controls={controls}
+           onSet={(k, patch) => setSet(i, k, patch)} onTick={(k) => tick(i, k)}
+           onRemoveSet={(k) => setItem(i, (y) => ({ ...y, sets: y.sets.filter((_, j) => j !== k) }))}
+           onAddSet={() => setItem(i, (y) => ({ ...y, sets: [...y.sets, { ...(y.sets[y.sets.length - 1] || { w: '', reps: '' }), done: false }] }))}
+-          onRemove={() => setItems((l) => l.filter((_, j) => j !== i))} />))}
++          onRemove={() => setItems((l) => l.filter((_, j) => j !== i))} />)}</SortableList>
+ 
+       <button className="btn-ghost wide" onClick={() => setPicking(true)}>+ Add exercise</button>
+       <label className="form notes">Notes (how it felt, form cues, anything)
+@@ -179,7 +183,7 @@ export default function WorkoutEditor({ uid, initial, workouts, exercises, have,
+ 
+ // Editor rows keep what you typed, in the units on screen.
+ function toItem(ex, sets, u, done) {
+-  const base = { key: ex.key, name: ex.name, muscle: ex.muscle }
++  const base = { rowId: rowId(), key: ex.key, name: ex.name, muscle: ex.muscle, ...(ex.part ? { part: ex.part } : {}) }
+   if (isCardio(ex)) {
+     return {
+       ...base, muscle: 'cardio', cardio: true, metric: cardioMetric(ex), countLabel: countLabel(ex),
+@@ -191,24 +195,25 @@ function toItem(ex, sets, u, done) {
+ 
+ const shortDate = (d) => new Date(d + 'T12:00:00Z').toLocaleDateString(undefined, { month: 'short', day: 'numeric', timeZone: 'UTC' })
+ 
+-function CardHead({ x, onRemove }) {
++function CardHead({ x, onRemove, controls }) {
+   return (
+     <div className="ex-head">
++      {controls}
+       <span className="grow-col">
+         <strong>{x.name}</strong>
+-        <span className="muted small">{muscleLabel(x.muscle)}</span>
++        <span className="muted small">{muscleText(x.muscle, x.part)}</span>
+       </span>
+       <button className="btn-ghost" aria-label={`Remove ${x.name}`} onClick={onRemove}>✕</button>
+     </div>
+   )
+ }
+ 
+-function StrengthCard({ x, u, others, date, stepKg, onSet, onTick, onRemoveSet, onAddSet, onRemove }) {
++function StrengthCard({ x, u, others, date, stepKg, controls, onSet, onTick, onRemoveSet, onAddSet, onRemove }) {
+   const last = lastTime(others, x.key, { before: date })
+   const goal = beatIt(last, { stepKg })
+   return (
+     <div className="card ex-card">
+-      <CardHead x={x} onRemove={onRemove} />
++      <CardHead x={x} onRemove={onRemove} controls={controls} />
+       {last
+         ? <p className="muted small">Last time ({shortDate(last.date)}): {last.sets.map((s) => u.show(s.kg, s.reps)).join(', ')}{goal && <>. <span className="lime">Beat it: {u.show(goal.kg, goal.reps)}</span></>}</p>
+         : <p className="muted small">First time logging this. Today sets your baseline.</p>}
+@@ -226,14 +231,14 @@ function StrengthCard({ x, u, others, date, stepKg, onSet, onTick, onRemoveSet,
+   )
+ }
+ 
+-function CardioCard({ x, u, others, date, onSet, onTick, onRemoveSet, onAddSet, onRemove }) {
++function CardioCard({ x, u, others, date, controls, onSet, onTick, onRemoveSet, onAddSet, onRemove }) {
+   const last = lastCardio(others, x.key, { before: date })
+   const timeOnly = x.metric === 'time'
+   const totalKm = x.sets.reduce((t, s) => t + u.toKm(s.d), 0)
+   const totalMin = x.sets.reduce((t, s) => t + (Number(s.min) || 0), 0)
+   return (
+     <div className="card ex-card">
+-      <CardHead x={x} onRemove={onRemove} />
++      <CardHead x={x} onRemove={onRemove} controls={controls} />
+       {last
+         ? <p className="muted small">Last time ({shortDate(last.date)}): {u.showCardio(last, x.metric, x.countLabel)}. <span className="lime">{timeOnly ? 'Go a little longer' : 'Go a little further or faster'}.</span></p>
+         : <p className="muted small">First time logging this. Today sets your baseline.</p>}
+diff --git a/src/index.css b/src/index.css
+index cae3862..ba0fd92 100644
+--- a/src/index.css
++++ b/src/index.css
+@@ -488,3 +488,45 @@ body { line-height: 1.45; }
+ .slot-list { display: flex; flex-direction: column; gap: 8px; }
+ .slot-row { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 4px 0; border-bottom: 1px solid var(--border); }
+ .slot-time { width: 148px; flex: none; }
++
++/* ---------- Phase 5.10: muscle map, muscle picker, drag to reorder ---------- */
++.muscle-pick { display: flex; flex-wrap: wrap; gap: 12px 16px; align-items: flex-start; margin: 8px 0 12px; }
++.muscle-selects { flex: 1 1 200px; min-width: 0; gap: 10px; }
++.muscle-selects select { width: 100%; }
++.muscle-selects select:disabled { opacity: 0.5; }
++.muscle-caption { margin: 2px 0 0; font-family: 'Anton', sans-serif; font-size: 1.05rem; letter-spacing: 0.04em; line-height: 1.3; }
++.muscle-caption .muted { font-family: 'Inter', system-ui, sans-serif; font-size: 0.85rem; letter-spacing: 0; }
++.body-map { display: flex; justify-content: center; gap: 12px; flex: 0 0 auto; margin: 0 auto; }
++.body-view { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 4px; }
++.body-view figcaption { font-family: 'Anton', sans-serif; font-size: 0.8rem; letter-spacing: 0.15em; margin: 0; }
++.body-view .region { stroke: var(--bg); stroke-width: 1.2; transition: fill 0.2s; }
++.body-view .region.tap { cursor: pointer; }
++.body-view .region.tap:hover { stroke: var(--lime); }
++.muscle-map { display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px; }
++.heat-legend { display: flex; justify-content: center; flex-wrap: wrap; gap: 6px 14px; font-size: 0.8rem; color: var(--muted); }
++.heat-legend span { display: inline-flex; align-items: center; gap: 6px; }
++.heat-legend i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
++.map-detail { margin: 0; text-align: center; max-width: none; }
++.map-nudge { margin: 0; padding: 10px 12px; border-radius: 12px; border: 1px solid rgba(255, 122, 26, 0.35); background: rgba(255, 122, 26, 0.08); max-width: none; }
++
++.sortable-list { display: flex; flex-direction: column; gap: 0; }
++.sortable-row.dragging { opacity: 0.92; }
++.sortable-row.dragging .ex-card, .sortable-row.dragging .routine-row { border-color: var(--lime); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5); }
++.reorder { display: inline-flex; align-items: center; gap: 2px; flex-shrink: 0; }
++.reorder .grip, .reorder .move {
++  background: transparent; border: 1px solid var(--border); border-radius: 10px; color: var(--muted);
++  width: 36px; height: 40px; display: inline-flex; align-items: center; justify-content: center; padding: 0; cursor: pointer;
++}
++.reorder .grip { border-color: transparent; cursor: grab; touch-action: none; width: 28px; }
++.reorder .grip:active { cursor: grabbing; color: var(--lime); }
++.reorder .grip svg { fill: currentColor; }
++.reorder .move svg { fill: none; stroke: currentColor; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
++.reorder .move:disabled { opacity: 0.3; cursor: default; }
++.reorder .grip:focus-visible, .reorder .move:focus-visible { outline: 2px solid var(--lime); outline-offset: 1px; }
++.routine-row { display: flex; flex-direction: column; align-items: stretch; gap: 6px; padding: 10px 0; border-top: 1px solid var(--border); background: var(--surface); }
++.routine-top { display: flex; align-items: center; gap: 8px; }
++.routine-top .grow-col { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
++.routine-nums { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding-left: 36px; }
++.routine-nums span { white-space: nowrap; max-width: none; }
++.reorder-tip { margin: 4px 0; max-width: none; }
++.ex-head { align-items: center; }
+diff --git a/src/lib/training.js b/src/lib/training.js
+index 778122d..aebeb78 100644
+--- a/src/lib/training.js
++++ b/src/lib/training.js
+@@ -10,21 +10,51 @@
+ 
+ import { addDays, mondayOf } from './dates.js'
+ 
++// Muscle groups, each with optional specific parts (phase 5.10, after the
++// MuscleWiki breakdown). A part's key is also its region on the body map.
++// Groups with no parts use their own key as the region. Old workouts only
++// carry the group key, and that still works everywhere.
++const P = (key, label) => ({ key, label })
+ export const MUSCLES = [
+-  { key: 'chest', label: 'Chest' },
+-  { key: 'back', label: 'Back' },
+-  { key: 'shoulders', label: 'Shoulders' },
+-  { key: 'biceps', label: 'Biceps' },
+-  { key: 'triceps', label: 'Triceps' },
+-  { key: 'forearms', label: 'Forearms' },
+-  { key: 'quads', label: 'Quads' },
+-  { key: 'hamstrings', label: 'Hamstrings' },
+-  { key: 'glutes', label: 'Glutes' },
+-  { key: 'calves', label: 'Calves' },
+-  { key: 'core', label: 'Core' },
+-  { key: 'fullbody', label: 'Full body' },
+-  { key: 'cardio', label: 'Cardio' },
++  { key: 'neck', label: 'Neck', parts: [] },
++  { key: 'traps', label: 'Traps', parts: [P('traps_upper', 'Upper traps'), P('traps_mid', 'Mid-back traps'), P('traps_lower', 'Lower traps')] },
++  { key: 'shoulders', label: 'Shoulders', parts: [P('delt_front', 'Front delts'), P('delt_side', 'Side delts'), P('delt_rear', 'Rear delts')] },
++  { key: 'chest', label: 'Chest', parts: [P('chest_upper', 'Upper chest'), P('chest_lower', 'Mid and lower chest')] },
++  { key: 'back', label: 'Back', parts: [P('lats', 'Lats'), P('lower_back', 'Lower back')] },
++  { key: 'biceps', label: 'Biceps', parts: [P('bi_long', 'Long head'), P('bi_short', 'Short head')] },
++  { key: 'triceps', label: 'Triceps', parts: [P('tri_long', 'Long head'), P('tri_lat', 'Lateral head'), P('tri_med', 'Medial head')] },
++  { key: 'forearms', label: 'Forearms', parts: [P('fa_flex', 'Wrist flexors'), P('fa_ext', 'Wrist extensors'), P('grip', 'Grip and hands')] },
++  { key: 'core', label: 'Abs and core', parts: [P('abs_upper', 'Upper abs'), P('abs_lower', 'Lower abs'), P('obliques', 'Obliques')] },
++  { key: 'glutes', label: 'Glutes', parts: [P('glute_max', 'Glute max'), P('glute_med', 'Glute med')] },
++  { key: 'quads', label: 'Quads', parts: [P('quad_rf', 'Rectus femoris'), P('quad_in', 'Inner quad'), P('quad_out', 'Outer quad')] },
++  { key: 'hamstrings', label: 'Hamstrings', parts: [P('ham_in', 'Inner hamstrings'), P('ham_out', 'Outer hamstrings')] },
++  { key: 'adductors', label: 'Inner thigh / Groin', parts: [] },
++  { key: 'calves', label: 'Calves', parts: [P('gastroc', 'Gastrocnemius'), P('soleus', 'Soleus')] },
++  { key: 'shins', label: 'Shins', parts: [] },
++  { key: 'feet', label: 'Feet', parts: [] },
++  { key: 'fullbody', label: 'Full body', parts: [], noMap: true },
++  { key: 'cardio', label: 'Cardio', parts: [], noMap: true },
+ ]
++const PART_INFO = Object.fromEntries(MUSCLES.flatMap((m) => m.parts.map((p) => [p.key, { ...p, muscle: m.key }])))
++/** Label of a specific part, e.g. 'traps_mid' -> 'Mid-back traps'. */
++export const partLabel = (k) => PART_INFO[k]?.label || ''
++/** Which group a part belongs to. */
++export const muscleOfPart = (k) => PART_INFO[k]?.muscle || ''
++/** "Traps / Mid-back traps", or just "Traps". */
++export const muscleText = (muscle, part) => (part && PART_INFO[part] ? `${muscleLabel(muscle)} / ${partLabel(part)}` : muscleLabel(muscle))
++/** Body map regions of a group: its parts, or the group itself. */
++export function regionsOf(muscle) {
++  const m = MUSCLES.find((x) => x.key === muscle)
++  if (!m || m.noMap) return []
++  return m.parts.length ? m.parts.map((p) => p.key) : [m.key]
++}
++/** The group and part for a tapped region of the body map. */
++export function fromRegion(region) {
++  if (PART_INFO[region]) return { muscle: PART_INFO[region].muscle, part: region }
++  return MUSCLES.some((m) => m.key === region) ? { muscle: region, part: '' } : null
++}
++/** Label for a body map region. */
++export const regionLabel = (r) => partLabel(r) || muscleLabel(r)
+ export const muscleLabel = (k) => MUSCLES.find((m) => m.key === k)?.label || 'Other'
+ 
+ // Equipment checklist. 'bodyweight' is always available.
+@@ -53,60 +83,79 @@ export const EQUIPMENT = [
+   { key: 'pool', label: 'Swimming pool' },
+ ]
+ 
+-// Built-in exercises: key, name, primary muscle, equipment (any one of these works).
+-const X = (key, name, muscle, eq) => ({ key, name, muscle, eq })
++// Built-in exercises: key, name, primary muscle, equipment (any one of these works),
++// and the specific part it targets most, where that's clear (optional).
++const X = (key, name, muscle, eq, part) => ({ key, name, muscle, eq, ...(part ? { part } : {}) })
+ // Cardio: metric 'distance' logs distance + time; 'time' logs time + a count (floors, jumps).
+ const C = (key, name, eq, metric = 'distance', countLabel = '') => ({ key, name, muscle: 'cardio', eq, kind: 'cardio', metric, countLabel })
+ export const LIBRARY = [
+   // chest
+-  X('bench', 'Barbell bench press', 'chest', ['barbell']),
+-  X('incline-bench', 'Incline barbell bench press', 'chest', ['barbell']),
+-  X('db-bench', 'Dumbbell bench press', 'chest', ['dumbbell']),
+-  X('incline-db', 'Incline dumbbell press', 'chest', ['dumbbell']),
+-  X('db-fly', 'Dumbbell fly', 'chest', ['dumbbell']),
+-  X('cable-fly', 'Cable fly / crossover', 'chest', ['cable']),
+-  X('chest-press', 'Chest press machine', 'chest', ['machine']),
+-  X('smith-bench', 'Smith machine bench press', 'chest', ['smith']),
+-  X('pushup', 'Push-up', 'chest', ['bodyweight']),
+-  X('dips', 'Dips', 'chest', ['dip']),
++  X('bench', 'Barbell bench press', 'chest', ['barbell'], 'chest_lower'),
++  X('incline-bench', 'Incline barbell bench press', 'chest', ['barbell'], 'chest_upper'),
++  X('db-bench', 'Dumbbell bench press', 'chest', ['dumbbell'], 'chest_lower'),
++  X('incline-db', 'Incline dumbbell press', 'chest', ['dumbbell'], 'chest_upper'),
++  X('db-fly', 'Dumbbell fly', 'chest', ['dumbbell'], 'chest_lower'),
++  X('cable-fly', 'Cable fly / crossover', 'chest', ['cable'], 'chest_lower'),
++  X('chest-press', 'Chest press machine', 'chest', ['machine'], 'chest_lower'),
++  X('incline-cable-fly', 'Low to high cable fly', 'chest', ['cable'], 'chest_upper'),
++  X('smith-bench', 'Smith machine bench press', 'chest', ['smith'], 'chest_lower'),
++  X('pushup', 'Push-up', 'chest', ['bodyweight'], 'chest_lower'),
++  X('dips', 'Dips', 'chest', ['dip'], 'chest_lower'),
+   // back
+   X('deadlift', 'Deadlift', 'back', ['barbell']),
+   X('bb-row', 'Barbell row', 'back', ['barbell']),
+-  X('db-row', 'One-arm dumbbell row', 'back', ['dumbbell']),
++  X('db-row', 'One-arm dumbbell row', 'back', ['dumbbell'], 'lats'),
+   X('tbar-row', 'T-bar row', 'back', ['barbell', 'machine']),
+-  X('pullup', 'Pull-up', 'back', ['pullup']),
+-  X('chinup', 'Chin-up', 'back', ['pullup']),
+-  X('lat-pulldown', 'Lat pulldown', 'back', ['cable', 'machine']),
++  X('pullup', 'Pull-up', 'back', ['pullup'], 'lats'),
++  X('chinup', 'Chin-up', 'back', ['pullup'], 'lats'),
++  X('lat-pulldown', 'Lat pulldown', 'back', ['cable', 'machine'], 'lats'),
+   X('cable-row', 'Seated cable row', 'back', ['cable']),
+   X('machine-row', 'Machine row', 'back', ['machine']),
+   X('band-row', 'Band row', 'back', ['bands']),
++  X('back-ext', 'Back extension', 'back', ['machine', 'bodyweight'], 'lower_back'),
++  X('bird-dog', 'Bird dog', 'back', ['bodyweight'], 'lower_back'),
++  // traps
++  X('bb-shrug', 'Barbell shrug', 'traps', ['barbell'], 'traps_upper'),
++  X('db-shrug', 'Dumbbell shrug', 'traps', ['dumbbell'], 'traps_upper'),
++  X('cs-row', 'Chest-supported row', 'traps', ['dumbbell', 'machine'], 'traps_mid'),
++  X('prone-t', 'Prone T raise', 'traps', ['dumbbell', 'bodyweight'], 'traps_mid'),
++  X('prone-y', 'Prone Y raise', 'traps', ['dumbbell', 'bodyweight'], 'traps_lower'),
++  X('scap-pullup', 'Scapular pull-up', 'traps', ['pullup'], 'traps_lower'),
+   // shoulders
+-  X('ohp', 'Overhead press (barbell)', 'shoulders', ['barbell']),
+-  X('db-ohp', 'Dumbbell shoulder press', 'shoulders', ['dumbbell']),
+-  X('arnold', 'Arnold press', 'shoulders', ['dumbbell']),
+-  X('lateral', 'Lateral raise', 'shoulders', ['dumbbell']),
+-  X('cable-lateral', 'Cable lateral raise', 'shoulders', ['cable']),
+-  X('rear-fly', 'Rear delt fly', 'shoulders', ['dumbbell', 'machine']),
+-  X('face-pull', 'Face pull', 'shoulders', ['cable', 'bands']),
+-  X('shoulder-press-m', 'Shoulder press machine', 'shoulders', ['machine']),
+-  X('pike-pushup', 'Pike push-up', 'shoulders', ['bodyweight']),
++  X('ohp', 'Overhead press (barbell)', 'shoulders', ['barbell'], 'delt_front'),
++  X('db-ohp', 'Dumbbell shoulder press', 'shoulders', ['dumbbell'], 'delt_front'),
++  X('arnold', 'Arnold press', 'shoulders', ['dumbbell'], 'delt_front'),
++  X('lateral', 'Lateral raise', 'shoulders', ['dumbbell'], 'delt_side'),
++  X('cable-lateral', 'Cable lateral raise', 'shoulders', ['cable'], 'delt_side'),
++  X('rear-fly', 'Rear delt fly', 'shoulders', ['dumbbell', 'machine'], 'delt_rear'),
++  X('face-pull', 'Face pull', 'shoulders', ['cable', 'bands'], 'delt_rear'),
++  X('shoulder-press-m', 'Shoulder press machine', 'shoulders', ['machine'], 'delt_front'),
++  X('pike-pushup', 'Pike push-up', 'shoulders', ['bodyweight'], 'delt_front'),
++  X('front-raise', 'Front raise', 'shoulders', ['dumbbell', 'cable'], 'delt_front'),
++  X('upright-row', 'Upright row', 'shoulders', ['barbell', 'cable'], 'delt_side'),
++  X('rev-pec-deck', 'Reverse pec deck', 'shoulders', ['machine'], 'delt_rear'),
+   // biceps
+   X('bb-curl', 'Barbell curl', 'biceps', ['barbell']),
+   X('ez-curl', 'EZ-bar curl', 'biceps', ['ezbar']),
+   X('db-curl', 'Dumbbell curl', 'biceps', ['dumbbell']),
+-  X('hammer', 'Hammer curl', 'biceps', ['dumbbell']),
++  X('hammer', 'Hammer curl', 'biceps', ['dumbbell'], 'bi_long'),
+   X('cable-curl', 'Cable curl', 'biceps', ['cable']),
+-  X('preacher', 'Preacher curl', 'biceps', ['ezbar', 'machine', 'dumbbell']),
++  X('preacher', 'Preacher curl', 'biceps', ['ezbar', 'machine', 'dumbbell'], 'bi_short'),
+   X('band-curl', 'Band curl', 'biceps', ['bands']),
++  X('incline-curl', 'Incline dumbbell curl', 'biceps', ['dumbbell'], 'bi_long'),
++  X('spider-curl', 'Spider curl', 'biceps', ['dumbbell', 'ezbar'], 'bi_short'),
+   // triceps
+-  X('pushdown', 'Triceps pushdown', 'triceps', ['cable']),
+-  X('oh-ext', 'Overhead triceps extension', 'triceps', ['dumbbell', 'cable']),
+-  X('skull', 'Skull crusher', 'triceps', ['ezbar', 'barbell']),
+-  X('cg-bench', 'Close-grip bench press', 'triceps', ['barbell']),
++  X('pushdown', 'Triceps pushdown', 'triceps', ['cable'], 'tri_lat'),
++  X('oh-ext', 'Overhead triceps extension', 'triceps', ['dumbbell', 'cable'], 'tri_long'),
++  X('skull', 'Skull crusher', 'triceps', ['ezbar', 'barbell'], 'tri_long'),
++  X('cg-bench', 'Close-grip bench press', 'triceps', ['barbell'], 'tri_lat'),
+   X('bench-dip', 'Bench dip', 'triceps', ['bodyweight']),
++  X('rev-pushdown', 'Reverse-grip pushdown', 'triceps', ['cable'], 'tri_med'),
+   // forearms
+-  X('wrist-curl', 'Wrist curl', 'forearms', ['dumbbell', 'barbell']),
+-  X('farmer', "Farmer's carry", 'forearms', ['dumbbell', 'kettlebell']),
++  X('wrist-curl', 'Wrist curl', 'forearms', ['dumbbell', 'barbell'], 'fa_flex'),
++  X('farmer', "Farmer's carry", 'forearms', ['dumbbell', 'kettlebell'], 'grip'),
++  X('rev-wrist-curl', 'Reverse wrist curl', 'forearms', ['dumbbell', 'barbell'], 'fa_ext'),
++  X('dead-hang', 'Dead hang', 'forearms', ['pullup'], 'grip'),
+   // quads
+   X('squat', 'Back squat', 'quads', ['rack']),
+   X('front-squat', 'Front squat', 'quads', ['rack']),
+@@ -114,29 +163,48 @@ export const LIBRARY = [
+   X('leg-press', 'Leg press', 'quads', ['legpress']),
+   X('hack', 'Hack squat', 'quads', ['machine']),
+   X('smith-squat', 'Smith machine squat', 'quads', ['smith']),
+-  X('leg-ext', 'Leg extension', 'quads', ['machine']),
++  X('leg-ext', 'Leg extension', 'quads', ['machine'], 'quad_rf'),
+   X('bulgarian', 'Bulgarian split squat', 'quads', ['dumbbell', 'bodyweight']),
+   X('lunge', 'Lunge', 'quads', ['dumbbell', 'bodyweight']),
+   X('bw-squat', 'Bodyweight squat', 'quads', ['bodyweight']),
++  X('sissy-squat', 'Sissy squat', 'quads', ['bodyweight'], 'quad_rf'),
+   // hamstrings
+   X('rdl', 'Romanian deadlift', 'hamstrings', ['barbell', 'dumbbell']),
+   X('leg-curl', 'Lying leg curl', 'hamstrings', ['machine']),
+   X('seated-curl', 'Seated leg curl', 'hamstrings', ['machine']),
+   X('good-morning', 'Good morning', 'hamstrings', ['barbell']),
+   // glutes
+-  X('hip-thrust', 'Hip thrust', 'glutes', ['barbell', 'dumbbell', 'machine']),
+-  X('glute-bridge', 'Glute bridge', 'glutes', ['bodyweight']),
+-  X('kickback', 'Cable kickback', 'glutes', ['cable']),
++  X('hip-thrust', 'Hip thrust', 'glutes', ['barbell', 'dumbbell', 'machine'], 'glute_max'),
++  X('glute-bridge', 'Glute bridge', 'glutes', ['bodyweight'], 'glute_max'),
++  X('kickback', 'Cable kickback', 'glutes', ['cable'], 'glute_max'),
++  X('band-walk', 'Banded side walk', 'glutes', ['bands'], 'glute_med'),
++  X('cable-abduction', 'Cable hip abduction', 'glutes', ['cable', 'machine'], 'glute_med'),
++  X('side-leg-raise', 'Side-lying leg raise', 'glutes', ['bodyweight'], 'glute_med'),
++  // inner thigh
++  X('copenhagen', 'Copenhagen plank', 'adductors', ['bodyweight']),
++  X('adductor-machine', 'Adductor machine', 'adductors', ['machine']),
++  X('sumo-squat', 'Sumo squat', 'adductors', ['dumbbell', 'kettlebell']),
+   // calves
+-  X('calf-raise', 'Standing calf raise', 'calves', ['machine', 'dumbbell', 'bodyweight', 'smith']),
+-  X('seated-calf', 'Seated calf raise', 'calves', ['machine']),
++  X('calf-raise', 'Standing calf raise', 'calves', ['machine', 'dumbbell', 'bodyweight', 'smith'], 'gastroc'),
++  X('seated-calf', 'Seated calf raise', 'calves', ['machine'], 'soleus'),
++  // shins and feet
++  X('tib-raise', 'Tibialis raise', 'shins', ['bodyweight']),
++  X('heel-walk', 'Heel walk', 'shins', ['bodyweight']),
++  X('towel-scrunch', 'Towel scrunch', 'feet', ['bodyweight']),
++  X('single-leg-balance', 'Single-leg balance', 'feet', ['bodyweight']),
+   // core
+   X('plank', 'Plank (reps = seconds)', 'core', ['bodyweight']),
+-  X('crunch', 'Crunch', 'core', ['bodyweight']),
+-  X('hanging-raise', 'Hanging leg raise', 'core', ['pullup']),
+-  X('cable-crunch', 'Cable crunch', 'core', ['cable']),
+-  X('russian-twist', 'Russian twist', 'core', ['bodyweight', 'dumbbell', 'kettlebell']),
++  X('crunch', 'Crunch', 'core', ['bodyweight'], 'abs_upper'),
++  X('hanging-raise', 'Hanging leg raise', 'core', ['pullup'], 'abs_lower'),
++  X('cable-crunch', 'Cable crunch', 'core', ['cable'], 'abs_upper'),
++  X('russian-twist', 'Russian twist', 'core', ['bodyweight', 'dumbbell', 'kettlebell'], 'obliques'),
+   X('ab-wheel', 'Ab wheel rollout', 'core', ['abwheel']),
++  X('rev-crunch', 'Reverse crunch', 'core', ['bodyweight'], 'abs_lower'),
++  X('side-plank', 'Side plank (reps = seconds)', 'core', ['bodyweight'], 'obliques'),
++  X('pallof', 'Pallof press', 'core', ['cable', 'bands'], 'obliques'),
++  // neck
++  X('neck-iso', 'Neck isometric hold (reps = seconds)', 'neck', ['bodyweight']),
++  X('plate-neck-curl', 'Plate neck curl', 'neck', ['barbell']),
+   // full body
+   X('kb-swing', 'Kettlebell swing', 'fullbody', ['kettlebell']),
+   X('clean-press', 'Clean and press', 'fullbody', ['barbell', 'dumbbell', 'kettlebell']),
+@@ -163,7 +231,7 @@ export const countLabel = (ex) => KNOWN[ex.key]?.countLabel || ex.countLabel ||
+ /** Library + your own exercises (custom ones keep their Firestore id as key). */
+ export function allExercises(custom = []) {
+   return [...LIBRARY, ...custom.map((c) => ({
+-    key: `my:${c.id}`, name: c.name, muscle: c.muscle || 'fullbody', eq: c.eq?.length ? c.eq : ['bodyweight'], custom: true, id: c.id,
++    key: `my:${c.id}`, name: c.name, muscle: c.muscle || 'fullbody', ...(c.part ? { part: c.part } : {}), eq: c.eq?.length ? c.eq : ['bodyweight'], custom: true, id: c.id,
+     ...(c.muscle === 'cardio' ? { kind: 'cardio', metric: c.metric || 'distance', countLabel: c.countLabel || '' } : {}),
+   }))]
+ }
+@@ -391,6 +459,39 @@ export function weekByMuscle(workouts, day) {
+   return { mon, sun, sessions: thisW.length, prevSessions: prevW.length, muscles, cardio }
+ }
+ 
++/**
++ * Sets per body map region between two dates (inclusive), for the muscle map.
++ * A set tagged with a part counts for that part. A set with only a group
++ * counts for every part of that group, since it works the whole group.
++ */
++export function setsByRegion(workouts, from, to) {
++  const out = {}
++  for (const w of workouts) {
++    if (w.date < from || w.date > to) continue
++    for (const ex of w.exercises || []) {
++      const n = realSets(ex).length
++      if (!n) continue
++      const regions = ex.part && PART_INFO[ex.part] ? [ex.part] : regionsOf(ex.muscle)
++      for (const r of regions) out[r] = (out[r] || 0) + n
++    }
++  }
++  return out
++}
++
++/** Muscle groups trained in the 3 weeks before `mon` but not yet from `mon` to `to`. */
++export function quietMuscles(workouts, mon, to) {
++  const before = new Set(), now = new Set()
++  const from = addDays(mon, -21)
++  for (const w of workouts) {
++    if (w.date < from || w.date > to) continue
++    for (const ex of w.exercises || []) {
++      if (!realSets(ex).length || !regionsOf(ex.muscle).length) continue
++      ;(w.date >= mon ? now : before).add(ex.muscle)
++    }
++  }
++  return MUSCLES.filter((m) => before.has(m.key) && !now.has(m.key)).map((m) => m.key)
++}
++
+ function compare(best, prev) {
+   if (!best) return 'none'
+   if (!prev) return 'new'
+diff --git a/src/screens/Training.jsx b/src/screens/Training.jsx
+index 6d10382..861141d 100644
+--- a/src/screens/Training.jsx
++++ b/src/screens/Training.jsx
+@@ -4,7 +4,7 @@ import {
+ } from '../lib/privateData'
+ import {
+   MUSCLES, EQUIPMENT, muscleLabel, allExercises, personalRecords, weekByMuscle, historyOf, units,
+-  isCardio, cardioHistory, cardioMetric, countLabel,
++  isCardio, cardioHistory, cardioMetric, countLabel, setsByRegion, quietMuscles, regionLabel, fromRegion, muscleText,
+ } from '../lib/training'
+ import { addDays, prettyDay, mondayOf } from '../lib/dates'
+ import { myToday } from '../lib/clock'
+@@ -12,6 +12,8 @@ import WorkoutEditor from '../components/WorkoutEditor'
+ import ExercisePicker from '../components/ExercisePicker'
+ import WeightChart from '../components/WeightChart'
+ import UnitSwitch from '../components/UnitSwitch'
++import BodyMap, { HEAT_COLORS } from '../components/BodyMap'
++import SortableList, { rowId } from '../components/Sortable'
+ import Icon from '../nav/Icon'
+ 
+ // Training's sections, shown as tabs at the top (phase 5.7.1: the plate dial
+@@ -144,7 +146,7 @@ function fromRoutine(it, workouts) {
+   // Strength: pre-fill each set with last time's weight for that exercise, else empty.
+   const h = historyOf(workouts, it.key)
+   const kg = h.length ? h[h.length - 1].best?.kg || 0 : 0
+-  return { key: it.key, name: it.name, muscle: it.muscle, sets: Array.from({ length: it.sets || 3 }, () => ({ reps: it.reps || 0, kg })) }
++  return { key: it.key, name: it.name, muscle: it.muscle, ...(it.part ? { part: it.part } : {}), sets: Array.from({ length: it.sets || 3 }, () => ({ reps: it.reps || 0, kg })) }
+ }
+ 
+ // ---------------- Muscles (weekly progressive overload) ----------------
+@@ -162,6 +164,7 @@ function MusclesView({ today, workouts, u }) {
+         <strong>Week of {short(week.mon)}</strong>
+         <button className="btn-ghost" onClick={() => setDay((d) => addDays(d, 7))} disabled={week.sun >= today} aria-label="Next week">›</button>
+       </div>
++      <MuscleMap workouts={workouts} mon={week.mon} sun={week.sun} today={today} />
+       <p className="muted small">{week.sessions} workouts this week (last week {week.prevSessions}). Progressive overload: beat each exercise's best set from last week by a rep or a little weight. ▲ beat it, = matched, ▼ dropped, new = first time this week.</p>
+       {!week.muscles.length && !week.cardio && <div className="card"><p className="muted">Nothing logged this week or last week.</p></div>}
+       {week.cardio && (
+@@ -210,6 +213,34 @@ function MusclesView({ today, workouts, u }) {
+   )
+ }
+ 
++// The week on the body: deeper lime = more sets. Tap a muscle to see its sets.
++// A set logged against a specific part lights just that part; one logged
++// against a whole muscle lights all of it (phase 5.10).
++const level = (n) => (!n ? 0 : n <= 5 ? 1 : n <= 10 ? 2 : 3)
++function MuscleMap({ workouts, mon, sun, today }) {
++  const [picked, setPicked] = useState(null)
++  const to = sun < today ? sun : today
++  const sets = useMemo(() => setsByRegion(workouts, mon, sun), [workouts, mon, sun])
++  const quiet = useMemo(() => (sun >= today ? quietMuscles(workouts, mon, to) : []), [workouts, mon, sun, today, to])
++  const heat = Object.fromEntries(Object.entries(sets).map(([r, n]) => [r, level(n)]))
++  const shown = picked && fromRegion(picked)
++  const n = picked ? sets[picked] || 0 : 0
++  const names = quiet.slice(0, 3).map((k) => muscleLabel(k).toLowerCase())
++  const list = names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}` : names[0]
++  return (
++    <div className="card muscle-map">
++      <BodyMap heat={heat} bright={picked ? [picked] : []} onPick={setPicked} />
++      <div className="heat-legend" aria-label="Colour key">
++        {['0 sets', '1 to 5', '6 to 10', '11+'].map((t, i) => <span key={t}><i style={{ background: HEAT_COLORS[i] }} />{t}</span>)}
++      </div>
++      <p className="small map-detail">{shown
++        ? <><strong className="lime">{regionLabel(picked)}</strong>{shown.part ? <span className="muted"> ({muscleLabel(shown.muscle)})</span> : null}: {n ? `${n} set${n === 1 ? '' : 's'} this week` : 'not trained this week yet'}</>
++        : <span className="muted">Tap a muscle to see its sets this week.</span>}</p>
++      {list && <p className="small map-nudge">{list[0].toUpperCase() + list.slice(1)} {names.length > 1 ? 'have' : 'has'} been quiet so far this week. No stress, maybe slot {names.length > 1 ? 'them' : 'it'} into your next session.</p>}
++    </div>
++  )
++}
++
+ // ---------------- Records ----------------
+ function RecordsView({ workouts, u }) {
+   const { records } = useMemo(() => personalRecords(workouts), [workouts])
+@@ -335,43 +366,63 @@ function RoutinesView({ uid, routines, exercises, have, workouts, start, today }
+   )
+ }
+ 
++// Rows carry a rowId while you edit, so they can be dragged; it's left out when saved.
++const stripRow = ({ rowId: _r, ...it }) => it
++
+ function RoutineForm({ uid, initial, exercises, have, onClose }) {
+   const [name, setName] = useState(initial.name)
+-  const [items, setItems] = useState(initial.items)
++  const [items, setItems] = useState(() => initial.items.map((it) => ({ ...it, rowId: rowId() })))
+   const [picking, setPicking] = useState(false)
+   const [busy, setBusy] = useState(false)
++  const [orderSaved, setOrderSaved] = useState(false)
+   if (picking) {
+     return <ExercisePicker uid={uid} exercises={exercises} have={have} title="Add to routine" onClose={() => setPicking(false)}
+-      onPick={(ex) => { setPicking(false); setItems((l) => [...l, isCardio(ex) ? { key: ex.key, name: ex.name, muscle: 'cardio', kind: 'cardio', min: 20 } : { key: ex.key, name: ex.name, muscle: ex.muscle, sets: 3, reps: 10 }]) }} />
++      onPick={(ex) => { setPicking(false); setItems((l) => [...l, { rowId: rowId(), ...(isCardio(ex) ? { key: ex.key, name: ex.name, muscle: 'cardio', kind: 'cardio', min: 20 } : { key: ex.key, name: ex.name, muscle: ex.muscle, ...(ex.part ? { part: ex.part } : {}), sets: 3, reps: 10 }) }]) }} />
+   }
+   const setIt = (i, patch) => setItems((l) => l.map((x, j) => (j === i ? { ...x, ...patch } : x)))
+   async function save() {
+     setBusy(true)
+-    try { await saveRoutine(uid, { id: initial.id, name: name.trim() || 'Routine', items }); onClose() } finally { setBusy(false) }
++    try { await saveRoutine(uid, { id: initial.id, name: name.trim() || 'Routine', items: items.map(stripRow) }); onClose() } finally { setBusy(false) }
++  }
++  // A saved routine keeps its new order as soon as you let go (with any other
++  // changes on screen). A new routine is saved with the button as usual.
++  function reorder(next) {
++    setItems(next)
++    if (!initial.id) return
++    saveRoutine(uid, { id: initial.id, name: name.trim() || 'Routine', items: next.map(stripRow) })
++      .then(() => { setOrderSaved(true); setTimeout(() => setOrderSaved(false), 1500) })
++      .catch(() => {})
+   }
+   return (
+     <div className="card form">
+       <label>Routine name
+         <input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Push day" maxLength={40} />
+       </label>
+-      {items.map((it, i) => (
+-        <div className="row routine-row" key={i}>
+-          <span className="grow">{it.name}</span>
+-          {isCardio(it) ? (
+-            <>
+-              <input className="text-input mini" type="number" min="1" max="300" value={it.min} aria-label="Minutes" onChange={(e) => setIt(i, { min: +e.target.value })} />
+-              <span className="muted small">min</span>
+-            </>
+-          ) : (
+-            <>
+-              <input className="text-input mini" type="number" min="1" max="10" value={it.sets} aria-label="Sets" onChange={(e) => setIt(i, { sets: +e.target.value })} />
+-              <span className="muted">×</span>
+-              <input className="text-input mini" type="number" min="1" max="50" value={it.reps} aria-label="Reps" onChange={(e) => setIt(i, { reps: +e.target.value })} />
+-            </>
+-          )}
+-          <button className="btn-ghost" aria-label={`Remove ${it.name}`} onClick={() => setItems((l) => l.filter((_, j) => j !== i))}>✕</button>
++      {items.length > 1 && <p className="muted small reorder-tip">{orderSaved ? <span className="lime">Order saved</span> : 'Hold the grip to drag an exercise into place, or use the arrows.'}</p>}
++      <SortableList items={items} onChange={reorder}>{(it, i, controls) => (
++        <div className="routine-row">
++          <div className="routine-top">
++            {controls}
++            <span className="grow-col"><span>{it.name}</span><span className="muted small">{muscleText(it.muscle, it.part)}</span></span>
++            <button className="btn-ghost x" aria-label={`Remove ${it.name}`} onClick={() => setItems((l) => l.filter((_, j) => j !== i))}>✕</button>
++          </div>
++          <div className="routine-nums">
++            {isCardio(it) ? (
++              <>
++                <input className="text-input mini" type="number" min="1" max="300" value={it.min} aria-label={`${it.name} minutes`} onChange={(e) => setIt(i, { min: +e.target.value })} />
++                <span className="muted small">min</span>
++              </>
++            ) : (
++              <>
++                <input className="text-input mini" type="number" min="1" max="10" value={it.sets} aria-label={`${it.name} sets`} onChange={(e) => setIt(i, { sets: +e.target.value })} />
++                <span className="muted small">sets of</span>
++                <input className="text-input mini" type="number" min="1" max="50" value={it.reps} aria-label={`${it.name} reps`} onChange={(e) => setIt(i, { reps: +e.target.value })} />
++                <span className="muted small">reps</span>
++              </>
++            )}
++          </div>
+         </div>
+-      ))}
++      )}</SortableList>
+       <button className="btn-ghost" onClick={() => setPicking(true)}>+ Add exercise</button>
+       <button className="btn-primary" onClick={save} disabled={busy || !items.length}>{busy ? 'Saving...' : 'Save routine'}</button>
+       <div className="action-row">
+-- 
+2.43.0
+
