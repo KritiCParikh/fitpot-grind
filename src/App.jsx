@@ -23,6 +23,10 @@ import useSwipe from './nav/useSwipe'
 import { currentKey } from './nav/pages'
 import OfflineBar from './components/OfflineBar'
 import Mark from './nav/Mark'
+import BottomTabs from './nav/BottomTabs'
+import MeSummary from './components/MeSummary'
+import Tile from './components/Tile'
+import SafeCard from './components/SafeCard'
 
 function SetupNotice() {
   return (
@@ -40,8 +44,6 @@ function Loading() {
   return <main className="center"><p className="muted">Loading...</p></main>
 }
 
-// If this phone's timezone differs from the one this group has for you, log
-// the change once. It takes effect from your next day.
 function useTimezoneWatch(user, group) {
   const sent = useRef('')
   useEffect(() => {
@@ -58,9 +60,6 @@ function useTimezoneWatch(user, group) {
   }, [user, group])
 }
 
-
-// Loads the active group with its members, clock (each member's timezone) and
-// money (currency). Keyed by group id, so switching groups starts fresh.
 function GroupProvider({ user, groupId, children }) {
   const { group: raw, error } = useGroup(groupId)
   const members = useMembers(groupId)
@@ -83,8 +82,6 @@ function GroupProvider({ user, groupId, children }) {
   return <GroupCtx.Provider value={{ status, group, members }}>{children}</GroupCtx.Provider>
 }
 
-// Group tabs (Today, Calendar, Wall, Board) need a group. Until you're in one,
-// they invite you to join or create one.
 function NeedGroup({ title, children }) {
   const { status, group, members } = useGroupCtx()
   if (status === 'ready') return children(group, members)
@@ -114,15 +111,14 @@ function GroupSwitcher({ user, groupIds, activeId, meta }) {
 }
 
 function Shell({ user, profile }) {
-  // All your groups. Older accounts only have `groupId`, so include it.
   const groupIds = [...new Set([...(profile?.groupIds || []), profile?.groupId].filter(Boolean))]
   const activeId = profile?.groupId || null
   const meta = useGroupsMeta(groupIds)
   const base = { user, groupIds, meta }
   const [menu, setMenu] = useState(false)
+  const [activeTab, setActiveTab] = useState('locker')
   const loc = useLocation()
   const current = currentKey(loc.pathname, loc.search)
-  const swipe = useSwipe(current)
 
   return (
     <GroupProvider key={activeId || 'none'} user={user} groupId={activeId}>
@@ -136,19 +132,52 @@ function Shell({ user, profile }) {
           <QuickCheck user={user} />
         </header>
         <OfflineBar />
-        <div className="content" {...swipe}>
-          <Routes>
-            <Route path="/" element={<Me user={user} />} />
-            <Route path="/today" element={<NeedGroup title="Today">{(g, m) => <Today {...base} group={g} members={m} />}</NeedGroup>} />
-            <Route path="/calendar" element={<NeedGroup title="Calendar">{(g, m) => <Calendar {...base} group={g} members={m} />}</NeedGroup>} />
-            <Route path="/wall" element={<NeedGroup title="Photo wall">{(g, m) => <Wall {...base} group={g} members={m} />}</NeedGroup>} />
-            <Route path="/board" element={<NeedGroup title="Board">{(g, m) => <Board {...base} group={g} members={m} />}</NeedGroup>} />
-            <Route path="/group" element={<Group {...base} activeId={activeId} />} />
-            <Route path="/account" element={<Account user={user} groupIds={groupIds} profile={profile} />} />
-            <Route path="/me" element={<Navigate to="/" />} />
-            <Route path="*" element={<Navigate to="/" />} />
-          </Routes>
+        <div className="content">
+          {activeTab === 'locker' && (
+            <section className="me-page">
+              <h2>Me</h2>
+              <MeSummary user={user} />
+              <div className="tiles-grid">
+                <Tile to="/?me=food" label="Food" icon="food" />
+                <Tile to="/?me=training" label="Training" icon="training" />
+                <Tile to="/?me=progress" label="Progress" icon="progress" />
+                <Tile to="/?me=targets" label="Targets" icon="targets" />
+              </div>
+              <h3 className="section-title">Food safe</h3>
+              <SafeCard label="Food safe: Plate scan" phase="Phase 6" />
+              <h3 className="section-title">Training safe</h3>
+              <SafeCard label="Training safe: My plan" phase="Phase 8" />
+            </section>
+          )}
+
+          {activeTab === 'crew' && (
+            <section>
+              <h2>Crew</h2>
+              <GroupSwitcher user={user} groupIds={groupIds} activeId={activeId} meta={meta} />
+              <div className="tiles-grid">
+                <Tile to="/today" label="Today" icon="today" />
+                <Tile to="/calendar" label="Calendar" icon="calendar" />
+                <Tile to="/wall" label="Wall" icon="wall" />
+                <Tile to="/board" label="Board" icon="board" />
+                <Tile to="/group" label="Group" icon="group" />
+                <Tile to="/group" label="Join or create" icon="add" />
+              </div>
+              <SafeCard label="Crew safe: AI nudges" phase="Phase 7" />
+            </section>
+          )}
+
+          {activeTab === 'coach' && (
+            <section>
+              <h2>Coach</h2>
+              <div className="card">
+                <p className="muted">Coming soon in Phase 7.</p>
+              </div>
+            </section>
+          )}
+
+          {activeTab === 'account' && <Account user={user} groupIds={groupIds} profile={profile} />}
         </div>
+        <BottomTabs activeTab={activeTab} onTabChange={setActiveTab} />
         {menu && <LockerMenu user={user} current={current} onClose={() => setMenu(false)}
           groupSwitch={<GroupSwitcher user={user} groupIds={groupIds} activeId={activeId} meta={meta} />} />}
       </div>
@@ -156,11 +185,9 @@ function Shell({ user, profile }) {
   )
 }
 
-// After sign-in you land on Me. Groups are optional and can be added any time.
 function SignedIn({ user }) {
   const profile = useUserDoc(user.uid)
   if (profile === undefined) return <Loading />
-  // HashRouter keeps routing working on GitHub Pages (no server-side rewrites).
   return (
     <HashRouter>
       <Shell user={user} profile={profile} />
