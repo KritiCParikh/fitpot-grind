@@ -21,10 +21,9 @@ export default function CalorieCalculator({ uid, settings }) {
   const [age, setAge] = useState(dobString ? calculateAge(dobString) : saved.age ?? '')
   const [sex, setSex] = useState(settingsSex || saved.sex ?? '')
   const [hUnit, setHUnit] = useState(saved.heightUnit || 'cm')
-  const [cm, setCm] = useState(settingsHeight || saved.heightCm ?? '')
-  // Line 24: ft initialization  
+  const [cm, setCm] = useState((settingsHeight || saved.heightCm) ?? '')
   const [ft, setFt] = useState(settingsHeight ? Math.floor(settingsHeight / CM_PER_IN / 12) : '')
-  const [inch, setInch] = useState(settingsHeight ? Math.round((settingsHeight / CM_PER_IN) %      12) : '')
+  const [inch, setInch] = useState(settingsHeight ? Math.round((settingsHeight / CM_PER_IN) % 12) : '')
   const [weight, setWeight] = useState('')
   const [activity, setActivity] = useState(saved.activity || 'moderate')
   const [goal, setGoal] = useState(saved.goal || 'maintain')
