@@ -7,21 +7,16 @@ import VerifyBanner from '../components/VerifyBanner'
 import InstallCard from '../components/InstallCard'
 import RemindersCard from '../components/RemindersCard'
 import { TEXT_SIZES, getTextSize, applyTextSize } from '../nav/textSize'
-import { useSettings, saveSettings, LB_PER_KG, CM_PER_IN } from '../lib/privateData'
 
+// Account (gear icon, top right): name, sign-in methods, password, sign out, delete account.
 export default function Account({ user, groupIds, profile }) {
-  const [, bump] = useState(0)
+  const [, bump] = useState(0) // re-render after Firebase updates the user object
   const refresh = () => bump((n) => n + 1)
   const pw = hasPassword(user), google = hasGoogle(user)
-  const settings = useSettings(user.uid)
 
   return (
     <section>
       <h2>Account</h2>
-
-      <h3 className="section-title">About me</h3>
-      <AboutMeCard uid={user.uid} settings={settings || {}} />
-
       <div className="card">
         <p><strong>{user.displayName || 'No name yet'}</strong></p>
         <p className="muted small">{user.email}</p>
@@ -44,62 +39,6 @@ export default function Account({ user, groupIds, profile }) {
 
       <DeleteCard user={user} groupIds={[...new Set([...groupIds, ...(profile?.leftGroupIds || [])])]} />
     </section>
-  )
-}
-
-function AboutMeCard({ uid, settings }) {
-  const [dob, setDob] = useState(settings.dob || '')
-  const [sex, setSex] = useState(settings.sex || '')
-  const [height, setHeight] = useState(settings.height || '')
-  const [weight, setWeight] = useState(settings.weight || '')
-  const [unit, setUnit] = useState(settings.weightUnit || 'kg')
-  const [saved, setSaved] = useState(false)
-  const [busy, setBusy] = useState(false)
-
-  async function save(e) {
-    e.preventDefault()
-    setBusy(true)
-    try {
-      await saveSettings(uid, { dob, sex, height, weight: weight ? Number(weight) : null, weightUnit: unit })
-      setSaved(true)
-      setTimeout(() => setSaved(false), 1500)
-    } catch (e) {
-      console.error('Failed to save:', e)
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  return (
-    <form className="card form" onSubmit={save}>
-      <p className="muted small">Used for calorie calculator and 18+ check.</p>
-      <label>Date of birth
-        <input type="date" value={dob} onChange={(e) => setDob(e.target.value)} required />
-      </label>
-      <label>Sex
-        <select value={sex} onChange={(e) => setSex(e.target.value)} required>
-          <option value="">Choose</option>
-          <option value="M">Male</option>
-          <option value="F">Female</option>
-        </select>
-      </label>
-      <label>Height (cm)
-        <input type="number" inputMode="numeric" min="100" max="250" value={height} onChange={(e) => setHeight(e.target.value)} required />
-      </label>
-      <div className="row">
-        <label className="grow">Weight ({unit})
-          <input type="number" inputMode="decimal" step="0.1" value={weight} onChange={(e) => setWeight(e.target.value)} required />
-        </label>
-        <label className="grow">Unit
-          <select value={unit} onChange={(e) => setUnit(e.target.value)}>
-            <option value="kg">kg</option>
-            <option value="lb">lb</option>
-          </select>
-        </label>
-      </div>
-      <button className="btn-primary" disabled={busy || !dob || !sex || !height || !weight}>{saved ? 'Saved' : 'Save'}</button>
-      <p className="muted small">Private to you.</p>
-    </form>
   )
 }
 
@@ -202,6 +141,7 @@ function DeleteCard({ user, groupIds }) {
   )
 }
 
+// Bigger or smaller text across the whole app, saved on this phone.
 function TextSizeCard() {
   const [size, setSize] = useState(getTextSize)
   return (
