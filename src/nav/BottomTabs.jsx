@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import Icon from './Icon'
-import './BottomTabs.css'
 
 export default function BottomTabs({ onTabChange, activeTab = 'locker' }) {
   const [tab, setTab] = useState(activeTab)

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import Icon from './Icon'
+import Icon from "../nav/Icon";
 
 export default function SafeCard({ label, phase }) {
   const [show, setShow] = useState(false)

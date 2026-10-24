@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import Icon from './Icon'
+import Icon from "../nav/Icon";
 
 export default function Tile({ to, label, icon, live }) {
   return (

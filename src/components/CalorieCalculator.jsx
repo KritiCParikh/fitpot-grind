@@ -19,7 +19,7 @@ export default function CalorieCalculator({ uid, settings }) {
     return list.length ? list[list.length - 1].kg : null
   }, [weights])
   const [age, setAge] = useState(dobString ? calculateAge(dobString) : saved.age ?? '')
-  const [sex, setSex] = useState(settingsSex || saved.sex) ?? '')
+  const [sex, setSex] = useState((settingsSex || saved.sex) ?? '')
   const [hUnit, setHUnit] = useState(saved.heightUnit || 'cm')
   const [cm, setCm] = useState((settingsHeight || saved.heightCm) ?? '')
   const [ft, setFt] = useState(settingsHeight ? Math.floor(settingsHeight / CM_PER_IN / 12) : '')
