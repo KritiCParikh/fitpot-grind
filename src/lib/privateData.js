@@ -28,6 +28,10 @@ export const useMealsOn = (uid, day) => useLive(() => query(col(uid, 'meals'), w
 export const useRecentMeals = (uid) => useLive(() => query(col(uid, 'meals'), orderBy('createdAt', 'desc'), limit(60)), [uid])
 export const useMyFoods = (uid) => useLive(() => col(uid, 'foods'), [uid])
 export const useWeights = (uid) => useLive(() => col(uid, 'weights'), [uid])
+// Add these lines (they're already there but confirm they exist):
+export const logWeight = (uid, date, kg) =>
+  setDoc(doc(db, 'private', uid, 'weights', date), { kg, date, at: serverTimestamp() })
+export const deleteWeight = (uid, date) => deleteDoc(doc(db, 'private', uid, 'weights', date))
 export const useProgressPhotos = (uid) => useLive(() => col(uid, 'progress'), [uid])
 
 // ---------- writes ----------

@@ -10,17 +10,21 @@ export default function CalorieCalculator({ uid, settings }) {
   const weights = useWeights(uid)
   const saved = settings.calculator || {}
   const unit = settings.weightUnit || 'kg'
+  const dobString = settings.dob          // was: const dob
+  const settingsSex = settings.sex        // was: const sex
+  const settingsHeight = settings.height  // was: const savedHeight
+  const settingsWeight = settings.weight  // was: const savedWeight
   const latestKg = useMemo(() => {
     const list = [...(weights || [])].sort((a, b) => a.date.localeCompare(b.date))
     return list.length ? list[list.length - 1].kg : null
   }, [weights])
-
-  const [age, setAge] = useState(saved.age ?? '')
-  const [sex, setSex] = useState(saved.sex ?? '')
+  const [age, setAge] = useState(dobString ? calculateAge(dobString) : saved.age ?? '')
+  const [sex, setSex] = useState(settingsSex || saved.sex ?? '')
   const [hUnit, setHUnit] = useState(saved.heightUnit || 'cm')
-  const [cm, setCm] = useState(saved.heightCm ?? '')
-  const [ft, setFt] = useState(saved.heightCm ? Math.floor(saved.heightCm / CM_PER_IN / 12) : '')
-  const [inch, setInch] = useState(saved.heightCm ? Math.round((saved.heightCm / CM_PER_IN) % 12) : '')
+  const [cm, setCm] = useState(settingsHeight || saved.heightCm ?? '')
+  // Line 24: ft initialization  
+  const [ft, setFt] = useState(settingsHeight ? Math.floor(settingsHeight / CM_PER_IN / 12) : '')
+  const [inch, setInch] = useState(settingsHeight ? Math.round((settingsHeight / CM_PER_IN) %      12) : '')
   const [weight, setWeight] = useState('')
   const [activity, setActivity] = useState(saved.activity || 'moderate')
   const [goal, setGoal] = useState(saved.goal || 'maintain')
