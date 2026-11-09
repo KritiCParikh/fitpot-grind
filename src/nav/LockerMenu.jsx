@@ -28,7 +28,8 @@ export default function LockerMenu({ user, current, onClose, groupSwitch }) {
         <button className="icon-btn" onClick={onClose} aria-label="Close menu"><Icon name="close" /></button>
       </div>
       {SECTIONS.map((s) => {
-        const pages = PAGES.filter((p) => p.section === s.key && p.to)
+        const inner = PAGES.filter((p) => p.section === s.key && p.to && !p.hub)
+        const pages = inner.length ? inner : PAGES.filter((p) => p.section === s.key && p.to)
         const safes = PAGES.filter((p) => p.section === s.key && !p.to)
         if (!pages.length && !safes.length) return null
         return (
@@ -38,7 +39,7 @@ export default function LockerMenu({ user, current, onClose, groupSwitch }) {
               {s.key === 'crew' && groupSwitch}
             </h3>
             {pages.length > 0 && (
-              <div className={`lockers ${s.key === 'settings' ? 'wide' : ''}`}>
+              <div className={`lockers ${s.key === 'settings' || s.key === 'coach' ? 'wide' : ''}`}>
                 {pages.map((p, i) => (
                   <button key={p.key} className={`locker ${current === p.key ? 'on' : ''}`}
                     style={{ animationDelay: `${i * 35}ms` }} onClick={() => open(p.to)}

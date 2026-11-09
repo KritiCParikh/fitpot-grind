@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   useTraining, saveTraining, useWorkouts, useCustomExercises, useRoutines, saveRoutine, deleteRoutine, useSettings, saveSettings, LB_PER_KG,
 } from '../lib/privateData'
@@ -15,6 +15,8 @@ import UnitSwitch from '../components/UnitSwitch'
 import BodyMap, { HEAT_COLORS } from '../components/BodyMap'
 import SortableList, { rowId } from '../components/Sortable'
 import Icon from '../nav/Icon'
+import DraftNote from '../components/DraftNote'
+import { useAutoDraft, newDraftId, getDraft } from '../lib/drafts'
 
 // Training's sections, shown as tabs at the top (phase 5.7.1: the plate dial
 // was removed, the tabs are the one way to switch).
@@ -28,7 +30,7 @@ export const TRAINING_SECTIONS = [
 const short = (d) => prettyDay(d).split(', ').slice(1).join(', ')
 
 // Me → Training: a private progressive-overload tracker.
-export default function Training({ user, section = 'log', onSection }) {
+export default function Training({ user, section = 'log', onSection, draftId, onDraftUsed }) {
   const uid = user.uid
   const today = myToday()
   const training = useTraining(uid)
@@ -39,6 +41,16 @@ export default function Training({ user, section = 'log', onSection }) {
   const view = section
   const [editor, setEditor] = useState(null) // initial workout for the editor
   const [planNote, setPlanNote] = useState(false)
+  const [routineDraft, setRoutineDraft] = useState(null) // a routine draft to pick up
+
+  // Picking up a draft from My locker → Drafts (phase 5.12).
+  useEffect(() => {
+    if (!draftId) return
+    const d = getDraft(uid, draftId)
+    if (d?.kind === 'workout') setEditor({ ...d.data.initial, id: d.data.initial.id || undefined, __draft: { id: d.id, state: d.data.state } })
+    if (d?.kind === 'routine') setRoutineDraft({ id: d.id, initial: d.data.initial, state: d.data.state })
+    onDraftUsed?.()
+  }, [draftId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const workouts = useMemo(() => (rawWorkouts || []).map((w) => ({ ...w, createdMs: w.createdAt?.toMillis?.() || 0 })), [rawWorkouts])
   const exercises = useMemo(() => allExercises(custom || []), [custom])
@@ -48,7 +60,7 @@ export default function Training({ user, section = 'log', onSection }) {
   if ([training, settings, rawWorkouts, custom, routines].includes(undefined)) return <p className="muted">Loading...</p>
 
   const t = training || {}
-  const ctx = { uid, today, t, workouts, exercises, have, u, routines, start: setEditor }
+  const ctx = { uid, today, t, workouts, exercises, have, u, routines, start: setEditor, routineDraft, clearRoutineDraft: () => setRoutineDraft(null) }
 
   return (
     <>
@@ -69,7 +81,7 @@ export default function Training({ user, section = 'log', onSection }) {
       {view === 'routines' && <RoutinesView {...ctx} />}
       {view === 'setup' && <SetupView {...ctx} settings={settings || {}} />}
       {editor && (
-        <WorkoutEditor uid={uid} initial={editor} workouts={workouts} exercises={exercises} have={have} u={u}
+        <WorkoutEditor key={editor.__draft?.id || editor.id || 'new'} uid={uid} initial={editor} draft={editor.__draft} workouts={workouts} exercises={exercises} have={have} u={u}
           restSec={t.restSec ?? 90} today={today} onClose={() => setEditor(null)} />
       )}
     </>
@@ -344,8 +356,9 @@ function CardioRecord({ r, h, k, u, onBack }) {
 }
 
 // ---------------- Routines ----------------
-function RoutinesView({ uid, routines, exercises, have, workouts, start, today }) {
+function RoutinesView({ uid, routines, exercises, have, workouts, start, today, routineDraft, clearRoutineDraft }) {
   const [edit, setEdit] = useState(null)
+  if (routineDraft) return <RoutineForm key={routineDraft.id} uid={uid} initial={routineDraft.initial} draft={routineDraft} exercises={exercises} have={have} onClose={clearRoutineDraft} />
   if (edit) return <RoutineForm uid={uid} initial={edit} exercises={exercises} have={have} onClose={() => setEdit(null)} />
   return (
     <>
@@ -369,9 +382,17 @@ function RoutinesView({ uid, routines, exercises, have, workouts, start, today }
 // Rows carry a rowId while you edit, so they can be dragged; it's left out when saved.
 const stripRow = ({ rowId: _r, ...it }) => it
 
-function RoutineForm({ uid, initial, exercises, have, onClose }) {
-  const [name, setName] = useState(initial.name)
-  const [items, setItems] = useState(() => initial.items.map((it) => ({ ...it, rowId: rowId() })))
+function RoutineForm({ uid, initial, draft, exercises, have, onClose }) {
+  const [name, setName] = useState(draft?.state?.name ?? initial.name)
+  const [items, setItems] = useState(() => draft?.state?.items || initial.items.map((it) => ({ ...it, rowId: rowId() })))
+  const [draftId] = useState(() => draft?.id || (initial.id ? `routine-${initial.id}` : newDraftId('routine')))
+  const kept = useAutoDraft(uid, draftId, { name, items }, (state) => ({
+    kind: 'routine',
+    title: state.name.trim() || (initial.id ? 'Edit routine' : 'New routine'),
+    sub: `${state.items.length} exercise${state.items.length === 1 ? '' : 's'}`,
+    to: `/locker?me=training&t=routines&draft=${draftId}`,
+    data: { initial: { id: initial.id || null, name: initial.name || '', items: initial.items || [] }, state },
+  }))
   const [picking, setPicking] = useState(false)
   const [busy, setBusy] = useState(false)
   const [orderSaved, setOrderSaved] = useState(false)
@@ -382,7 +403,7 @@ function RoutineForm({ uid, initial, exercises, have, onClose }) {
   const setIt = (i, patch) => setItems((l) => l.map((x, j) => (j === i ? { ...x, ...patch } : x)))
   async function save() {
     setBusy(true)
-    try { await saveRoutine(uid, { id: initial.id, name: name.trim() || 'Routine', items: items.map(stripRow) }); onClose() } finally { setBusy(false) }
+    try { await saveRoutine(uid, { id: initial.id || undefined, name: name.trim() || 'Routine', items: items.map(stripRow) }); kept.finish(); onClose() } finally { setBusy(false) }
   }
   // A saved routine keeps its new order as soon as you let go (with any other
   // changes on screen). A new routine is saved with the button as usual.
@@ -426,9 +447,10 @@ function RoutineForm({ uid, initial, exercises, have, onClose }) {
       <button className="btn-ghost" onClick={() => setPicking(true)}>+ Add exercise</button>
       <button className="btn-primary" onClick={save} disabled={busy || !items.length}>{busy ? 'Saving...' : 'Save routine'}</button>
       <div className="action-row">
-        <button className="btn-ghost" onClick={onClose}>Cancel</button>
-        {initial.id && <button className="btn-ghost danger" onClick={async () => { if (confirm('Delete this routine?')) { await deleteRoutine(uid, initial.id); onClose() } }}>Delete</button>}
+        <button className="btn-ghost" onClick={onClose}>{kept.kept ? 'Save for later' : 'Cancel'}</button>
+        {initial.id && <button className="btn-ghost danger" onClick={async () => { if (confirm('Delete this routine?')) { await deleteRoutine(uid, initial.id); kept.finish(); onClose() } }}>Delete</button>}
       </div>
+      <DraftNote kept={kept.kept} onDiscard={() => { if (confirm('Discard this draft? What you typed here will be gone.')) { kept.finish(); onClose() } }} />
     </div>
   )
 }

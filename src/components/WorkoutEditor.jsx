@@ -7,6 +7,8 @@ import ExercisePicker from './ExercisePicker'
 import RestTimer from './RestTimer'
 import UnitSwitch from './UnitSwitch'
 import SortableList, { rowId } from './Sortable'
+import DraftNote from './DraftNote'
+import { useAutoDraft, newDraftId } from '../lib/drafts'
 
 const PR_LABEL = {
   weight: 'Heaviest weight', e1rm: 'Best estimated 1 rep max', reps: 'Most reps',
@@ -22,14 +24,25 @@ const LB = 2.20462
 // when the machine you wanted is taken.
 //
 // `initial`: an existing workout to edit, or { date, title, exercises } to start from.
-export default function WorkoutEditor({ uid, initial, workouts, exercises, have, u: u0, restSec = 90, today, onClose }) {
-  const [wu, setWu] = useState(u0.unit)
-  const [du, setDu] = useState(u0.dist)
+// `draft`: { id, state } to pick up a draft where you left it (phase 5.12).
+// Everything you type is kept in Drafts until you save or discard it.
+export default function WorkoutEditor({ uid, initial, draft, workouts, exercises, have, u: u0, restSec = 90, today, onClose }) {
+  const r = draft?.state
+  const [wu, setWu] = useState(r?.wu || u0.unit)
+  const [du, setDu] = useState(r?.du || u0.dist)
   const u = units(wu, du)
-  const [date, setDate] = useState(initial.date || today)
-  const [title, setTitle] = useState(initial.title || '')
-  const [notes, setNotes] = useState(initial.notes || '')
-  const [items, setItems] = useState(() => (initial.exercises || []).map((ex) => toItem(ex, ex.sets, u, Boolean(initial.id))))
+  const [date, setDate] = useState(r?.date || initial.date || today)
+  const [title, setTitle] = useState(r?.title ?? (initial.title || ''))
+  const [notes, setNotes] = useState(r?.notes ?? (initial.notes || ''))
+  const [items, setItems] = useState(() => r?.items || (initial.exercises || []).map((ex) => toItem(ex, ex.sets, units(u0.unit, u0.dist), Boolean(initial.id))))
+  const [draftId] = useState(() => draft?.id || (initial.id ? `workout-${initial.id}` : newDraftId('workout')))
+  const kept = useAutoDraft(uid, draftId, { date, title, notes, items, wu, du }, (state) => ({
+    kind: 'workout',
+    title: state.title.trim() || (initial.id ? 'Edit workout' : 'Workout'),
+    sub: `${state.items.length} exercise${state.items.length === 1 ? '' : 's'}${state.items.length ? `: ${state.items.slice(0, 3).map((x) => x.name).join(', ')}` : ''}`,
+    to: `/locker?me=training&t=log&draft=${draftId}`,
+    data: { initial: { id: initial.id || null, date: initial.date || null, title: initial.title || '', notes: initial.notes || '', exercises: initial.exercises || [] }, state },
+  }))
   const [picking, setPicking] = useState(false)
   const [rest, setRest] = useState(null) // { endAt, total }
   const [busy, setBusy] = useState(false)
@@ -91,6 +104,7 @@ export default function WorkoutEditor({ uid, initial, workouts, exercises, have,
     try {
       const w = { id: initial.id, date, title: title.trim(), notes: notes.trim(), exercises: clean }
       await saveWorkout(uid, w)
+      kept.finish()
       // Which records did this workout set?
       const mine = personalRecords([...others, { ...w, id: '__this__', createdMs: Date.now() }]).byWorkout.__this__ || []
       if (mine.length) setPrs(mine); else onClose()
@@ -100,6 +114,7 @@ export default function WorkoutEditor({ uid, initial, workouts, exercises, have,
   async function remove() {
     if (!confirm('Delete this workout?')) return
     await deleteWorkout(uid, initial.id)
+    kept.finish()
     onClose()
   }
 
@@ -138,7 +153,7 @@ export default function WorkoutEditor({ uid, initial, workouts, exercises, have,
     <div className="sheet">
       <div className="sheet-head">
         <h3>{initial.id ? 'Edit workout' : 'Workout'}</h3>
-        <button className="btn-ghost" onClick={() => (items.length && !initial.id ? confirm('Discard this workout?') : true) && onClose()}>Close</button>
+        <button className="btn-ghost" onClick={onClose}>{kept.kept ? 'Save for later' : 'Close'}</button>
       </div>
       <div className="row form">
         <label className="grow">Name (optional)
@@ -174,6 +189,7 @@ export default function WorkoutEditor({ uid, initial, workouts, exercises, have,
       </label>
       <button className="btn-primary wide" onClick={save} disabled={busy || !items.length}>{busy ? 'Saving...' : 'Save workout'}</button>
       {initial.id && <button className="btn-ghost wide danger" onClick={remove}>Delete workout</button>}
+      <DraftNote kept={kept.kept} onDiscard={() => { if (confirm('Discard this draft? What you typed here will be gone.')) { kept.finish(); onClose() } }} />
       <p className="muted small">Private to you. Bodyweight exercises: leave weight empty, or enter extra weight such as a dip belt.</p>
 
       {rest && <RestTimer endAt={rest.endAt} total={rest.total} onAdd={(sec) => setRest((r) => ({ ...r, endAt: r.endAt + sec * 1000, total: r.total + sec }))} onStop={() => setRest(null)} />}

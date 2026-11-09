@@ -8,6 +8,7 @@ import { useLedgerInputs, runLedger } from '../lib/useLedger'
 import { onItsDay, myToday } from '../lib/clock'
 import { currentStreak, mondayOf } from '../lib/dates'
 import { fmt } from '../lib/money'
+import { useDrafts } from '../lib/drafts'
 
 const LB = 2.20462
 
@@ -93,8 +94,13 @@ function TrainingStat({ user }) {
   return last ? `Last: ${last.title || 'workout'}, ${new Date(last.date + 'T12:00:00Z').toLocaleDateString(undefined, { month: 'short', day: 'numeric', timeZone: 'UTC' })}` : 'Log your first workout'
 }
 
+function DraftsStat({ user }) {
+  const n = useDrafts(user.uid).length
+  return n ? `${n} not saved yet` : 'Nothing unsaved'
+}
+
 const CREW = { today: TodayStat, wall: WallStat, calendar: CalendarStat, board: BoardStat, group: GroupStat }
-const YOU = { me: MeStat, food: FoodStat, progress: ProgressStat, targets: TargetsStat, training: TrainingStat }
+const YOU = { me: MeStat, mycal: MeStat, drafts: DraftsStat, food: FoodStat, progress: ProgressStat, targets: TargetsStat, training: TrainingStat }
 
 export default function PageStat({ pageKey, user }) {
   const { status } = useGroupCtx()

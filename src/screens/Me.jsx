@@ -10,7 +10,7 @@ import CalorieCalculator from '../components/CalorieCalculator'
 import VerifyBanner from '../components/VerifyBanner'
 import InstallCard from '../components/InstallCard'
 import { useLocation, useNavigate } from 'react-router-dom'
-import MeBar, { ME_TABS } from '../nav/MeBar'
+import { ME_TABS } from '../nav/MeBar'
 import FoodPlate from '../nav/FoodPlate'
 import { myToday } from '../lib/clock'
 import { local } from '../lib/device'
@@ -20,9 +20,9 @@ import { local } from '../lib/device'
 //
 // Sections (phase 5.7): Food, Training (Log, Muscles, Records, Routines,
 // Setup), Progress, Targets. The current one lives in the address
-// (#/?me=training&t=records), so the menu, shortcuts and Back all work.
-// The bottom barbell switches sections. Tapping the Food plate again opens
-// the food plate. Training switches with its tabs at the top (phase 5.7.1).
+// (#/locker?me=training&t=records), so the menu, shortcuts and Back all work.
+// Since phase 5.12 you reach them from the My locker tiles (no second bottom
+// bar), and ?draft=<id> picks up a draft from My locker → Drafts.
 export default function Me({ user }) {
   const params = new URLSearchParams(useLocation().search)
   const navigate = useNavigate()
@@ -33,27 +33,24 @@ export default function Me({ user }) {
   const [chooser, setChooser] = useState(null) // null | 'plate'
   const [foodCmd, setFoodCmd] = useState(null) // what the food plate asked the diary to open
   const [, bump] = useState(0) // re-render once your email is confirmed
+  const draftId = params.get('draft')
+  const dropDraftParam = () => { params.delete('draft'); navigate(`/locker?${params}`, { replace: true }) }
 
   // The food plate belongs to Food: switching to another tab closes it
   // (phase 5.11). Leaving Me unmounts this page, which closes it too.
   useEffect(() => { if (tab !== 'food') setChooser(null) }, [tab])
 
-  const go = (me, t) => navigate(`/?me=${me}${me === 'training' ? `&t=${t || section}` : ''}`)
-  function onTab(key) {
-    if (key === tab && key === 'training') return // already here: the tabs at the top switch sections
-    if (key === tab && key === 'food') return setChooser('plate')
-    go(key)
-  }
+  const go = (me, t) => navigate(`/locker?me=${me}${me === 'training' ? `&t=${t || section}` : ''}`)
   const sectionLabel = TRAINING_SECTIONS.find((s) => s.key === section)?.label
 
   return (
     <section className="me-page">
-      <h2>Me <span className="h2-sub">{ME_TABS.find((t) => t.key === tab).label}{tab === 'training' ? `: ${sectionLabel}` : ''}</span></h2>
+      <h2>{ME_TABS.find((t) => t.key === tab).label}{tab === 'training' && <span className="h2-sub">{sectionLabel}</span>}</h2>
       <VerifyBanner user={user} onVerified={() => bump((n) => n + 1)} />
       <InstallCard />
-      {tab === 'food' && <FoodLog user={user} command={foodCmd} onOpenPlate={() => setChooser('plate')} />}
+      {tab === 'food' && <FoodLog user={user} command={foodCmd} onOpenPlate={() => setChooser('plate')} draftId={draftId} onDraftUsed={dropDraftParam} />}
       {tab === 'training' && (
-        <Training user={user} section={section} onSection={(t) => {
+        <Training user={user} section={section} draftId={draftId} onDraftUsed={dropDraftParam} onSection={(t) => {
           local.set('fitpot-training-section', t)
           go('training', t)
         }} />
@@ -61,7 +58,6 @@ export default function Me({ user }) {
       {tab === 'progress' && <Progress user={user} />}
       {tab === 'targets' && <Targets user={user} />}
 
-      <MeBar tab={tab} sectionLabel={sectionLabel} onTab={onTab} />
       {chooser === 'plate' && <FoodPlateFor user={user} onClose={() => setChooser(null)} onPick={(w) => {
         setChooser(null)
         setFoodCmd({ w, n: Date.now() })

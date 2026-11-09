@@ -7,9 +7,10 @@ import FoodPicker from '../components/FoodPicker'
 import PortionPicker from '../components/PortionPicker'
 import { MyFoodForm, RecipeBuilder } from '../components/MyFoodForms'
 import FoodDoodle from '../components/FoodDoodle'
+import { getDraft, newDraftId } from '../lib/drafts'
 
 // Private, optional food diary. Nothing here affects check-ins or the pot.
-export default function FoodLog({ user, command, onOpenPlate }) {
+export default function FoodLog({ user, command, onOpenPlate, draftId, onDraftUsed }) {
   const uid = user.uid
   const today = myToday() // your own day, from your phone's timezone
   const [day, setDay] = useState(today)
@@ -26,6 +27,17 @@ export default function FoodLog({ user, command, onOpenPlate }) {
     else setView({ name: 'pick', meal: command.w })
   }, [command])
 
+  // Picking up a draft from My locker → Drafts (phase 5.12).
+  useEffect(() => {
+    if (!draftId) return
+    const d = getDraft(uid, draftId)
+    const restore = d && { id: d.id, state: d.data.state }
+    if (d?.kind === 'meal') { setDay(d.data.day || today); setView({ name: 'portion', meal: d.data.state.mealSel, food: d.data.food, draft: { ...restore, day: d.data.day || today } }) }
+    if (d?.kind === 'food') setView({ name: d.data.initial?.id ? 'editFood' : 'create', food: d.data.initial, meal: d.data.state?.meal, draft: restore })
+    if (d?.kind === 'recipe') setView({ name: 'recipe', food: d.data.initial, draft: restore })
+    onDraftUsed?.()
+  }, [draftId]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const targets = settings?.targets || {}
   const back = () => setView({ name: 'log' })
 
@@ -33,7 +45,7 @@ export default function FoodLog({ user, command, onOpenPlate }) {
   if (view.name === 'pick') {
     return (
       <FoodPicker uid={uid} title={`Add to ${view.meal}`}
-        onPick={(food) => setView({ name: 'portion', meal: view.meal, food })}
+        onPick={(food) => setView({ name: 'portion', meal: view.meal, food, draft: { id: newDraftId('meal'), day } })}
         onClose={back}
         onCreate={() => setView({ name: 'create', meal: view.meal })}
         extraActions={<button className="btn-ghost" disabled title="Arrives with your own vision model (phase 6)"> Scan plate · soon</button>}
@@ -42,7 +54,7 @@ export default function FoodLog({ user, command, onOpenPlate }) {
   }
   if (view.name === 'portion') {
     return (
-      <PortionPicker uid={uid} food={view.food} meal={view.meal}
+      <PortionPicker key={view.draft?.id} uid={uid} food={view.food} meal={view.meal} draft={view.draft}
         onBack={() => setView({ name: 'pick', meal: view.meal })}
         onDone={async ({ food, qty, unit, nutrients, meal }) => {
           await logMeal(uid, { date: day, meal, food, qty, unit, nutrients })
@@ -53,9 +65,9 @@ export default function FoodLog({ user, command, onOpenPlate }) {
         }} />
     )
   }
-  if (view.name === 'create') return <MyFoodForm uid={uid} onRecipe={() => setView({ name: 'recipe', food: null })} onSaved={() => setView({ name: 'pick', meal: view.meal || 'Snacks' })} onBack={() => setView({ name: 'pick', meal: view.meal || 'Snacks' })} />
-  if (view.name === 'editFood') return <MyFoodForm uid={uid} initial={view.food} onRecipe={view.food ? null : () => setView({ name: 'recipe', food: null })} onSaved={() => setView({ name: 'myfoods' })} onBack={() => setView({ name: 'myfoods' })} />
-  if (view.name === 'recipe') return <RecipeBuilder uid={uid} initial={view.food} onSaved={() => setView({ name: 'myfoods' })} onBack={() => setView({ name: 'myfoods' })} />
+  if (view.name === 'create') return <MyFoodForm uid={uid} draft={view.draft} onRecipe={() => setView({ name: 'recipe', food: null })} onSaved={() => setView({ name: 'pick', meal: view.meal || 'Snacks' })} onBack={() => setView({ name: 'pick', meal: view.meal || 'Snacks' })} />
+  if (view.name === 'editFood') return <MyFoodForm key={view.draft?.id || view.food?.id || 'new'} uid={uid} initial={view.food} draft={view.draft} onRecipe={view.food ? null : () => setView({ name: 'recipe', food: null })} onSaved={() => setView({ name: 'myfoods' })} onBack={() => setView({ name: 'myfoods' })} />
+  if (view.name === 'recipe') return <RecipeBuilder key={view.draft?.id || view.food?.id || 'new'} uid={uid} initial={view.food} draft={view.draft} onSaved={() => setView({ name: 'myfoods' })} onBack={() => setView({ name: 'myfoods' })} />
   if (view.name === 'myfoods') {
     return (
       <div className="sheet">

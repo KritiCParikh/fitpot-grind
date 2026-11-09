@@ -1,16 +1,16 @@
 import { useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { SWIPE_ORDER } from './pages'
+import { SWIPE_ORDER, hubOf } from './pages'
 
-// Swipe left or right across a page to move between Me, Today, Calendar,
-// Wall, Board and Group. Ignored on things that scroll sideways themselves
+// Swipe left or right across a page to move between the four areas:
+// My locker, Crew, Coach and Account (phase 5.12). Ignored on things that scroll sideways themselves
 // (photo tiles, chips, inputs) and on short or mostly vertical moves.
 const SKIP = '.photo-strip, .chips, input, textarea, select, .set-grid, .chart-wrap, .sheet, .overlay, [data-noswipe]'
 
 export default function useSwipe(currentKey) {
   const navigate = useNavigate()
   const start = useRef(null)
-  const base = currentKey && SWIPE_ORDER.some((p) => p.key === currentKey) ? currentKey : 'me'
+  const base = hubOf(currentKey)?.key || 'locker'
   const i = SWIPE_ORDER.findIndex((p) => p.key === base)
   return {
     onTouchStart(e) {

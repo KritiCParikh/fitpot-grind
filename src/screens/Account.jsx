@@ -7,6 +7,8 @@ import VerifyBanner from '../components/VerifyBanner'
 import InstallCard from '../components/InstallCard'
 import RemindersCard from '../components/RemindersCard'
 import { TEXT_SIZES, getTextSize, applyTextSize } from '../nav/textSize'
+import UnitSwitch from '../components/UnitSwitch'
+import { useSettings, saveSettings } from '../lib/privateData'
 
 // Account (gear icon, top right): name, sign-in methods, password, sign out, delete account.
 export default function Account({ user, groupIds, profile }) {
@@ -31,6 +33,7 @@ export default function Account({ user, groupIds, profile }) {
       {pw ? <ChangePasswordCard user={user} /> : <AddPasswordCard user={user} onDone={refresh} />}
 
       <h3 className="section-title">App</h3>
+      <UnitsCard user={user} />
       <RemindersCard user={user} />
       <TextSizeCard />
       <InstallCard always />
@@ -153,6 +156,26 @@ function TextSizeCard() {
             onClick={() => { applyTextSize(t.key); setSize(t.key) }}>{t.label}</button>
         ))}
       </div>
+    </div>
+  )
+}
+
+// Units for the whole app: weight (kg | lb) and distance (km | mi). The same
+// setting Targets, Progress and the workout logger use, so changing it here
+// changes it everywhere.
+function UnitsCard({ user }) {
+  const settings = useSettings(user.uid)
+  if (settings === undefined) return null
+  const weight = settings?.weightUnit || 'kg'
+  const dist = settings?.distanceUnit || 'km'
+  return (
+    <div className="card units-card">
+      <p><strong>Units</strong></p>
+      <div className="units-row">
+        <UnitSwitch label="Weight" value={weight} options={['kg', 'lb']} onChange={(v) => saveSettings(user.uid, { weightUnit: v })} />
+        <UnitSwitch label="Distance" value={dist} options={['km', 'mi']} onChange={(v) => saveSettings(user.uid, { distanceUnit: v })} />
+      </div>
+      <p className="muted small">Used everywhere: weight log, workouts, targets. Everything you've logged is converted, nothing is lost.</p>
     </div>
   )
 }

@@ -1,49 +1,21 @@
-import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import Icon from './Icon'
+import { HUBS, hubOf, SECTIONS } from './pages'
 
-export default function BottomTabs({ onTabChange, activeTab = 'locker' }) {
-  const [tab, setTab] = useState(activeTab)
-
-  const handleTabChange = (newTab) => {
-    setTab(newTab)
-    if (onTabChange) onTabChange(newTab)
-  }
-
+// The four bottom tabs (phase 5.12): Locker, Crew, Coach, Account. The tab
+// for the area you're in is lit, on its home page and on every page inside it.
+export default function BottomTabs({ current }) {
+  const navigate = useNavigate()
+  const on = hubOf(current)?.key
   return (
-    <div className="bottom-tabs">
-      <button
-        className={`tab-btn ${tab === 'locker' ? 'active' : ''}`}
-        onClick={() => handleTabChange('locker')}
-        aria-label="Locker"
-      >
-        <Icon name="me" size={24} />
-        <span>Locker</span>
-      </button>
-      <button
-        className={`tab-btn ${tab === 'crew' ? 'active' : ''}`}
-        onClick={() => handleTabChange('crew')}
-        aria-label="Crew"
-      >
-        <Icon name="group" size={24} />
-        <span>Crew</span>
-      </button>
-      <button
-        className={`tab-btn ${tab === 'coach' ? 'active' : ''}`}
-        disabled
-        aria-label="Coach (coming soon)"
-        title="Being built"
-      >
-        <Icon name="spark" size={24} />
-        <span>Coach</span>
-      </button>
-      <button
-        className={`tab-btn ${tab === 'account' ? 'active' : ''}`}
-        onClick={() => handleTabChange('account')}
-        aria-label="Account"
-      >
-        <Icon name="account" size={24} />
-        <span>Account</span>
-      </button>
-    </div>
+    <nav className="bottom-tabs" aria-label="Main">
+      {HUBS.map((p) => (
+        <button key={p.key} type="button" className={`tab-btn ${on === p.key ? 'on' : ''}`}
+          aria-current={on === p.key ? 'page' : undefined} onClick={() => navigate(p.to)}>
+          <Icon name={p.icon} size={26} />
+          <span>{SECTIONS.find((s) => s.key === p.section)?.tab}</span>
+        </button>
+      ))}
+    </nav>
   )
 }

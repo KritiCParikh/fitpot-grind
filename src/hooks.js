@@ -104,3 +104,23 @@ export function useGroupsMeta(groupIds) {
   }, [key])
   return meta
 }
+
+// Your own check-ins across every group you're in (for your private calendar
+// on Me, which doesn't depend on which group you're viewing). Groups you can
+// no longer read (e.g. ones you left) are skipped quietly.
+export function useMyCheckinsEverywhere(groupIds, uid) {
+  const [byGroup, setByGroup] = useState({})
+  const key = (groupIds || []).slice().sort().join(',')
+  useEffect(() => {
+    if (!uid) return
+    const ids = key ? key.split(',') : []
+    setByGroup({})
+    const offs = ids.map((gid) => onSnapshot(
+      query(collection(db, 'groups', gid, 'checkins'), where('uid', '==', uid)),
+      (s) => setByGroup((b) => ({ ...b, [gid]: s.docs.map((d) => d.data()) })),
+      () => setByGroup((b) => ({ ...b, [gid]: [] })),
+    ))
+    return () => offs.forEach((off) => off())
+  }, [key, uid])
+  return Object.values(byGroup).flat()
+}

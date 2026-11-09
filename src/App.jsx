@@ -23,6 +23,13 @@ import useSwipe from './nav/useSwipe'
 import { currentKey } from './nav/pages'
 import OfflineBar from './components/OfflineBar'
 import Mark from './nav/Mark'
+import BottomTabs from './nav/BottomTabs'
+import { BackTo } from './nav/Hub'
+import LockerHome from './screens/LockerHome'
+import CrewHome from './screens/CrewHome'
+import Coach from './screens/Coach'
+import MyCalendarPage from './screens/MyCalendarPage'
+import Drafts from './screens/Drafts'
 
 function SetupNotice() {
   return (
@@ -94,7 +101,7 @@ function NeedGroup({ title, children }) {
       {status === 'loading' ? <p className="muted">Loading...</p> : (
         <div className="card">
           <p>{status === 'error' ? 'Couldn\'t open this group. Pick another one in the Group tab.' : 'Join or create a group to see this.'}</p>
-          <p className="muted small">Your Me tab works on its own. Groups add the daily check-in, the pot and your friends.</p>
+          <p className="muted small">My locker works on its own. Groups add the daily check-in, the pot and your friends.</p>
           <Link className="btn-primary" to="/group">{status === 'error' ? 'Go to Group' : 'Join or create a group'}</Link>
         </div>
       )}
@@ -132,31 +139,45 @@ function Shell({ user, profile }) {
             <Icon name="menu" size={26} />
           </button>
           <span className="brand"><Mark size={28} /><span className="logo small-logo">FitPot</span></span>
-          <GroupSwitcher user={user} groupIds={groupIds} activeId={activeId} meta={meta} />
+          <span className="grow" />
           <QuickCheck user={user} />
         </header>
         <OfflineBar />
         <div className="content" {...swipe}>
+          <BackTo current={current} />
           <Routes>
-            <Route path="/" element={<Me user={user} />} />
+            <Route path="/" element={<Home user={user} />} />
+            <Route path="/locker" element={<Me user={user} />} />
+            <Route path="/locker/calendar" element={<MyCalendarPage user={user} />} />
+            <Route path="/locker/drafts" element={<Drafts user={user} />} />
+            <Route path="/crew" element={<CrewHome user={user} groupSwitch={<GroupSwitcher user={user} groupIds={groupIds} activeId={activeId} meta={meta} />} />} />
+            <Route path="/coach" element={<Coach />} />
             <Route path="/today" element={<NeedGroup title="Today">{(g, m) => <Today {...base} group={g} members={m} />}</NeedGroup>} />
             <Route path="/calendar" element={<NeedGroup title="Calendar">{(g, m) => <Calendar {...base} group={g} members={m} />}</NeedGroup>} />
             <Route path="/wall" element={<NeedGroup title="Photo wall">{(g, m) => <Wall {...base} group={g} members={m} />}</NeedGroup>} />
             <Route path="/board" element={<NeedGroup title="Board">{(g, m) => <Board {...base} group={g} members={m} />}</NeedGroup>} />
             <Route path="/group" element={<Group {...base} activeId={activeId} />} />
             <Route path="/account" element={<Account user={user} groupIds={groupIds} profile={profile} />} />
-            <Route path="/me" element={<Navigate to="/" />} />
+            <Route path="/me" element={<Navigate to="/locker/calendar" />} />
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
         </div>
         {menu && <LockerMenu user={user} current={current} onClose={() => setMenu(false)}
           groupSwitch={<GroupSwitcher user={user} groupIds={groupIds} activeId={activeId} meta={meta} />} />}
+        <BottomTabs current={current} />
       </div>
     </GroupProvider>
   )
 }
 
-// After sign-in you land on Me. Groups are optional and can be added any time.
+// My locker's home. Old links (#/?me=food) still open the right section.
+function Home({ user }) {
+  const { search } = useLocation()
+  if (new URLSearchParams(search).get('me')) return <Navigate to={`/locker${search}`} replace />
+  return <LockerHome user={user} />
+}
+
+// After sign-in you land on My locker. Groups are optional and can be added any time.
 function SignedIn({ user }) {
   const profile = useUserDoc(user.uid)
   if (profile === undefined) return <Loading />

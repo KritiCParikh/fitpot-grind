@@ -3,17 +3,29 @@ import { NUTRIENTS, sumNutrients, scale } from '../lib/foods'
 import { saveMyFood, deleteMyFood } from '../lib/privateData'
 import FoodPicker from './FoodPicker'
 import PortionPicker from './PortionPicker'
+import DraftNote from './DraftNote'
+import { useAutoDraft, newDraftId } from '../lib/drafts'
 
 const blankNutrients = () => Object.fromEntries(NUTRIENTS.map((n) => [n.key, '']))
 
 // Create or edit one of your own foods (values per serving). Fill it from a
 // food in the databases with an everyday amount (phase 5.11), so no label or
 // scale is needed, or type the values from a label.
-export function MyFoodForm({ uid, initial, onSaved, onBack, onRecipe }) {
-  const [name, setName] = useState(initial?.name || '')
-  const [servingLabel, setServingLabel] = useState(initial?.servingLabel || 'serving')
-  const [servingGrams, setServingGrams] = useState(initial?.servingGrams ?? '')
-  const [values, setValues] = useState(initial?.perServing ? Object.fromEntries(NUTRIENTS.map((n) => [n.key, initial.perServing[n.key] ?? ''])) : blankNutrients())
+// `draft` ({ id, state }) picks up a draft (phase 5.12).
+export function MyFoodForm({ uid, initial, draft, onSaved, onBack, onRecipe }) {
+  const r = draft?.state
+  const [name, setName] = useState(r?.name ?? (initial?.name || ''))
+  const [servingLabel, setServingLabel] = useState(r?.servingLabel ?? (initial?.servingLabel || 'serving'))
+  const [servingGrams, setServingGrams] = useState(r?.servingGrams ?? initial?.servingGrams ?? '')
+  const [values, setValues] = useState(r?.values || (initial?.perServing ? Object.fromEntries(NUTRIENTS.map((n) => [n.key, initial.perServing[n.key] ?? ''])) : blankNutrients()))
+  const [draftId] = useState(() => draft?.id || (initial?.id ? `food-${initial.id}` : newDraftId('food')))
+  const kept = useAutoDraft(uid, draftId, { name, servingLabel, servingGrams, values }, (state) => ({
+    kind: 'food',
+    title: state.name.trim() || (initial?.id ? 'Edit food' : 'New food'),
+    sub: `per ${state.servingLabel || 'serving'}${state.values.kcal ? ` · ${state.values.kcal} kcal` : ''}`,
+    to: `/locker?me=food&draft=${draftId}`,
+    data: { initial: initial || null, state },
+  }))
   const [busy, setBusy] = useState(false)
   const [step, setStep] = useState('form') // form | pick | portion
   const [picked, setPicked] = useState(null)
@@ -27,6 +39,7 @@ export function MyFoodForm({ uid, initial, onSaved, onBack, onRecipe }) {
         servingLabel: servingLabel.trim() || 'serving', servingGrams: Number(servingGrams) || null,
         perServing: Object.fromEntries(NUTRIENTS.map((n) => [n.key, Number(values[n.key]) || 0])),
       })
+      kept.finish()
       onSaved()
     } finally { setBusy(false) }
   }
@@ -76,16 +89,26 @@ export function MyFoodForm({ uid, initial, onSaved, onBack, onRecipe }) {
         </div>
       </div>
       <button className="btn-primary wide" disabled={busy || !name.trim()} onClick={save}>{busy ? 'Saving...' : 'Save food'}</button>
-      {initial?.id && <button className="btn-ghost wide" onClick={async () => { await deleteMyFood(uid, initial.id); onSaved() }}>Delete</button>}
+      {initial?.id && <button className="btn-ghost wide" onClick={async () => { await deleteMyFood(uid, initial.id); kept.finish(); onSaved() }}>Delete</button>}
+      <DraftNote kept={kept.kept} onDiscard={() => { if (confirm('Discard this draft? What you typed here will be gone.')) { kept.finish(); onBack() } }} />
     </div>
   )
 }
 
 // Build a recipe from ingredients; it's saved as one of your foods, per serving.
-export function RecipeBuilder({ uid, initial, onSaved, onBack }) {
-  const [name, setName] = useState(initial?.name || '')
-  const [servings, setServings] = useState(initial?.servings || 1)
-  const [items, setItems] = useState(initial?.ingredients || [])
+export function RecipeBuilder({ uid, initial, draft, onSaved, onBack }) {
+  const r = draft?.state
+  const [name, setName] = useState(r?.name ?? (initial?.name || ''))
+  const [servings, setServings] = useState(r?.servings ?? (initial?.servings || 1))
+  const [items, setItems] = useState(r?.items || initial?.ingredients || [])
+  const [draftId] = useState(() => draft?.id || (initial?.id ? `recipe-${initial.id}` : newDraftId('recipe')))
+  const kept = useAutoDraft(uid, draftId, { name, servings, items }, (state) => ({
+    kind: 'recipe',
+    title: state.name.trim() || (initial?.id ? 'Edit recipe' : 'New recipe'),
+    sub: `${state.items.length} ingredient${state.items.length === 1 ? '' : 's'} · ${state.servings} serving${Number(state.servings) === 1 ? '' : 's'}`,
+    to: `/locker?me=food&draft=${draftId}`,
+    data: { initial: initial || null, state },
+  }))
   const [step, setStep] = useState('main') // main | pick | portion
   const [picked, setPicked] = useState(null)
   const [busy, setBusy] = useState(false)
@@ -104,6 +127,7 @@ export function RecipeBuilder({ uid, initial, onSaved, onBack }) {
         servingLabel: 'serving', servingGrams: totalGrams ? Math.round(totalGrams / n) : null,
         perServing, ingredients: items,
       })
+      kept.finish()
       onSaved()
     } finally { setBusy(false) }
   }
@@ -151,7 +175,8 @@ export function RecipeBuilder({ uid, initial, onSaved, onBack }) {
         ))}
       </div>
       <button className="btn-primary wide" disabled={busy || !name.trim() || !items.length} onClick={save}>{busy ? 'Saving...' : 'Save recipe'}</button>
-      {initial?.id && <button className="btn-ghost wide" onClick={async () => { await deleteMyFood(uid, initial.id); onSaved() }}>Delete recipe</button>}
+      {initial?.id && <button className="btn-ghost wide" onClick={async () => { await deleteMyFood(uid, initial.id); kept.finish(); onSaved() }}>Delete recipe</button>}
+      <DraftNote kept={kept.kept} onDiscard={() => { if (confirm('Discard this draft? What you typed here will be gone.')) { kept.finish(); onBack() } }} />
     </div>
   )
 }
