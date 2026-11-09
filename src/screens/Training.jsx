@@ -16,6 +16,7 @@ import BodyMap, { HEAT_COLORS } from '../components/BodyMap'
 import SortableList, { rowId } from '../components/Sortable'
 import Icon from '../nav/Icon'
 import DraftNote from '../components/DraftNote'
+import ShareSheet from '../components/ShareSheet'
 import { useAutoDraft, newDraftId, getDraft } from '../lib/drafts'
 
 // Training's sections, shown as tabs at the top (phase 5.7.1: the plate dial
@@ -42,6 +43,7 @@ export default function Training({ user, section = 'log', onSection, draftId, on
   const [editor, setEditor] = useState(null) // initial workout for the editor
   const [planNote, setPlanNote] = useState(false)
   const [routineDraft, setRoutineDraft] = useState(null) // a routine draft to pick up
+  const [sharing, setSharing] = useState(null) // { workout, prs } for its share card (phase 5.14)
 
   // Picking up a draft from My locker → Drafts (phase 5.12).
   useEffect(() => {
@@ -60,7 +62,7 @@ export default function Training({ user, section = 'log', onSection, draftId, on
   if ([training, settings, rawWorkouts, custom, routines].includes(undefined)) return <p className="muted">Loading...</p>
 
   const t = training || {}
-  const ctx = { uid, today, t, workouts, exercises, have, u, routines, start: setEditor, routineDraft, clearRoutineDraft: () => setRoutineDraft(null) }
+  const ctx = { uid, today, t, workouts, exercises, have, u, routines, start: setEditor, shareWorkout: setSharing, routineDraft, clearRoutineDraft: () => setRoutineDraft(null) }
 
   return (
     <>
@@ -80,8 +82,9 @@ export default function Training({ user, section = 'log', onSection, draftId, on
       {view === 'records' && <RecordsView {...ctx} />}
       {view === 'routines' && <RoutinesView {...ctx} />}
       {view === 'setup' && <SetupView {...ctx} settings={settings || {}} />}
+      {sharing && <ShareSheet user={user} workout={sharing.workout} prs={sharing.prs} u={u} onClose={() => setSharing(null)} />}
       {editor && (
-        <WorkoutEditor key={editor.__draft?.id || editor.id || 'new'} uid={uid} initial={editor} draft={editor.__draft} workouts={workouts} exercises={exercises} have={have} u={u}
+        <WorkoutEditor key={editor.__draft?.id || editor.id || 'new'} uid={uid} user={user} initial={editor} draft={editor.__draft} workouts={workouts} exercises={exercises} have={have} u={u}
           restSec={t.restSec ?? 90} autoFill={t.autoFill !== false} today={today} onClose={() => setEditor(null)} />
       )}
     </>
@@ -89,7 +92,7 @@ export default function Training({ user, section = 'log', onSection, draftId, on
 }
 
 // ---------------- Log ----------------
-function LogView({ today, t, workouts, u, routines, start }) {
+function LogView({ today, t, workouts, u, routines, start, shareWorkout }) {
   const [shown, setShown] = useState(20)
   const sorted = [...workouts].sort((a, b) => b.date.localeCompare(a.date) || b.createdMs - a.createdMs)
   const { byWorkout } = useMemo(() => personalRecords(workouts), [workouts])
@@ -142,6 +145,7 @@ function LogView({ today, t, workouts, u, routines, start }) {
                 {w.notes && <span className="muted small">Notes: {w.notes}</span>}
               </button>
               {prs.length > 0 && <span className="pill pr">{prs.length} PR{prs.length > 1 ? 's' : ''}</span>}
+              <button type="button" className="btn-ghost share-btn" aria-label={`Share ${w.title || 'workout'} from ${short(w.date)}`} onClick={() => shareWorkout({ workout: w, prs })}><Icon name="share" size={18} /></button>
             </li>
           )
         })}

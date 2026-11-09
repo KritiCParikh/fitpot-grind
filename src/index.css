@@ -691,3 +691,17 @@ body { line-height: 1.45; }
 .tour-card .muted { margin: 0; }
 .tour-card .action-row { margin-top: 10px; justify-content: flex-end; }
 @media (prefers-reduced-motion: reduce) { .tour-hole { transition: none; } }
+
+/* ---------- Phase 5.14: share cards ---------- */
+.share-sheet { display: flex; flex-direction: column; gap: 12px; }
+.share-sheet .sheet-head h3 { margin: 0; }
+.share-preview { display: flex; justify-content: center; padding: 10px; border-radius: 18px; border: 1px solid var(--border); background: var(--surface); }
+.share-preview.clear { background: repeating-conic-gradient(#1b201d 0% 25%, #232a26 0% 50%) 50% / 24px 24px; }
+.share-canvas { display: block; width: auto; max-width: 100%; height: auto; max-height: 52vh; border-radius: 12px; }
+.share-controls { display: flex; flex-direction: column; gap: 8px; }
+.share-controls .chip { min-height: 40px; }
+.share-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.share-row .check { display: flex; align-items: center; gap: 8px; color: var(--text); }
+.share-row .check input { width: 22px; height: 22px; accent-color: var(--lime); }
+.workout-list .share-btn { flex: none; width: 44px; height: 44px; padding: 0; display: grid; place-items: center; border-radius: 12px; color: var(--muted); }
+.share-month { margin-top: 12px; }

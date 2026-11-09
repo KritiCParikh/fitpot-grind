@@ -9,6 +9,7 @@ import RestTimer from './RestTimer'
 import UnitSwitch from './UnitSwitch'
 import SortableList, { rowId } from './Sortable'
 import DraftNote from './DraftNote'
+import ShareSheet from './ShareSheet'
 import { useAutoDraft, newDraftId } from '../lib/drafts'
 
 const PR_LABEL = {
@@ -29,7 +30,7 @@ const LB = 2.20462
 // Everything you type is kept in Drafts until you save or discard it.
 // `autoFill` (phase 5.13): pre-fill new exercises and new sets from last time.
 // Off = every set starts empty and you type your own numbers.
-export default function WorkoutEditor({ uid, initial, draft, workouts, exercises, have, u: u0, restSec = 90, today, onClose, autoFill: autoFill0 = true }) {
+export default function WorkoutEditor({ uid, user, initial, draft, workouts, exercises, have, u: u0, restSec = 90, today, onClose, autoFill: autoFill0 = true }) {
   const r = draft?.state
   const [wu, setWu] = useState(r?.wu || u0.unit)
   const [du, setDu] = useState(r?.du || u0.dist)
@@ -38,9 +39,11 @@ export default function WorkoutEditor({ uid, initial, draft, workouts, exercises
   const [title, setTitle] = useState(r?.title ?? (initial.title || ''))
   const [notes, setNotes] = useState(r?.notes ?? (initial.notes || ''))
   const [items, setItems] = useState(() => r?.items || (initial.exercises || []).map((ex) => toItem(ex, ex.sets, units(u0.unit, u0.dist), Boolean(initial.id))))
+  // How long the workout took (phase 5.14), when it's logged live today.
+  const [startedAt] = useState(() => r?.startedAt || Date.now())
   const [autoFill, setAutoFill] = useState(r?.autoFill ?? initial.autoFill ?? autoFill0)
   const [draftId] = useState(() => draft?.id || (initial.id ? `workout-${initial.id}` : newDraftId('workout')))
-  const kept = useAutoDraft(uid, draftId, { date, title, notes, items, wu, du, autoFill }, (state) => ({
+  const kept = useAutoDraft(uid, draftId, { date, title, notes, items, wu, du, autoFill, startedAt }, (state) => ({
     kind: 'workout',
     title: state.title.trim() || (initial.id ? 'Edit workout' : 'Workout'),
     sub: `${state.items.length} exercise${state.items.length === 1 ? '' : 's'}${state.items.length ? `: ${state.items.slice(0, 3).map((x) => x.name).join(', ')}` : ''}`,
@@ -51,6 +54,8 @@ export default function WorkoutEditor({ uid, initial, draft, workouts, exercises
   const [rest, setRest] = useState(null) // { endAt, total }
   const [busy, setBusy] = useState(false)
   const [prs, setPrs] = useState(null)
+  const [saved, setSaved] = useState(null) // the saved workout, for its share card (phase 5.14)
+  const [sharing, setSharing] = useState(false)
   const others = workouts.filter((w) => w.id !== initial.id)
   const stepKg = wu === 'lb' ? 5 / LB : 2.5
 
@@ -109,12 +114,17 @@ export default function WorkoutEditor({ uid, initial, draft, workouts, exercises
     if (!clean.length) return alert('Add at least one set with reps, or a distance or time for cardio.')
     setBusy(true)
     try {
-      const w = { id: initial.id, date, title: title.trim(), notes: notes.trim(), exercises: clean }
-      await saveWorkout(uid, w)
+      const live = !initial.id && date === today
+      const mins = Math.round((Date.now() - startedAt) / 60000)
+      const w = { id: initial.id, date, title: title.trim(), notes: notes.trim(), exercises: clean, ...(live && mins >= 3 && mins <= 300 ? { durationMin: mins } : initial.durationMin ? { durationMin: initial.durationMin } : {}) }
+      const ref = await saveWorkout(uid, w)
       kept.finish()
       // Which records did this workout set?
       const mine = personalRecords([...others, { ...w, id: '__this__', createdMs: Date.now() }]).byWorkout.__this__ || []
-      if (mine.length) setPrs(mine); else onClose()
+      setSaved({ ...w, id: initial.id || ref?.id || 'new' })
+      if (mine.length) setPrs(mine)
+      else if (user) setSharing(true)
+      else onClose()
     } catch (e) { alert(e.message || String(e)) } finally { setBusy(false) }
   }
 
@@ -123,6 +133,10 @@ export default function WorkoutEditor({ uid, initial, draft, workouts, exercises
     await deleteWorkout(uid, initial.id)
     kept.finish()
     onClose()
+  }
+
+  if (sharing && saved) {
+    return <ShareSheet user={user} workout={saved} prs={prs || []} u={u} onClose={onClose} />
   }
 
   if (prs) {
@@ -147,7 +161,8 @@ export default function WorkoutEditor({ uid, initial, draft, workouts, exercises
               </li>
             ))}
           </ul>
-          <button className="btn-primary wide" onClick={onClose}>Done</button>
+          {user && saved && <button className="btn-primary wide" onClick={() => setSharing(true)}>Share it</button>}
+          <button className={user && saved ? 'btn-ghost wide' : 'btn-primary wide'} onClick={onClose}>Done</button>
         </div>
       </div>
     )

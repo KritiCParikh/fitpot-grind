@@ -18,7 +18,7 @@ const pair = (region, cx, cy, rx, ry) => [e(region, cx, cy, rx, ry), e(region, 1
 const r = (region, x, y, width, height, rx) => [region, 'rect', { x, y, width, height, rx }]
 const poly = (region, points) => [region, 'polygon', { points }]
 
-const FRONT = [
+export const FRONT = [
   r('neck', 72, 40, 16, 12, 3),
   poly('traps_upper', '72,46 52,60 70,58'), poly('traps_upper', '88,46 108,60 90,58'),
   ...pair('delt_side', 40, 76, 5, 11),
@@ -41,7 +41,7 @@ const FRONT = [
   ...pair('feet', 66, 318, 10, 6),
 ]
 
-const BACK = [
+export const BACK = [
   r('neck', 72, 40, 16, 12, 3),
   poly('traps_upper', '80,42 56,60 80,66 104,60'),
   poly('traps_mid', '66,64 94,64 88,88 72,88'),
