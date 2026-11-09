@@ -45,6 +45,7 @@ It then opens full screen from its own icon, like a normal app.
 - [x] Phase 5.10 - muscle picker with specific parts and a tappable body map, weekly muscle heat map (FitPot style), drag to reorder exercises in routines and live workouts
 - [x] Phase 5.11 - barcode scanning removed, World foods (about 7,000 USDA dishes and ingredients, offline) with katori, cup, tbsp and piece portions so no scale is needed, create food fills itself, calorie calculator, hand drawn food doodles designed, uploaded and integrated.
 - [x] Phase 5.12 - new navigation (Locker, Crew, Coach, Account tabs), My calendar in My locker (works without a group), Drafts so nothing typed in Food or Training is lost, kg / lb and km / mi in Account
+- [x] Phase 5.12.1 - Training beyond the gym: Outdoor (hiking, trekking and more) and Sports (cricket, badminton, football, yoga and more, logged by time and effort); exercises show every muscle they work (Romanian deadlift: hamstrings, also glutes and lower back, half a set each); create exercises with several muscles; edit any exercise, including FitPot's suggestions; easier delete for your own
 - [ ] Phase 6 - AI models (scratch -> fine-tune -> browser) + push notifications + personalised training plans from our model, built on the Training data
 
 > FitPot tracks informal debts between friends. It does not move money.

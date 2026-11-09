@@ -4,7 +4,7 @@ import {
 } from '../lib/privateData'
 import {
   MUSCLES, EQUIPMENT, muscleLabel, allExercises, personalRecords, weekByMuscle, historyOf, units,
-  isCardio, cardioHistory, cardioMetric, countLabel, setsByRegion, quietMuscles, regionLabel, fromRegion, muscleText,
+  isCardio, cardioHistory, cardioMetric, countLabel, setsByRegion, quietMuscles, regionLabel, fromRegion, muscleText, alsoText,
 } from '../lib/training'
 import { addDays, prettyDay, mondayOf } from '../lib/dates'
 import { myToday } from '../lib/clock'
@@ -53,7 +53,7 @@ export default function Training({ user, section = 'log', onSection, draftId, on
   }, [draftId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const workouts = useMemo(() => (rawWorkouts || []).map((w) => ({ ...w, createdMs: w.createdAt?.toMillis?.() || 0 })), [rawWorkouts])
-  const exercises = useMemo(() => allExercises(custom || []), [custom])
+  const exercises = useMemo(() => allExercises(custom || [], training?.edits || {}), [custom, training])
   const have = useMemo(() => new Set(training?.equipment || []), [training])
   const u = units(settings?.weightUnit || 'kg', settings?.distanceUnit || 'km')
 
@@ -154,11 +154,11 @@ function LogView({ today, t, workouts, u, routines, start }) {
 const fromLast = (x) => ({ ...x, sets: x.sets.map((s) => ({ ...s })) })
 function fromRoutine(it, workouts) {
   // Cardio: one interval with the routine's target minutes.
-  if (isCardio(it)) return { key: it.key, name: it.name, muscle: 'cardio', kind: 'cardio', sets: [{ min: it.min || 0 }] }
+  if (isCardio(it)) return { key: it.key, name: it.name, muscle: 'cardio', kind: 'cardio', ...(it.metric ? { metric: it.metric } : {}), ...(it.cat ? { cat: it.cat } : {}), sets: [{ min: it.min || 0 }] }
   // Strength: pre-fill each set with last time's weight for that exercise, else empty.
   const h = historyOf(workouts, it.key)
   const kg = h.length ? h[h.length - 1].best?.kg || 0 : 0
-  return { key: it.key, name: it.name, muscle: it.muscle, ...(it.part ? { part: it.part } : {}), sets: Array.from({ length: it.sets || 3 }, () => ({ reps: it.reps || 0, kg })) }
+  return { key: it.key, name: it.name, muscle: it.muscle, ...(it.part ? { part: it.part } : {}), ...(it.also?.length ? { also: it.also } : {}), sets: Array.from({ length: it.sets || 3 }, () => ({ reps: it.reps || 0, kg })) }
 }
 
 // ---------------- Muscles (weekly progressive overload) ----------------
@@ -177,7 +177,7 @@ function MusclesView({ today, workouts, u }) {
         <button className="btn-ghost" onClick={() => setDay((d) => addDays(d, 7))} disabled={week.sun >= today} aria-label="Next week">›</button>
       </div>
       <MuscleMap workouts={workouts} mon={week.mon} sun={week.sun} today={today} />
-      <p className="muted small">{week.sessions} workouts this week (last week {week.prevSessions}). Progressive overload: beat each exercise's best set from last week by a rep or a little weight. ▲ beat it, = matched, ▼ dropped, new = first time this week.</p>
+      <p className="muted small">{week.sessions} workouts this week (last week {week.prevSessions}). Progressive overload: beat each exercise's best set from last week by a rep or a little weight. ▲ beat it, = matched, ▼ dropped, new = first time this week. An exercise that also works a muscle adds half a set to it (a Romanian deadlift counts for hamstrings, and half for glutes and lower back).</p>
       {!week.muscles.length && !week.cardio && <div className="card"><p className="muted">Nothing logged this week or last week.</p></div>}
       {week.cardio && (
         <details className="card muscle-card" open={week.cardio.km > 0 || week.cardio.min > 0}>
@@ -188,7 +188,7 @@ function MusclesView({ today, workouts, u }) {
           </summary>
           <ul className="member-list">
             {week.cardio.exercises.map((x) => {
-              const metric = cardioMetric(x), lbl = countLabel(x)
+              const metric = x.metric || cardioMetric(x), lbl = x.countLabel || countLabel(x)
               const one = (e) => (e ? u.showCardio(e, metric, lbl) : 'none')
               return (
                 <li key={x.key} className={x.trend === 'up' || x.trend === 'new' ? 'in' : x.trend === 'down' ? 'out' : ''}>
@@ -325,7 +325,7 @@ function RecordsView({ workouts, u }) {
 // Records for one cardio activity: longest distance, fastest pace, longest
 // session, and a chart of distance (or time) per session.
 function CardioRecord({ r, h, k, u, onBack }) {
-  const metric = cardioMetric({ key: k }), lbl = countLabel({ key: k })
+  const metric = r.metric || cardioMetric({ key: k }), lbl = r.countLabel || countLabel({ key: k })
   const byDist = metric === 'distance' && h.some((s) => s.km > 0)
   const points = h.map((s) => ({ date: s.date, value: byDist ? u.toDist(s.km) : s.min })).filter((p) => p.value > 0)
   return (
@@ -398,7 +398,7 @@ function RoutineForm({ uid, initial, draft, exercises, have, onClose }) {
   const [orderSaved, setOrderSaved] = useState(false)
   if (picking) {
     return <ExercisePicker uid={uid} exercises={exercises} have={have} title="Add to routine" onClose={() => setPicking(false)}
-      onPick={(ex) => { setPicking(false); setItems((l) => [...l, { rowId: rowId(), ...(isCardio(ex) ? { key: ex.key, name: ex.name, muscle: 'cardio', kind: 'cardio', min: 20 } : { key: ex.key, name: ex.name, muscle: ex.muscle, ...(ex.part ? { part: ex.part } : {}), sets: 3, reps: 10 }) }]) }} />
+      onPick={(ex) => { setPicking(false); setItems((l) => [...l, { rowId: rowId(), ...(isCardio(ex) ? { key: ex.key, name: ex.name, muscle: 'cardio', kind: 'cardio', metric: ex.metric || 'distance', ...(ex.cat ? { cat: ex.cat } : {}), min: ex.cat === 'sports' ? 60 : 20 } : { key: ex.key, name: ex.name, muscle: ex.muscle, ...(ex.part ? { part: ex.part } : {}), ...(ex.also?.length ? { also: ex.also } : {}), sets: 3, reps: 10 }) }]) }} />
   }
   const setIt = (i, patch) => setItems((l) => l.map((x, j) => (j === i ? { ...x, ...patch } : x)))
   async function save() {
@@ -424,7 +424,7 @@ function RoutineForm({ uid, initial, draft, exercises, have, onClose }) {
         <div className="routine-row">
           <div className="routine-top">
             {controls}
-            <span className="grow-col"><span>{it.name}</span><span className="muted small">{muscleText(it.muscle, it.part)}</span></span>
+            <span className="grow-col"><span>{it.name}</span><span className="muted small">{isCardio(it) ? 'Cardio' : muscleText(it.muscle, it.part)}{it.also?.length ? ` · also ${alsoText(it.also)}` : ''}</span></span>
             <button className="btn-ghost x" aria-label={`Remove ${it.name}`} onClick={() => setItems((l) => l.filter((_, j) => j !== i))}>✕</button>
           </div>
           <div className="routine-nums">

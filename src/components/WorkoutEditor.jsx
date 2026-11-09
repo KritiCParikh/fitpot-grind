@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { saveWorkout, deleteWorkout, saveSettings } from '../lib/privateData'
 import {
   muscleText, lastTime, beatIt, personalRecords, units, isCardio, cardioMetric, countLabel, lastCardio, KM_PER_MI,
+  alsoOf, alsoText, EFFORTS, exerciseCat,
 } from '../lib/training'
 import ExercisePicker from './ExercisePicker'
 import RestTimer from './RestTimer'
@@ -74,7 +75,7 @@ export default function WorkoutEditor({ uid, initial, draft, workouts, exercises
     // Pre-fill from last time so it's quick to log, and easy to beat.
     if (isCardio(ex)) {
       const last = lastCardio(others, ex.key, { before: date })
-      setItems((l) => [...l, toItem(ex, last ? [{ km: last.km, min: last.min, count: last.count }] : [{}], u, false)])
+      setItems((l) => [...l, toItem(ex, last ? [{ km: last.km, min: last.min, count: last.count, effort: last.effort }] : [{}], u, false)])
     } else {
       const last = lastTime(others, ex.key, { before: date })
       setItems((l) => [...l, toItem(ex, last ? last.sets : [{}], u, false)])
@@ -90,13 +91,14 @@ export default function WorkoutEditor({ uid, initial, draft, workouts, exercises
   async function save() {
     const clean = items.map((x) => (x.cardio
       ? {
-        key: x.key, name: x.name, muscle: 'cardio', kind: 'cardio',
+        key: x.key, name: x.name, muscle: 'cardio', kind: 'cardio', metric: x.metric, ...(x.cat ? { cat: x.cat } : {}),
         sets: x.sets.filter((s) => Number(s.d) > 0 || Number(s.min) > 0).map((s) => ({
           km: Math.round(u.toKm(s.d) * 1000) / 1000, min: Math.round((Number(s.min) || 0) * 10) / 10, count: Math.round(Number(s.count) || 0),
+          ...(x.metric === 'effort' ? { effort: s.effort || 'moderate' } : {}),
         })),
       }
       : {
-        key: x.key, name: x.name, muscle: x.muscle, ...(x.part ? { part: x.part } : {}),
+        key: x.key, name: x.name, muscle: x.muscle, ...(x.part ? { part: x.part } : {}), ...(x.also?.length ? { also: x.also } : {}),
         sets: x.sets.filter((s) => Number(s.reps) > 0).map((s) => ({ reps: Math.round(Number(s.reps)), kg: Math.round(u.toKg(s.w) * 100) / 100 })),
       })).filter((x) => x.sets.length)
     if (!clean.length) return alert('Add at least one set with reps, or a distance or time for cardio.')
@@ -175,7 +177,7 @@ export default function WorkoutEditor({ uid, initial, draft, workouts, exercises
         ? <CardioCard x={x} u={u} others={others} date={date} controls={controls}
           onSet={(k, patch) => setSet(i, k, patch)} onTick={(k) => tick(i, k)}
           onRemoveSet={(k) => setItem(i, (y) => ({ ...y, sets: y.sets.filter((_, j) => j !== k) }))}
-          onAddSet={() => setItem(i, (y) => ({ ...y, sets: [...y.sets, { d: '', min: '', count: '', done: false }] }))}
+          onAddSet={() => setItem(i, (y) => ({ ...y, sets: [...y.sets, { d: '', min: '', count: '', done: false, ...(y.metric === 'effort' ? { effort: 'moderate' } : {}) }] }))}
           onRemove={() => setItems((l) => l.filter((_, j) => j !== i))} />
         : <StrengthCard x={x} u={u} others={others} date={date} stepKg={stepKg} controls={controls}
           onSet={(k, patch) => setSet(i, k, patch)} onTick={(k) => tick(i, k)}
@@ -199,11 +201,16 @@ export default function WorkoutEditor({ uid, initial, draft, workouts, exercises
 
 // Editor rows keep what you typed, in the units on screen.
 function toItem(ex, sets, u, done) {
-  const base = { rowId: rowId(), key: ex.key, name: ex.name, muscle: ex.muscle, ...(ex.part ? { part: ex.part } : {}) }
+  const also = alsoOf(ex)
+  const base = { rowId: rowId(), key: ex.key, name: ex.name, muscle: ex.muscle, ...(ex.part ? { part: ex.part } : {}), ...(also.length ? { also } : {}) }
   if (isCardio(ex)) {
+    const metric = cardioMetric(ex)
     return {
-      ...base, muscle: 'cardio', cardio: true, metric: cardioMetric(ex), countLabel: countLabel(ex),
-      sets: (sets?.length ? sets : [{}]).map((s) => ({ d: s.km ? String(u.toDist(s.km)) : '', min: s.min ? String(s.min) : '', count: s.count ? String(s.count) : '', done })),
+      ...base, muscle: 'cardio', cardio: true, metric, countLabel: countLabel(ex), cat: exerciseCat(ex),
+      sets: (sets?.length ? sets : [{}]).map((s) => ({
+        d: s.km ? String(u.toDist(s.km)) : '', min: s.min ? String(s.min) : '', count: s.count ? String(s.count) : '', done,
+        ...(metric === 'effort' ? { effort: s.effort || 'moderate' } : {}),
+      })),
     }
   }
   return { ...base, sets: (sets?.length ? sets : [{}]).map((s) => ({ w: s.kg ? String(u.toDisp(s.kg)) : '', reps: s.reps ? String(s.reps) : '', done })) }
@@ -211,13 +218,15 @@ function toItem(ex, sets, u, done) {
 
 const shortDate = (d) => new Date(d + 'T12:00:00Z').toLocaleDateString(undefined, { month: 'short', day: 'numeric', timeZone: 'UTC' })
 
+const CAT_LABEL = { machine: 'Cardio machine', outdoor: 'Outdoor', sports: 'Sport' }
+
 function CardHead({ x, onRemove, controls }) {
   return (
     <div className="ex-head">
       {controls}
       <span className="grow-col">
         <strong>{x.name}</strong>
-        <span className="muted small">{muscleText(x.muscle, x.part)}</span>
+        <span className="muted small">{x.cardio ? CAT_LABEL[x.cat] || 'Cardio' : muscleText(x.muscle, x.part)}{!x.cardio && x.also?.length ? ` · also ${alsoText(x.also)}` : ''}</span>
       </span>
       <button className="btn-ghost" aria-label={`Remove ${x.name}`} onClick={onRemove}>✕</button>
     </div>
@@ -250,21 +259,29 @@ function StrengthCard({ x, u, others, date, stepKg, controls, onSet, onTick, onR
 function CardioCard({ x, u, others, date, controls, onSet, onTick, onRemoveSet, onAddSet, onRemove }) {
   const last = lastCardio(others, x.key, { before: date })
   const timeOnly = x.metric === 'time'
+  const effort = x.metric === 'effort' // sports (phase 5.12.1): time and effort
   const totalKm = x.sets.reduce((t, s) => t + u.toKm(s.d), 0)
   const totalMin = x.sets.reduce((t, s) => t + (Number(s.min) || 0), 0)
   return (
     <div className="card ex-card">
       <CardHead x={x} onRemove={onRemove} controls={controls} />
       {last
-        ? <p className="muted small">Last time ({shortDate(last.date)}): {u.showCardio(last, x.metric, x.countLabel)}. <span className="lime">{timeOnly ? 'Go a little longer' : 'Go a little further or faster'}.</span></p>
+        ? <p className="muted small">Last time ({shortDate(last.date)}): {u.showCardio(last, x.metric, x.countLabel)}. <span className="lime">{effort ? 'Enjoy the game' : timeOnly ? 'Go a little longer' : 'Go a little further or faster'}.</span></p>
         : <p className="muted small">First time logging this. Today sets your baseline.</p>}
       <div className="set-grid">
         <span className="muted small">#</span>
-        <span className="muted small">{timeOnly ? 'Min' : u.dist}</span>
-        <span className="muted small">{timeOnly ? x.countLabel || 'Count' : 'Min'}</span><span /><span />
+        <span className="muted small">{timeOnly || effort ? 'Min' : u.dist}</span>
+        <span className="muted small">{effort ? 'Effort' : timeOnly ? x.countLabel || 'Count' : 'Min'}</span><span /><span />
         {x.sets.map((s, k) => (
           <SetRow key={k} n={k + 1} done={s.done} onTick={() => onTick(k)} onRemove={() => onRemoveSet(k)}>
-            {timeOnly ? (
+            {effort ? (
+              <>
+                <input className="text-input" type="number" inputMode="decimal" step="any" min="0" value={s.min} placeholder="0" aria-label="Minutes" onChange={(e) => onSet(k, { min: e.target.value })} />
+                <select className="text-input effort-select" value={s.effort || 'moderate'} aria-label="Effort" onChange={(e) => onSet(k, { effort: e.target.value })}>
+                  {EFFORTS.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}
+                </select>
+              </>
+            ) : timeOnly ? (
               <>
                 <input className="text-input" type="number" inputMode="decimal" step="any" min="0" value={s.min} placeholder="0" aria-label="Minutes" onChange={(e) => onSet(k, { min: e.target.value })} />
                 <input className="text-input" type="number" inputMode="numeric" min="0" value={s.count} placeholder="-" aria-label={x.countLabel || 'Count'} onChange={(e) => onSet(k, { count: e.target.value })} />
@@ -278,8 +295,8 @@ function CardioCard({ x, u, others, date, controls, onSet, onTick, onRemoveSet, 
           </SetRow>
         ))}
       </div>
-      {!timeOnly && totalKm > 0 && totalMin > 0 && <p className="muted small">Pace {u.showPace(totalMin / totalKm)}</p>}
-      <button className="link-btn" onClick={onAddSet}>+ Add interval</button>
+      {!timeOnly && !effort && totalKm > 0 && totalMin > 0 && <p className="muted small">Pace {u.showPace(totalMin / totalKm)}</p>}
+      <button className="link-btn" onClick={onAddSet}>{effort ? '+ Add another session' : '+ Add interval'}</button>
     </div>
   )
 }

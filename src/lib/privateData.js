@@ -5,7 +5,7 @@
 import { useEffect, useState } from 'react'
 import {
   collection, doc, onSnapshot, query, where, orderBy, limit,
-  addDoc, setDoc, deleteDoc, serverTimestamp, getDocs,
+  addDoc, setDoc, deleteDoc, serverTimestamp, getDocs, deleteField,
 } from 'firebase/firestore'
 import { db } from '../firebase'
 
@@ -88,6 +88,11 @@ export const deleteWorkout = (uid, id) => deleteDoc(doc(db, 'private', uid, 'wor
 export const useCustomExercises = (uid) => useLive(() => col(uid, 'exercises'), [uid])
 export const addCustomExercise = (uid, ex) => addDoc(col(uid, 'exercises'), { ...ex, createdAt: serverTimestamp() })
 export const deleteCustomExercise = (uid, id) => deleteDoc(doc(db, 'private', uid, 'exercises', id))
+// Phase 5.12.1: edit your own exercise in place.
+export const updateCustomExercise = (uid, id, ex) => setDoc(doc(db, 'private', uid, 'exercises', id), { ...ex, updatedAt: serverTimestamp() }, { merge: true })
+// Your version of a suggested exercise, by its key (history stays linked), in settings/training.edits.
+export const editBuiltInExercise = (uid, key, ex) => setDoc(doc(db, 'private', uid, 'settings', 'training'), { edits: { [key]: ex } }, { merge: true })
+export const resetBuiltInExercise = (uid, key) => setDoc(doc(db, 'private', uid, 'settings', 'training'), { edits: { [key]: deleteField() } }, { merge: true })
 
 export const useRoutines = (uid) => useLive(() => col(uid, 'routines'), [uid])
 export function saveRoutine(uid, r) {
