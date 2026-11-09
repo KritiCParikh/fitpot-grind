@@ -15,6 +15,13 @@
 //   <date>_<uid>_2   slot 2, then _3 and _4
 // Copies of the same camera shot in different groups share a `shot` id, so
 // deleting one photo removes it from every group.
+//
+// Sessions (phase 5.13): worked out more than once today (morning gym,
+// evening run, tennis at night)? The check-in is session 1 and stores its part
+// of the day. Up to 3 more sessions are docs in groups/{gid}/sessions:
+//   <date>_<uid>_2, _3, _4   { uid, date, n, part, activity?, createdAt }
+// each with an optional photo in the matching photo slot. Extra sessions are a
+// +1 / +2 / +3 boost for fun: the pot and weekly target still count one day.
 
 import { doc, collection, getDoc, getDocs, query, where, addDoc, deleteDoc, writeBatch, serverTimestamp } from 'firebase/firestore'
 import { db } from '../firebase'
@@ -25,7 +32,14 @@ import { photosEnabled, uploadToDrive } from './photos'
 const needsPhoto = (g) => g.photoRequired !== false
 
 export const MAX_PHOTOS = 4
+export const MAX_SESSIONS = 4
 export const ACTIVITIES = ['Gym', 'Run', 'Tennis', 'Swim', 'Yoga', 'Cycle', 'Sport', 'Other']
+export const PARTS = ['Morning', 'Afternoon', 'Evening', 'Night']
+/** Part of the day for a time on this phone: 4 am to noon morning, to 5 pm afternoon, to 9 pm evening, then night. */
+export function partOfDay(date = new Date()) {
+  const h = date.getHours()
+  return h >= 4 && h < 12 ? 'Morning' : h >= 12 && h < 17 ? 'Afternoon' : h >= 17 && h < 21 ? 'Evening' : 'Night'
+}
 /** Doc id for photo slot n (1 to 4). */
 export const slotId = (key, n) => (n === 1 ? key : `${key}_${n}`)
 const newShotId = () => Array.from(crypto.getRandomValues(new Uint8Array(8)), (b) => b.toString(16).padStart(2, '0')).join('')
@@ -53,12 +67,14 @@ export async function myDayInGroups(user, groupIds) {
       }
       const date = clock.today()
       const key = `${date}_${user.uid}`
-      const [c, ...ps] = await Promise.all([
+      const [c, ...rest] = await Promise.all([
         getDoc(doc(db, 'groups', id, 'checkins', key)),
         ...[1, 2, 3, 4].map((n) => getDoc(doc(db, 'groups', id, 'photos', slotId(key, n)))),
+        ...[2, 3, 4].map((n) => getDoc(doc(db, 'groups', id, 'sessions', slotId(key, n))).catch(() => null)),
       ])
-      const slots = [1, 2, 3, 4].filter((n, i) => ps[i].exists())
-      out.push({ id, name: g.name, date, key, needsPhoto: needsPhoto(g), checkedIn: c.exists(), slots, hasPhoto: slots.length > 0 })
+      const slots = [1, 2, 3, 4].filter((n, i) => rest[i].exists())
+      const sessions = [2, 3, 4].filter((n, i) => rest[4 + i]?.exists())
+      out.push({ id, name: g.name, date, key, needsPhoto: needsPhoto(g), checkedIn: c.exists(), slots, sessions, hasPhoto: slots.length > 0 })
     } catch { /* can't read that group (e.g. removed): skip it */ }
   }
   return out
@@ -71,7 +87,7 @@ export async function myDayInGroups(user, groupIds) {
  * you're already in. `activity` is an optional tag like 'Tennis'.
  * Returns { done: [names], skipped: [{ name, reason }] }.
  */
-export async function checkInEverywhere(user, groupIds, { blob = null, photoOnly = false, activity = '' } = {}) {
+export async function checkInEverywhere(user, groupIds, { blob = null, photoOnly = false, activity = '', part = partOfDay() } = {}) {
   const groups = await myDayInGroups(user, groupIds)
   const done = [], skipped = []
   const shot = newShotId()
@@ -91,7 +107,7 @@ export async function checkInEverywhere(user, groupIds, { blob = null, photoOnly
           ...(activity ? { activity } : {}),
         })
       }
-      if (wantCheckin) batch.set(doc(db, 'groups', g.id, 'checkins', g.key), { uid: user.uid, date: g.date, createdAt: serverTimestamp() })
+      if (wantCheckin) batch.set(doc(db, 'groups', g.id, 'checkins', g.key), { uid: user.uid, date: g.date, createdAt: serverTimestamp(), part, ...(activity ? { activity } : {}) })
       await batch.commit()
       done.push(g.name)
     } catch (e) {
@@ -99,6 +115,45 @@ export async function checkInEverywhere(user, groupIds, { blob = null, photoOnly
     }
   }
   return { done, skipped }
+}
+
+/**
+ * Add another session today (phase 5.13), in every group you've checked in
+ * to: part of the day, an optional activity and an optional photo. Each group
+ * gets the next free number (2 to 4) and, with a photo, that photo slot.
+ * Returns { done: [names], skipped: [{ name, reason }] }.
+ */
+export async function addSessionEverywhere(user, groupIds, { part = partOfDay(), activity = '', blob = null } = {}) {
+  const groups = await myDayInGroups(user, groupIds)
+  const done = [], skipped = []
+  const shot = newShotId()
+  for (const g of groups) {
+    if (!g.checkedIn) { skipped.push({ name: g.name, reason: 'check in first' }); continue }
+    const n = sessionPlan(g, { photo: Boolean(blob) && photosEnabled })
+    if (!n) { skipped.push({ name: g.name, reason: `already ${MAX_SESSIONS} sessions today` }); continue }
+    try {
+      const batch = writeBatch(db)
+      batch.set(doc(db, 'groups', g.id, 'sessions', slotId(g.key, n)), {
+        uid: user.uid, date: g.date, n, part, createdAt: serverTimestamp(), ...(activity ? { activity } : {}), ...(blob ? { shot } : {}),
+      })
+      if (blob && photosEnabled) {
+        const { fileId } = await uploadToDrive(user, g.id, blob)
+        batch.set(doc(db, 'groups', g.id, 'photos', slotId(g.key, n)), {
+          uid: user.uid, date: g.date, fileId, createdAt: serverTimestamp(), shot, slot: n, ...(activity ? { activity } : {}),
+        })
+      }
+      await batch.commit()
+      done.push(g.name)
+    } catch (e) {
+      skipped.push({ name: g.name, reason: e.message || 'failed' })
+    }
+  }
+  return { done, skipped }
+}
+
+/** Next session number (2 to 4) in one group, or 0 when full (pure). With a photo, its slot must be free too. */
+export function sessionPlan(g, { photo }) {
+  return [2, 3, 4].find((n) => !g.sessions.includes(n) && (!photo || !g.slots.includes(n))) || 0
 }
 
 /**
@@ -115,14 +170,15 @@ export function photoPlan(g, { blob, wantCheckin }) {
   return { slot }
 }
 
-/** Undo today's check-in and all of today's photos in every group. Drive files stay. */
+/** Undo today's check-in, sessions and photos in every group. Drive files stay. */
 export async function undoEverywhere(user, groupIds) {
   const groups = await myDayInGroups(user, groupIds)
   for (const g of groups) {
-    if (!g.checkedIn && !g.hasPhoto) continue
+    if (!g.checkedIn && !g.hasPhoto && !g.sessions.length) continue
     const batch = writeBatch(db)
     if (g.checkedIn) batch.delete(doc(db, 'groups', g.id, 'checkins', g.key))
     for (const n of g.slots) batch.delete(doc(db, 'groups', g.id, 'photos', slotId(g.key, n)))
+    for (const n of g.sessions) batch.delete(doc(db, 'groups', g.id, 'sessions', slotId(g.key, n)))
     await batch.commit().catch(() => {}) // older than 24 h or already gone
   }
 }

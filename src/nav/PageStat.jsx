@@ -1,7 +1,8 @@
 // One live line per page for the menu, so nothing is hidden behind it:
 // "2 of 4 in", "5 day streak", "+$12 this month"... Each one is its own small
 // component and is only mounted while the menu is open.
-import { useDayDocs, useMyCheckins, useUserDoc, useMyCheckinsEverywhere } from '../hooks'
+import { useDayDocs, useMyCheckins } from '../hooks'
+import { useMyDays } from '../lib/myDays'
 import { useGroupCtx } from '../groupContext'
 import { useWorkouts, useMealsOn, useWeights, useSettings } from '../lib/privateData'
 import { useLedgerInputs, runLedger } from '../lib/useLedger'
@@ -97,16 +98,15 @@ function TrainingStat({ user }) {
 // My calendar's line: the same days the calendar lights up (workouts plus
 // check ins in any group), so the card and the calendar always agree.
 function MyCalStat({ user }) {
-  const profile = useUserDoc(user.uid)
-  const workouts = useWorkouts(user.uid)
-  const checkins = useMyCheckinsEverywhere(profile?.groupIds, user.uid)
-  if (!workouts || profile === undefined) return '...'
+  const { days, loading } = useMyDays(user)
+  if (loading) return '...'
   const today = myToday()
-  const days = new Set([...workouts.map((w) => w.date), ...checkins.map((c) => c.date)].filter(Boolean))
+  const set = new Set(days.keys())
   const mon = mondayOf(today)
-  const week = [...days].filter((d) => d >= mon && d <= today).length
-  const s = currentStreak(days, today)
-  return `${week} day${week === 1 ? '' : 's'} this week${s > 1 ? ` · ${s} day streak` : ''}`
+  const week = [...set].filter((d) => d >= mon && d <= today)
+  const boosts = week.reduce((n, d) => n + days.get(d) - 1, 0)
+  const s = currentStreak(set, today)
+  return `${week.length} day${week.length === 1 ? '' : 's'} this week${boosts ? ` +${boosts}` : ''}${s > 1 ? ` · ${s} day streak` : ''}`
 }
 
 function DraftsStat({ user }) {

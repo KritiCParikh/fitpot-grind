@@ -46,6 +46,7 @@ It then opens full screen from its own icon, like a normal app.
 - [x] Phase 5.11 - barcode scanning removed, World foods (about 7,000 USDA dishes and ingredients, offline) with katori, cup, tbsp and piece portions so no scale is needed, create food fills itself, calorie calculator, hand drawn food doodles designed, uploaded and integrated.
 - [x] Phase 5.12 - new navigation (Locker, Crew, Coach, Account tabs), My calendar in My locker (works without a group), Drafts so nothing typed in Food or Training is lost, kg / lb and km / mi in Account
 - [x] Phase 5.12.1 - Training beyond the gym: Outdoor (hiking, trekking and more) and Sports (cricket, badminton, football, yoga and more, logged by time and effort); exercises show every muscle they work (Romanian deadlift: hamstrings, also glutes and lower back, half a set each); create exercises with several muscles; edit any exercise, including FitPot's suggestions; easier delete for your own
+- [x] Phase 5.13 - My calendar in sync with every crew (past check-ins too) or Training logs; extra sessions in a day as +1 / +2 boosts (just for fun); Targets reordered with more body measurements; food plate removed; auto-suggestions switch for routines and workouts; welcome steps and a short tour for first-time users
 - [ ] Phase 6 - AI models (scratch -> fine-tune -> browser) + push notifications + personalised training plans from our model, built on the Training data
 
 > FitPot tracks informal debts between friends. It does not move money.

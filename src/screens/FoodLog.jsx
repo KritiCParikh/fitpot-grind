@@ -10,7 +10,7 @@ import FoodDoodle from '../components/FoodDoodle'
 import { getDraft, newDraftId } from '../lib/drafts'
 
 // Private, optional food diary. Nothing here affects check-ins or the pot.
-export default function FoodLog({ user, command, onOpenPlate, draftId, onDraftUsed }) {
+export default function FoodLog({ user, draftId, onDraftUsed }) {
   const uid = user.uid
   const today = myToday() // your own day, from your phone's timezone
   const [day, setDay] = useState(today)
@@ -19,13 +19,6 @@ export default function FoodLog({ user, command, onOpenPlate, draftId, onDraftUs
   const myFoods = useMyFoods(uid)
   const [view, setView] = useState({ name: 'log' })
   const [doodle, setDoodle] = useState(null) // foods to sketch after logging (phase 5.11)
-
-  // The food plate (Me barbell) opens a meal or My foods here.
-  useEffect(() => {
-    if (!command) return
-    if (command.w === 'myfoods') setView({ name: 'myfoods' })
-    else setView({ name: 'pick', meal: command.w })
-  }, [command])
 
   // Picking up a draft from My locker → Drafts (phase 5.12).
   useEffect(() => {
@@ -104,7 +97,6 @@ export default function FoodLog({ user, command, onOpenPlate, draftId, onDraftUs
   return (
     <>
       {doodle && <FoodDoodle foods={doodle} onDone={() => setDoodle(null)} />}
-      {onOpenPlate && <button className="btn-ghost wide plate-hint" onClick={onOpenPlate}>Open the food plate: meals and My foods</button>}
       <div className="cal-head">
         <button className="btn-ghost" onClick={() => setDay((d) => addDays(d, -1))} aria-label="Previous day">‹</button>
         <strong>{day === today ? 'Today' : prettyDay(day)}</strong>

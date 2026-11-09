@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { doc, setDoc } from 'firebase/firestore'
 import { db } from '../firebase'
 import { useUserDoc } from '../hooks'
-import { checkInEverywhere, ACTIVITIES } from '../lib/everywhere'
+import { checkInEverywhere, addSessionEverywhere, ACTIVITIES } from '../lib/everywhere'
 
 const MAX_SIDE = 1080
 const TARGET_BYTES = 500 * 1024
@@ -10,7 +10,9 @@ const TARGET_BYTES = 500 * 1024
 // Live camera only: there is no file picker anywhere, so gallery photos
 // can't be submitted. Works on phones and on laptops with a webcam.
 // The photo goes to every group you're in (one check-in for all groups).
-export default function CameraCapture({ user, group, groupIds, onClose, onUploaded, checkIn = false }) {
+// `session` ({ part, activity }, phase 5.13): the photo is for an extra
+// session today instead of the check-in.
+export default function CameraCapture({ user, group, groupIds, onClose, onUploaded, checkIn = false, session = null }) {
   const profile = useUserDoc(user.uid)
   const videoRef = useRef(null)
   const streamRef = useRef(null)
@@ -18,7 +20,7 @@ export default function CameraCapture({ user, group, groupIds, onClose, onUpload
   const [phase, setPhase] = useState('starting') // starting | live | review | uploading
   const [shot, setShot] = useState(null) // { blob, url }
   const [error, setError] = useState('')
-  const [activity, setActivity] = useState('') // optional tag, e.g. Tennis
+  const [activity, setActivity] = useState(session?.activity || '') // optional tag, e.g. Tennis
   const consented = profile?.photoConsent === true
   const wantCamera = consented && (phase === 'starting' || phase === 'live')
 
@@ -58,7 +60,9 @@ export default function CameraCapture({ user, group, groupIds, onClose, onUpload
   async function send() {
     setPhase('uploading'); setError('')
     try {
-      const result = await checkInEverywhere(user, groupIds, { blob: shot.blob, photoOnly: !checkIn, activity })
+      const result = session
+        ? await addSessionEverywhere(user, groupIds, { blob: shot.blob, part: session.part, activity })
+        : await checkInEverywhere(user, groupIds, { blob: shot.blob, photoOnly: !checkIn, activity })
       if (!result.done.length && result.skipped.length) throw new Error(result.skipped.map((x) => `${x.name}: ${x.reason}`).join(' · '))
       onUploaded?.(result)
       onClose()
@@ -115,7 +119,7 @@ export default function CameraCapture({ user, group, groupIds, onClose, onUpload
           {phase === 'review' && (
             <>
               <button className="btn-ghost" onClick={retake}>Retake</button>
-              <button className="btn-primary" onClick={send}>{checkIn ? 'Check in + post' : 'Post to group'}</button>
+              <button className="btn-primary" onClick={send}>{checkIn ? 'Check in + post' : session ? `Add ${session.part.toLowerCase()} session` : 'Post to group'}</button>
             </>
           )}
           {phase === 'uploading' && <p className="muted">Uploading...</p>}

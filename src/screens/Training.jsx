@@ -82,7 +82,7 @@ export default function Training({ user, section = 'log', onSection, draftId, on
       {view === 'setup' && <SetupView {...ctx} settings={settings || {}} />}
       {editor && (
         <WorkoutEditor key={editor.__draft?.id || editor.id || 'new'} uid={uid} initial={editor} draft={editor.__draft} workouts={workouts} exercises={exercises} have={have} u={u}
-          restSec={t.restSec ?? 90} today={today} onClose={() => setEditor(null)} />
+          restSec={t.restSec ?? 90} autoFill={t.autoFill !== false} today={today} onClose={() => setEditor(null)} />
       )}
     </>
   )
@@ -122,7 +122,7 @@ function LogView({ today, t, workouts, u, routines, start }) {
       <div className="action-row">
         {last && <button className="btn-ghost" onClick={() => start({ date: today, title: last.title, exercises: last.exercises.map(fromLast) })}>Repeat last{last.title ? ` (${last.title})` : ''}</button>}
         {(routines || []).map((r) => (
-          <button key={r.id} className="btn-ghost" onClick={() => start({ date: today, title: r.name, exercises: r.items.map((it) => fromRoutine(it, workouts)) })}>Start {r.name}</button>
+          <button key={r.id} className="btn-ghost" onClick={() => start({ date: today, title: r.name, autoFill: r.autoFill !== false, exercises: r.items.map((it) => fromRoutine(it, workouts, r.autoFill !== false)) })}>Start {r.name}</button>
         ))}
       </div>
 
@@ -152,10 +152,12 @@ function LogView({ today, t, workouts, u, routines, start }) {
 }
 
 const fromLast = (x) => ({ ...x, sets: x.sets.map((s) => ({ ...s })) })
-function fromRoutine(it, workouts) {
+// autoFill off (phase 5.13): keep the routine's exercises and number of sets, but leave every number empty.
+function fromRoutine(it, workouts, autoFill = true) {
   // Cardio: one interval with the routine's target minutes.
   if (isCardio(it)) return { key: it.key, name: it.name, muscle: 'cardio', kind: 'cardio', ...(it.metric ? { metric: it.metric } : {}), ...(it.cat ? { cat: it.cat } : {}), sets: [{ min: it.min || 0 }] }
   // Strength: pre-fill each set with last time's weight for that exercise, else empty.
+  if (!autoFill) return { key: it.key, name: it.name, muscle: it.muscle, ...(it.part ? { part: it.part } : {}), ...(it.also?.length ? { also: it.also } : {}), sets: Array.from({ length: it.sets || 3 }, () => ({ reps: 0, kg: 0 })) }
   const h = historyOf(workouts, it.key)
   const kg = h.length ? h[h.length - 1].best?.kg || 0 : 0
   return { key: it.key, name: it.name, muscle: it.muscle, ...(it.part ? { part: it.part } : {}), ...(it.also?.length ? { also: it.also } : {}), sets: Array.from({ length: it.sets || 3 }, () => ({ reps: it.reps || 0, kg })) }
@@ -371,7 +373,7 @@ function RoutinesView({ uid, routines, exercises, have, workouts, start, today, 
               <strong>{r.name}</strong>
               <span className="muted small">{r.items.map((it) => (isCardio(it) ? `${it.name} ${it.min} min` : `${it.name} ${it.sets}×${it.reps}`)).join(' · ')}</span>
             </button>
-            <button className="btn-ghost" onClick={() => start({ date: today, title: r.name, exercises: r.items.map((it) => fromRoutine(it, workouts)) })}>Start</button>
+            <button className="btn-ghost" onClick={() => start({ date: today, title: r.name, autoFill: r.autoFill !== false, exercises: r.items.map((it) => fromRoutine(it, workouts, r.autoFill !== false)) })}>Start</button>
           </li>
         ))}
       </ul>
@@ -385,13 +387,14 @@ const stripRow = ({ rowId: _r, ...it }) => it
 function RoutineForm({ uid, initial, draft, exercises, have, onClose }) {
   const [name, setName] = useState(draft?.state?.name ?? initial.name)
   const [items, setItems] = useState(() => draft?.state?.items || initial.items.map((it) => ({ ...it, rowId: rowId() })))
+  const [autoFill, setAutoFill] = useState(draft?.state?.autoFill ?? initial.autoFill !== false) // phase 5.13
   const [draftId] = useState(() => draft?.id || (initial.id ? `routine-${initial.id}` : newDraftId('routine')))
-  const kept = useAutoDraft(uid, draftId, { name, items }, (state) => ({
+  const kept = useAutoDraft(uid, draftId, { name, items, autoFill }, (state) => ({
     kind: 'routine',
     title: state.name.trim() || (initial.id ? 'Edit routine' : 'New routine'),
     sub: `${state.items.length} exercise${state.items.length === 1 ? '' : 's'}`,
     to: `/locker?me=training&t=routines&draft=${draftId}`,
-    data: { initial: { id: initial.id || null, name: initial.name || '', items: initial.items || [] }, state },
+    data: { initial: { id: initial.id || null, name: initial.name || '', items: initial.items || [], autoFill: initial.autoFill !== false }, state },
   }))
   const [picking, setPicking] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -403,14 +406,14 @@ function RoutineForm({ uid, initial, draft, exercises, have, onClose }) {
   const setIt = (i, patch) => setItems((l) => l.map((x, j) => (j === i ? { ...x, ...patch } : x)))
   async function save() {
     setBusy(true)
-    try { await saveRoutine(uid, { id: initial.id || undefined, name: name.trim() || 'Routine', items: items.map(stripRow) }); kept.finish(); onClose() } finally { setBusy(false) }
+    try { await saveRoutine(uid, { id: initial.id || undefined, name: name.trim() || 'Routine', items: items.map(stripRow), autoFill }); kept.finish(); onClose() } finally { setBusy(false) }
   }
   // A saved routine keeps its new order as soon as you let go (with any other
   // changes on screen). A new routine is saved with the button as usual.
   function reorder(next) {
     setItems(next)
     if (!initial.id) return
-    saveRoutine(uid, { id: initial.id, name: name.trim() || 'Routine', items: next.map(stripRow) })
+    saveRoutine(uid, { id: initial.id, name: name.trim() || 'Routine', items: next.map(stripRow), autoFill })
       .then(() => { setOrderSaved(true); setTimeout(() => setOrderSaved(false), 1500) })
       .catch(() => {})
   }
@@ -418,6 +421,10 @@ function RoutineForm({ uid, initial, draft, exercises, have, onClose }) {
     <div className="card form">
       <label>Routine name
         <input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Push day" maxLength={40} />
+      </label>
+      <label className="check auto-fill">
+        <input type="checkbox" checked={autoFill} onChange={(e) => setAutoFill(e.target.checked)} />
+        <span>Auto-suggestions <span className="muted small">{autoFill ? 'when you start it, weights fill in from last time' : 'off: sets start empty, you type your own numbers'}</span></span>
       </label>
       {items.length > 1 && <p className="muted small reorder-tip">{orderSaved ? <span className="lime">Order saved</span> : 'Hold the grip to drag an exercise into place, or use the arrows.'}</p>}
       <SortableList items={items} onChange={reorder}>{(it, i, controls) => (

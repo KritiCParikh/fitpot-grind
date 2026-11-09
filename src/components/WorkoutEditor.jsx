@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { saveWorkout, deleteWorkout, saveSettings } from '../lib/privateData'
+import { saveWorkout, deleteWorkout, saveSettings, saveTraining } from '../lib/privateData'
 import {
   muscleText, lastTime, beatIt, personalRecords, units, isCardio, cardioMetric, countLabel, lastCardio, KM_PER_MI,
   alsoOf, alsoText, EFFORTS, exerciseCat,
@@ -27,7 +27,9 @@ const LB = 2.20462
 // `initial`: an existing workout to edit, or { date, title, exercises } to start from.
 // `draft`: { id, state } to pick up a draft where you left it (phase 5.12).
 // Everything you type is kept in Drafts until you save or discard it.
-export default function WorkoutEditor({ uid, initial, draft, workouts, exercises, have, u: u0, restSec = 90, today, onClose }) {
+// `autoFill` (phase 5.13): pre-fill new exercises and new sets from last time.
+// Off = every set starts empty and you type your own numbers.
+export default function WorkoutEditor({ uid, initial, draft, workouts, exercises, have, u: u0, restSec = 90, today, onClose, autoFill: autoFill0 = true }) {
   const r = draft?.state
   const [wu, setWu] = useState(r?.wu || u0.unit)
   const [du, setDu] = useState(r?.du || u0.dist)
@@ -36,8 +38,9 @@ export default function WorkoutEditor({ uid, initial, draft, workouts, exercises
   const [title, setTitle] = useState(r?.title ?? (initial.title || ''))
   const [notes, setNotes] = useState(r?.notes ?? (initial.notes || ''))
   const [items, setItems] = useState(() => r?.items || (initial.exercises || []).map((ex) => toItem(ex, ex.sets, units(u0.unit, u0.dist), Boolean(initial.id))))
+  const [autoFill, setAutoFill] = useState(r?.autoFill ?? initial.autoFill ?? autoFill0)
   const [draftId] = useState(() => draft?.id || (initial.id ? `workout-${initial.id}` : newDraftId('workout')))
-  const kept = useAutoDraft(uid, draftId, { date, title, notes, items, wu, du }, (state) => ({
+  const kept = useAutoDraft(uid, draftId, { date, title, notes, items, wu, du, autoFill }, (state) => ({
     kind: 'workout',
     title: state.title.trim() || (initial.id ? 'Edit workout' : 'Workout'),
     sub: `${state.items.length} exercise${state.items.length === 1 ? '' : 's'}${state.items.length ? `: ${state.items.slice(0, 3).map((x) => x.name).join(', ')}` : ''}`,
@@ -72,8 +75,10 @@ export default function WorkoutEditor({ uid, initial, draft, workouts, exercises
 
   function addExercise(ex) {
     setPicking(false)
-    // Pre-fill from last time so it's quick to log, and easy to beat.
-    if (isCardio(ex)) {
+    // Pre-fill from last time so it's quick to log, and easy to beat (unless auto-fill is off).
+    if (!autoFill) {
+      setItems((l) => [...l, toItem(ex, [{}], u, false)])
+    } else if (isCardio(ex)) {
       const last = lastCardio(others, ex.key, { before: date })
       setItems((l) => [...l, toItem(ex, last ? [{ km: last.km, min: last.min, count: last.count, effort: last.effort }] : [{}], u, false)])
     } else {
@@ -165,6 +170,10 @@ export default function WorkoutEditor({ uid, initial, draft, workouts, exercises
           <input className="text-input" type="date" value={date} max={today} onChange={(e) => setDate(e.target.value || today)} />
         </label>
       </div>
+      <label className="check auto-fill">
+        <input type="checkbox" checked={autoFill} onChange={(e) => { setAutoFill(e.target.checked); saveTraining(uid, { autoFill: e.target.checked }) }} />
+        <span>Auto-suggestions <span className="muted small">{autoFill ? 'new exercises and sets fill in from last time' : 'off: every set starts empty, type your own numbers'}</span></span>
+      </label>
       {(hasStrength || hasCardio) && (
         <div className="unit-row">
           {hasStrength && <UnitSwitch label="Weight" value={wu} options={['kg', 'lb']} onChange={switchWeight} />}
@@ -182,7 +191,7 @@ export default function WorkoutEditor({ uid, initial, draft, workouts, exercises
         : <StrengthCard x={x} u={u} others={others} date={date} stepKg={stepKg} controls={controls}
           onSet={(k, patch) => setSet(i, k, patch)} onTick={(k) => tick(i, k)}
           onRemoveSet={(k) => setItem(i, (y) => ({ ...y, sets: y.sets.filter((_, j) => j !== k) }))}
-          onAddSet={() => setItem(i, (y) => ({ ...y, sets: [...y.sets, { ...(y.sets[y.sets.length - 1] || { w: '', reps: '' }), done: false }] }))}
+          onAddSet={() => setItem(i, (y) => ({ ...y, sets: [...y.sets, { ...(autoFill && y.sets[y.sets.length - 1] ? y.sets[y.sets.length - 1] : { w: '', reps: '' }), done: false }] }))}
           onRemove={() => setItems((l) => l.filter((_, j) => j !== i))} />)}</SortableList>
 
       <button className="btn-ghost wide" onClick={() => setPicking(true)}>+ Add exercise</button>

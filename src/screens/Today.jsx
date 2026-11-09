@@ -1,12 +1,12 @@
 import { useState } from 'react'
 import { setRestVote, photoRequiredFor } from '../lib/group'
-import { checkInEverywhere, undoEverywhere, MAX_PHOTOS } from '../lib/everywhere'
+import { checkInEverywhere, undoEverywhere, addSessionEverywhere, MAX_SESSIONS, PARTS, ACTIVITIES, partOfDay } from '../lib/everywhere'
 import { prettyDay, addDays, mondayOf } from '../lib/dates'
 import { localTime, tzLabel } from '../lib/clock'
 import { fmt } from '../lib/money'
 import { penaltyOn, targetOn, isRestDay } from '../lib/ledger'
 import { useLedgerInputs, runLedger } from '../lib/useLedger'
-import { useDayDocs } from '../hooks'
+import { useDayDocs, useRangeDocs } from '../hooks'
 import { photosEnabled } from '../lib/photos'
 import Avatar from '../components/Avatar'
 import CameraCapture from '../components/CameraCapture'
@@ -22,11 +22,14 @@ export default function Today({ user, group, members, groupIds, meta }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [justDone, setJustDone] = useState(false)
-  const [camera, setCamera] = useState(null) // null | 'checkin' | 'photo'
+  const [camera, setCamera] = useState(null) // null | 'checkin' | 'session'
+  const [adding, setAdding] = useState(null) // extra session being set up: { part, activity }
   const [note, setNote] = useState('')
   // Check-ins are stamped with Google's clock, so they need a connection.
   const online = useOnline()
 
+  const mon0 = mondayOf(today)
+  const weekSessions = useRangeDocs(group.id, 'sessions', mon0, today) // phase 5.13: extra sessions (boosts)
   if (!inputs || !todaysPhotos) return <section><p className="muted">Loading...</p></section>
 
   const photoRequired = photoRequiredFor(group)
@@ -42,6 +45,10 @@ export default function Today({ user, group, members, groupIds, meta }) {
   const meDone = done.has(user.uid)
   const myPhotos = todaysPhotos.filter((p) => p.uid === user.uid).length
   const myPhoto = myPhotos > 0
+  // Boosts: extra sessions on a day you checked in (fun only, never money).
+  const boostsOn = (uid, d) => (weekSessions || []).filter((x) => x.uid === uid && x.date === d).length
+  const boostsWeek = (uid) => (weekSessions || []).filter((x) => x.uid === uid && x.date >= mon0 && x.date <= today && inputs.doneByDay[x.date]?.has(uid)).length
+  const mySessionsToday = 1 + boostsOn(user.uid, today)
 
   const cur = money.currencyOn(today)
   const curTomorrow = money.currencyOn(addDays(today, 1))
@@ -59,7 +66,7 @@ export default function Today({ user, group, members, groupIds, meta }) {
   const needed = Math.floor(activeUids.length / 2) + 1
 
   // This week's progress (weekly mode)
-  const mon = mondayOf(today)
+  const mon = mon0
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(mon, i))
   const weekCount = (uid) => weekDays.filter((d) => d <= today && inputs.doneByDay[d]?.has(uid)).length
   const weekRest = weekDays.filter((d) => d <= today && isRestDay(d, inputs.restVotes[d], activeUids)).length
@@ -94,6 +101,16 @@ export default function Today({ user, group, members, groupIds, meta }) {
     })
   }
 
+  function saveSession(withPhoto) {
+    if (withPhoto) return setCamera('session')
+    const s = adding
+    act(async () => {
+      const r = await addSessionEverywhere(user, groupIds, s)
+      if (!r.done.length && r.skipped.length) throw new Error(r.skipped.map((x) => `${x.name}: ${x.reason}`).join(' · '))
+      setAdding(null); setNote(`${s.part} session added. That's a +${mySessionsToday} boost today.`); navigator.vibrate?.(40)
+    })
+  }
+
   function onUndo() {
     if (!confirm('Undo today\'s check-in in all your groups?' + (myPhoto ? ` Your ${myPhotos > 1 ? `${myPhotos} photos` : 'photo'} will be removed from the walls.` : ''))) return
     act(async () => { await undoEverywhere(user, groupIds); setJustDone(false); setNote('') })
@@ -121,8 +138,25 @@ export default function Today({ user, group, members, groupIds, meta }) {
             : photoRequired ? 'Opens the camera. Your photo is your check-in. Closes at your midnight.'
             : 'Tap after your workout. Closes at your midnight.'}
         </p>
-        {meDone && photosEnabled && online && myPhotos < MAX_PHOTOS && (
-          <button className="btn-ghost" onClick={() => setCamera('photo')}>{myPhoto ? `+ Add another photo (${myPhotos}/${MAX_PHOTOS})` : 'Add workout photo'}</button>
+        {meDone && mySessionsToday > 1 && <p className="boost-line"><span className="boost-pill">+{mySessionsToday - 1}</span> {mySessionsToday} sessions today. Boost!</p>}
+        {meDone && online && !iLeft && mySessionsToday < MAX_SESSIONS && !adding && (
+          <button className="btn-ghost" onClick={() => setAdding({ part: partOfDay(), activity: '' })}>+ Add another session</button>
+        )}
+        {adding && (
+          <div className="session-add">
+            <p className="small"><strong>Worked out again today?</strong> Each extra session is a boost on your calendar and in your crew. The pot still counts one day.</p>
+            <div className="chips" role="group" aria-label="Part of the day">
+              {PARTS.map((p) => <button key={p} type="button" className={`chip ${adding.part === p ? 'on' : ''}`} aria-pressed={adding.part === p} onClick={() => setAdding((a) => ({ ...a, part: p }))}>{p}</button>)}
+            </div>
+            <div className="chips" role="group" aria-label="What did you do? (optional)">
+              {ACTIVITIES.map((a) => <button key={a} type="button" className={`chip ${adding.activity === a ? 'on' : ''}`} aria-pressed={adding.activity === a} onClick={() => setAdding((x) => ({ ...x, activity: x.activity === a ? '' : a }))}>{a}</button>)}
+            </div>
+            <div className="action-row">
+              <button className="btn-primary" disabled={busy} onClick={() => saveSession(false)}>Add session</button>
+              {photosEnabled && <button className="btn-ghost" disabled={busy} onClick={() => saveSession(true)}>Add with a photo</button>}
+              <button className="btn-ghost" onClick={() => setAdding(null)}>Cancel</button>
+            </div>
+          </div>
         )}
         {meDone && myPhoto && <p className="muted small">{myPhotos > 1 ? `${myPhotos} photos` : 'Photo'} posted to the wall</p>}
         {meDone && <button className="link-btn" onClick={onUndo} disabled={busy}>Undo check-in</button>}
@@ -132,8 +166,8 @@ export default function Today({ user, group, members, groupIds, meta }) {
       </div>
       {camera && (
         <CameraCapture
-          user={user} group={group} groupIds={groupIds} checkIn={camera === 'checkin'}
-          onUploaded={(r) => { report(r); if (camera === 'checkin') { setJustDone(true); navigator.vibrate?.(60) } }}
+          user={user} group={group} groupIds={groupIds} checkIn={camera === 'checkin'} session={camera === 'session' ? adding : null}
+          onUploaded={(r) => { report(r); if (camera === 'checkin') { setJustDone(true); navigator.vibrate?.(60) } if (camera === 'session') { setAdding(null); setNote(`Session added. That's a +${mySessionsToday} boost today.`) } }}
           onClose={() => setCamera(null)}
         />
       )}
@@ -203,8 +237,8 @@ export default function Today({ user, group, members, groupIds, meta }) {
                 {m.name}{m.uid === user.uid ? ' (you)' : ''}{votes[m.uid] ? <span className="muted small"> (voted rest)</span> : ''}
                 {theirTz !== myTz && <span className="muted small"> · {localTime(theirTz)} there</span>}
               </span>
-              {weekly && <span className="muted small">{weekCount(m.uid)}/{weekNeeded}</span>}
-              <span className="pill">{PILL[stateOf(m.uid)]}</span>
+              {weekly && <span className="muted small">{weekCount(m.uid)}/{weekNeeded}{boostsWeek(m.uid) ? <span className="boost-sm"> +{boostsWeek(m.uid)}</span> : null}</span>}
+              <span className="pill">{PILL[stateOf(m.uid)]}{stateOf(m.uid) === 'in' && boostsOn(m.uid, today) ? ` +${boostsOn(m.uid, today)}` : ''}</span>
             </li>
           )
         })}

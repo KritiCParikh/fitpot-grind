@@ -10,6 +10,12 @@ export const SITES = [
   { key: 'arm', label: 'Arm (flexed)' },
   { key: 'thigh', label: 'Thigh' },
   { key: 'neck', label: 'Neck' },
+  // phase 5.13
+  { key: 'shoulders', label: 'Shoulders' },
+  { key: 'glutes', label: 'Glutes' },
+  { key: 'arm_relaxed', label: 'Arm (relaxed)' },
+  { key: 'forearm', label: 'Forearm' },
+  { key: 'calf', label: 'Calf' },
 ]
 const short = (d) => prettyDay(d).split(', ').slice(1).join(', ')
 

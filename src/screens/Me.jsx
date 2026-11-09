@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { NUTRIENTS } from '../lib/foods'
-import { useSettings, saveSettings, useMealsOn, LB_PER_KG } from '../lib/privateData'
+import { useSettings, saveSettings, LB_PER_KG } from '../lib/privateData'
 import FoodLog from './FoodLog'
 import Progress from './Progress'
 import Training, { TRAINING_SECTIONS } from './Training'
@@ -11,8 +11,6 @@ import VerifyBanner from '../components/VerifyBanner'
 import InstallCard from '../components/InstallCard'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { ME_TABS } from '../nav/MeBar'
-import FoodPlate from '../nav/FoodPlate'
-import { myToday } from '../lib/clock'
 import { local } from '../lib/device'
 
 // "Me": everything personal and private. Nobody in any group sees this tab's
@@ -30,15 +28,10 @@ export default function Me({ user }) {
   const lastSection = local.get('fitpot-training-section')
   const section = TRAINING_SECTIONS.some((s) => s.key === params.get('t')) ? params.get('t')
     : TRAINING_SECTIONS.some((s) => s.key === lastSection) ? lastSection : 'log'
-  const [chooser, setChooser] = useState(null) // null | 'plate'
-  const [foodCmd, setFoodCmd] = useState(null) // what the food plate asked the diary to open
   const [, bump] = useState(0) // re-render once your email is confirmed
   const draftId = params.get('draft')
   const dropDraftParam = () => { params.delete('draft'); navigate(`/locker?${params}`, { replace: true }) }
 
-  // The food plate belongs to Food: switching to another tab closes it
-  // (phase 5.11). Leaving Me unmounts this page, which closes it too.
-  useEffect(() => { if (tab !== 'food') setChooser(null) }, [tab])
 
   const go = (me, t) => navigate(`/locker?me=${me}${me === 'training' ? `&t=${t || section}` : ''}`)
   const sectionLabel = TRAINING_SECTIONS.find((s) => s.key === section)?.label
@@ -48,7 +41,7 @@ export default function Me({ user }) {
       <h2>{ME_TABS.find((t) => t.key === tab).label}{tab === 'training' && <span className="h2-sub">{sectionLabel}</span>}</h2>
       <VerifyBanner user={user} onVerified={() => bump((n) => n + 1)} />
       <InstallCard />
-      {tab === 'food' && <FoodLog user={user} command={foodCmd} onOpenPlate={() => setChooser('plate')} draftId={draftId} onDraftUsed={dropDraftParam} />}
+      {tab === 'food' && <FoodLog user={user} draftId={draftId} onDraftUsed={dropDraftParam} />}
       {tab === 'training' && (
         <Training user={user} section={section} draftId={draftId} onDraftUsed={dropDraftParam} onSection={(t) => {
           local.set('fitpot-training-section', t)
@@ -58,22 +51,8 @@ export default function Me({ user }) {
       {tab === 'progress' && <Progress user={user} />}
       {tab === 'targets' && <Targets user={user} />}
 
-      {chooser === 'plate' && <FoodPlateFor user={user} onClose={() => setChooser(null)} onPick={(w) => {
-        setChooser(null)
-        setFoodCmd({ w, n: Date.now() })
-      }} />}
     </section>
   )
-}
-
-// The food plate with today's calories per meal.
-function FoodPlateFor({ user, onPick, onClose }) {
-  const meals = useMealsOn(user.uid, myToday())
-  const settings = useSettings(user.uid)
-  const byMeal = {}
-  let total = 0
-  for (const m of meals || []) { const k = m.nutrients?.kcal || 0; byMeal[m.meal] = (byMeal[m.meal] || 0) + k; total += k }
-  return <FoodPlate kcalByMeal={byMeal} total={total} target={settings?.targets?.kcal} onPick={onPick} onClose={onClose} />
 }
 
 function Targets({ user }) {
@@ -81,10 +60,12 @@ function Targets({ user }) {
   if (settings === undefined) return <p className="muted">Loading...</p>
   return (
     <>
-      {/* Remounts when targets change, e.g. after "Use as my targets". */}
-      <TargetsForm key={settings ? JSON.stringify(settings.targets || {}) : 'empty'} uid={user.uid} settings={settings || {}} />
+      {/* Phase 5.13 order: calculator first, then your targets, then measurements. */}
       <h3 className="section-title">Calorie calculator</h3>
       <CalorieCalculator uid={user.uid} settings={settings || {}} />
+      <h3 className="section-title">Calorie and nutrition targets</h3>
+      {/* Remounts when targets change, e.g. after "Use as my targets". */}
+      <TargetsForm key={settings ? JSON.stringify(settings.targets || {}) : 'empty'} uid={user.uid} settings={settings || {}} />
       <h3 className="section-title">Body measurements</h3>
       <Measurements uid={user.uid} settings={settings || {}} />
       <h3 className="section-title">Your data</h3>

@@ -1,3 +1,4 @@
+import { SITES } from './Measurements'
 import { useState } from 'react'
 import { readAllPrivate } from '../lib/privateData'
 import { muscleLabel } from '../lib/training'
@@ -30,8 +31,8 @@ const EXPORTS = {
   food: (d) => [['date', 'meal', 'food', 'amount', 'unit', 'kcal', 'protein_g', 'carbs_g', 'fat_g', 'fibre_g'],
     ...d.meals.sort(byDate).map((m) => [m.date, m.meal, m.name, m.qty, m.unit, ...['kcal', 'protein', 'carbs', 'fat', 'fibre'].map((k) => Math.round((m.nutrients?.[k] || 0) * 10) / 10)])],
   weight: (d) => [['date', 'weight_kg'], ...d.weights.sort(byDate).map((w) => [w.date, w.kg])],
-  measurements: (d) => [['date', 'waist_cm', 'chest_cm', 'hips_cm', 'arm_cm', 'thigh_cm', 'neck_cm', 'body_fat_pct'],
-    ...d.measurements.sort(byDate).map((m) => [m.date, ...['waist', 'chest', 'hips', 'arm', 'thigh', 'neck'].map((k) => m.cm?.[k] ?? ''), m.bodyFat ?? ''])],
+  measurements: (d) => [['date', ...SITES.map((x) => `${x.key}_cm`), 'body_fat_pct'],
+    ...d.measurements.sort(byDate).map((m) => [m.date, ...SITES.map((x) => m.cm?.[x.key] ?? ''), m.bodyFat ?? ''])],
 }
 
 export default function ExportData({ uid }) {

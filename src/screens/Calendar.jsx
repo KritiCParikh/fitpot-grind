@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useMyCheckins } from '../hooks'
+import { useMyCheckins, useRangeDocs } from '../hooks'
 import { onItsDay } from '../lib/clock'
 import { monthDays, weekdayOf, prettyDay, currentStreak, bestStreak } from '../lib/dates'
 import { useLedgerInputs, runLedger } from '../lib/useLedger'
@@ -18,6 +18,8 @@ export default function Calendar({ user, group, members }) {
   const lastDay = days[days.length - 1] < today ? days[days.length - 1] : today
   const inputs = useLedgerInputs(group, days[0], lastDay)
   const mine = useMyCheckins(group.id, user.uid)
+  const sessions = useRangeDocs(group.id, 'sessions', days[0], lastDay) // extra sessions = boosts (phase 5.13)
+  const boostOf = (uid, day) => (sessions || []).filter((x) => x.uid === uid && x.date === day).length
 
   const myDays = new Set((mine || []).filter((c) => onItsDay(c, clock)).map((c) => c.date))
   const ledger = inputs && days[0] <= today ? runLedger(group, members, inputs, days[0], lastDay) : { days: [] }
@@ -73,6 +75,7 @@ export default function Calendar({ user, group, members }) {
               disabled={d > today}
             >
               {+d.slice(8)}
+              {statusOf(d) === 'done' && boostOf(user.uid, d) > 0 && <i className="boost" aria-hidden="true">+{boostOf(user.uid, d)}</i>}
             </button>
           ))}
         </div>
@@ -81,17 +84,18 @@ export default function Calendar({ user, group, members }) {
           <span><i className="dot missed" />Missed</span>
           <span><i className="dot rest" />Rest</span>
           <span><i className="dot pending" />Today</span>
+          <span><i className="boost legend-boost">+1</i>Boost</span>
         </div>
       </div>
 
       {selected && ledgerByDay[selected] && (
-        <DayDetail info={ledgerByDay[selected]} open={selected > clock.closedThrough()} members={members} clock={clock} cur={money.current()} />
+        <DayDetail info={ledgerByDay[selected]} open={selected > clock.closedThrough()} members={members} clock={clock} cur={money.current()} boost={(uid) => boostOf(uid, selected)} />
       )}
     </section>
   )
 }
 
-function DayDetail({ info, open, members, clock, cur }) {
+function DayDetail({ info, open, members, clock, cur, boost = () => 0 }) {
   const $ = (x, digits = 2) => fmt(x, cur, { digits })
   const byUid = Object.fromEntries(members.map((m) => [m.uid, m]))
   const showed = new Set(info.showed)
@@ -119,7 +123,7 @@ function DayDetail({ info, open, members, clock, cur }) {
         {everyone.map((m) => (
           <li key={m.uid} className={showed.has(m.uid) ? 'in' : 'out'}>
             <Avatar member={m} size={28} />
-            <span className="grow">{m.name}</span>
+            <span className="grow">{m.name}{showed.has(m.uid) && boost(m.uid) > 0 && <span className="boost-sm"> +{boost(m.uid)}</span>}</span>
             <span className="pill">
               {showed.has(m.uid) ? (each ? fmt(each, cur, { plus: true }) : 'In')
                 : open && clock.stateFor(m.uid, info.day) !== 'closed' ? 'Not yet'

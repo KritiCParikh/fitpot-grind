@@ -54,6 +54,17 @@ export function useCheckins(groupId, from, to) {
   return checkins
 }
 
+// Docs in any group subcollection with date between from and to (phase 5.13: sessions).
+export function useRangeDocs(groupId, name, from, to) {
+  const [docs, setDocs] = useState(undefined)
+  useEffect(() => {
+    if (!groupId || !from || !to) return
+    const q = query(collection(db, 'groups', groupId, name), where('date', '>=', from), where('date', '<=', to))
+    return onSnapshot(q, (s) => setDocs(s.docs.map((d) => ({ id: d.id, ...d.data() }))), () => setDocs([]))
+  }, [groupId, name, from, to])
+  return docs
+}
+
 // All of one member's check-ins (for streaks).
 export function useMyCheckins(groupId, uid) {
   const [checkins, setCheckins] = useState(undefined)
@@ -105,22 +116,26 @@ export function useGroupsMeta(groupIds) {
   return meta
 }
 
-// Your own check-ins across every group you're in (for your private calendar
-// on Me, which doesn't depend on which group you're viewing). Groups you can
-// no longer read (e.g. ones you left) are skipped quietly.
-export function useMyCheckinsEverywhere(groupIds, uid) {
+// Your own docs in one subcollection (check-ins, or extra sessions since
+// phase 5.13) across every group you're in or were in, for your private
+// calendar on Me. Groups that can't be read are skipped quietly.
+export function useMineEverywhere(groupIds, uid, name = 'checkins') {
   const [byGroup, setByGroup] = useState({})
-  const key = (groupIds || []).slice().sort().join(',')
+  const key = [...new Set(groupIds || [])].sort().join(',')
   useEffect(() => {
     if (!uid) return
     const ids = key ? key.split(',') : []
     setByGroup({})
     const offs = ids.map((gid) => onSnapshot(
-      query(collection(db, 'groups', gid, 'checkins'), where('uid', '==', uid)),
-      (s) => setByGroup((b) => ({ ...b, [gid]: s.docs.map((d) => d.data()) })),
+      query(collection(db, 'groups', gid, name), where('uid', '==', uid)),
+      (s) => setByGroup((b) => ({ ...b, [gid]: s.docs.map((d) => ({ gid, ...d.data() })) })),
       () => setByGroup((b) => ({ ...b, [gid]: [] })),
     ))
     return () => offs.forEach((off) => off())
-  }, [key, uid])
+  }, [key, uid, name])
   return Object.values(byGroup).flat()
 }
+export const useMyCheckinsEverywhere = (groupIds, uid) => useMineEverywhere(groupIds, uid, 'checkins')
+
+/** Every group you're in or have been in. Older accounts only have groupId. */
+export const allMyGroupIds = (profile) => [...new Set([...(profile?.groupIds || []), profile?.groupId, ...(profile?.leftGroupIds || [])].filter(Boolean))]
