@@ -119,7 +119,8 @@ export function useGroupsMeta(groupIds) {
 // Your own docs in one subcollection (check-ins, or extra sessions since
 // phase 5.13) across every group you're in or were in, for your private
 // calendar on Me. Groups that can't be read are skipped quietly.
-export function useMineEverywhere(groupIds, uid, name = 'checkins') {
+// field 'done' (phase 5.15) finds Train together docs you showed up for (array-contains).
+export function useMineEverywhere(groupIds, uid, name = 'checkins', field = 'uid') {
   const [byGroup, setByGroup] = useState({})
   const key = [...new Set(groupIds || [])].sort().join(',')
   useEffect(() => {
@@ -127,12 +128,12 @@ export function useMineEverywhere(groupIds, uid, name = 'checkins') {
     const ids = key ? key.split(',') : []
     setByGroup({})
     const offs = ids.map((gid) => onSnapshot(
-      query(collection(db, 'groups', gid, name), where('uid', '==', uid)),
+      query(collection(db, 'groups', gid, name), field === 'uid' ? where('uid', '==', uid) : where(field, 'array-contains', uid)),
       (s) => setByGroup((b) => ({ ...b, [gid]: s.docs.map((d) => ({ gid, ...d.data() })) })),
       () => setByGroup((b) => ({ ...b, [gid]: [] })),
     ))
     return () => offs.forEach((off) => off())
-  }, [key, uid, name])
+  }, [key, uid, name, field])
   return Object.values(byGroup).flat()
 }
 export const useMyCheckinsEverywhere = (groupIds, uid) => useMineEverywhere(groupIds, uid, 'checkins')

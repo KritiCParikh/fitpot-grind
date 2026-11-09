@@ -48,6 +48,7 @@ It then opens full screen from its own icon, like a normal app.
 - [x] Phase 5.12.1 - Training beyond the gym: Outdoor (hiking, trekking and more) and Sports (cricket, badminton, football, yoga and more, logged by time and effort); exercises show every muscle they work (Romanian deadlift: hamstrings, also glutes and lower back, half a set each); create exercises with several muscles; edit any exercise, including FitPot's suggestions; easier delete for your own
 - [x] Phase 5.13 - My calendar in sync with every crew (past check-ins too) or Training logs; extra sessions in a day as +1 / +2 boosts (just for fun); Targets reordered with more body measurements; food plate removed; auto-suggestions switch for routines and workouts; welcome steps and a short tour for first-time users
 - [x] Phase 5.14 - share cards after every workout and for the month: the FitPot gullak filling with a coin per day, a glowing body of the muscles trained, or the week's days; post or story, dark or see-through; kind, never boastful words
+- [x] Phase 5.15 - crew chat: On the floor (who's training right now), one-tap kind cheers and Spot (no counts), Train together invites with a shared boost, workout cards in chat; share routines in chat or by link, Curated by, Add to my locker or Try it now
 - [ ] Phase 6 - AI models (scratch -> fine-tune -> browser) + push notifications + personalised training plans from our model, built on the Training data
 
 > FitPot tracks informal debts between friends. It does not move money.

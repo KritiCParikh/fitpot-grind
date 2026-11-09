@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { saveWorkout, deleteWorkout, saveSettings, saveTraining } from '../lib/privateData'
 import {
   muscleText, lastTime, beatIt, personalRecords, units, isCardio, cardioMetric, countLabel, lastCardio, KM_PER_MI,
@@ -10,6 +10,8 @@ import UnitSwitch from './UnitSwitch'
 import SortableList, { rowId } from './Sortable'
 import DraftNote from './DraftNote'
 import ShareSheet from './ShareSheet'
+import { useUserDoc } from '../hooks'
+import { setFloor, markTogetherDone } from '../lib/chat'
 import { useAutoDraft, newDraftId } from '../lib/drafts'
 
 const PR_LABEL = {
@@ -57,6 +59,24 @@ export default function WorkoutEditor({ uid, user, initial, draft, workouts, exe
   const [saved, setSaved] = useState(null) // the saved workout, for its share card (phase 5.14)
   const [sharing, setSharing] = useState(false)
   const others = workouts.filter((w) => w.id !== initial.id)
+
+  // On the floor (phase 5.15): while you log a workout today, your crews see
+  // what you're on ("Squat, set 3"). Cleared when you save or close.
+  const profile = useUserDoc(uid)
+  const crewIds = useMemo(() => [...new Set([...(profile?.groupIds || []), profile?.groupId].filter(Boolean))].filter((id) => !(profile?.leftGroupIds || []).includes(id)), [profile])
+  const live = Boolean(user) && !initial.id && date === today && crewIds.length > 0
+  const lastEx = items[items.length - 1]
+  const floorKey = lastEx ? `${lastEx.name}|${lastEx.sets.filter((s) => s.done).length}` : ''
+  const sent = useRef({ key: null, at: 0 })
+  useEffect(() => {
+    if (!live) return
+    const now = Date.now()
+    if (sent.current.key === floorKey && now - sent.current.at < 5 * 60000) return
+    sent.current = { key: floorKey, at: now }
+    const set = lastEx ? Math.min(lastEx.sets.length, lastEx.sets.filter((s) => s.done).length + 1) : 0
+    setFloor(user, crewIds, { exercise: lastEx?.name || '', set, startedAt })
+  }, [live, floorKey]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => () => { if (live) setFloor(user, crewIds, null) }, [live]) // eslint-disable-line react-hooks/exhaustive-deps
   const stepKg = wu === 'lb' ? 5 / LB : 2.5
 
   const setItem = (i, fn) => setItems((l) => l.map((x, j) => (j === i ? fn(x) : x)))
@@ -122,6 +142,7 @@ export default function WorkoutEditor({ uid, user, initial, draft, workouts, exe
       // Which records did this workout set?
       const mine = personalRecords([...others, { ...w, id: '__this__', createdMs: Date.now() }]).byWorkout.__this__ || []
       setSaved({ ...w, id: initial.id || ref?.id || 'new' })
+      if (user) { if (live) setFloor(user, crewIds, null); markTogetherDone(user, crewIds, date) }
       if (mine.length) setPrs(mine)
       else if (user) setSharing(true)
       else onClose()

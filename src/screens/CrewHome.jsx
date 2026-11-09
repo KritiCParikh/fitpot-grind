@@ -23,6 +23,7 @@ export default function CrewHome({ user, groupSwitch }) {
       )}
       <div className="tiles">
         <Tile pageKey="today" user={user} />
+        <Tile pageKey="chat" user={user} />
         <Tile pageKey="calendar" user={user} />
         <Tile pageKey="wall" user={user} />
         <Tile pageKey="board" user={user} />

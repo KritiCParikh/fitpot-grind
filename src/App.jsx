@@ -30,6 +30,8 @@ import CrewHome from './screens/CrewHome'
 import Coach from './screens/Coach'
 import MyCalendarPage from './screens/MyCalendarPage'
 import Drafts from './screens/Drafts'
+import Chat from './screens/Chat'
+import RoutineInvite from './screens/RoutineInvite'
 
 function SetupNotice() {
   return (
@@ -152,6 +154,8 @@ function Shell({ user, profile }) {
             <Route path="/locker/drafts" element={<Drafts user={user} />} />
             <Route path="/crew" element={<CrewHome user={user} groupSwitch={<GroupSwitcher user={user} groupIds={groupIds} activeId={activeId} meta={meta} />} />} />
             <Route path="/coach" element={<Coach />} />
+            <Route path="/chat" element={<NeedGroup title="Chat">{(g, m) => <Chat {...base} group={g} members={m} />}</NeedGroup>} />
+            <Route path="/r/:data" element={<RoutineInvite user={user} />} />
             <Route path="/today" element={<NeedGroup title="Today">{(g, m) => <Today {...base} group={g} members={m} />}</NeedGroup>} />
             <Route path="/calendar" element={<NeedGroup title="Calendar">{(g, m) => <Calendar {...base} group={g} members={m} />}</NeedGroup>} />
             <Route path="/wall" element={<NeedGroup title="Photo wall">{(g, m) => <Wall {...base} group={g} members={m} />}</NeedGroup>} />

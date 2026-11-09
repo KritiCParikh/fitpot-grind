@@ -15,6 +15,8 @@ export function useMyDays(user) {
   const workouts = useWorkouts(user.uid)
   const checkins = useMineEverywhere(ids, user.uid, 'checkins')
   const extras = useMineEverywhere(ids, user.uid, 'sessions')
+  // Train together (phase 5.15): a day you and at least one friend both showed up for = +1.
+  const together = useMineEverywhere(ids, user.uid, 'together', 'done')
   const days = new Map()
   const bump = (d, n) => { if (d) days.set(d, Math.max(days.get(d) || 0, n)) }
   const perGroup = {}
@@ -24,7 +26,9 @@ export function useMyDays(user) {
   const logged = {}
   for (const w of workouts || []) if (w.date) logged[w.date] = (logged[w.date] || 0) + 1
   for (const [d, n] of Object.entries(logged)) bump(d, n)
-  return { days, loading: profile === undefined || workouts === undefined }
+  const togetherDays = new Set(together.filter((t) => (t.done || []).length >= 2).map((t) => t.day))
+  for (const d of togetherDays) if (days.has(d)) days.set(d, days.get(d) + 1)
+  return { days, togetherDays, loading: profile === undefined || workouts === undefined }
 }
 
 /** "+1", "+2" for a day with that many sessions, else ''. */

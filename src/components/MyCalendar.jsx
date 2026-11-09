@@ -61,7 +61,7 @@ export default function MyCalendar({ user }) {
           <span><i className="dot today-dot" />Today</span>
           <span><i className="boost legend-boost">+1</i>Extra session</span>
         </div>
-        <p className="muted small">Every day you check in to a crew (past days too) or log a workout in Training, in any group or none. A second or third session that day is a boost.</p>
+        <p className="muted small">Every day you check in to a crew (past days too) or log a workout in Training, in any group or none. A second or third session that day, or training together with a friend from your crew chat, is a boost.</p>
       </div>
     </>
   )

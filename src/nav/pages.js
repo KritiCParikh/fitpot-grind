@@ -21,6 +21,7 @@ export const PAGES = [
   { key: 'drafts', to: '/locker/drafts', label: 'Drafts', section: 'you', icon: 'log' },
   { key: 'crew', to: '/crew', label: 'Crew', section: 'crew', hub: true, swipe: 1, icon: 'group' },
   { key: 'today', to: '/today', label: 'Today', section: 'crew', icon: 'today' },
+  { key: 'chat', to: '/chat', label: 'Chat', section: 'crew', icon: 'chat' },
   { key: 'calendar', to: '/calendar', label: 'Calendar', section: 'crew', icon: 'calendar' },
   { key: 'wall', to: '/wall', label: 'Wall', section: 'crew', icon: 'wall' },
   { key: 'board', to: '/board', label: 'Board', section: 'crew', icon: 'board' },

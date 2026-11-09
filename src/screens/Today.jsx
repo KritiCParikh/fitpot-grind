@@ -11,6 +11,7 @@ import { photosEnabled } from '../lib/photos'
 import Avatar from '../components/Avatar'
 import CameraCapture from '../components/CameraCapture'
 import { useOnline } from '../lib/device'
+import { markTogetherDone } from '../lib/chat'
 
 export default function Today({ user, group, members, groupIds, meta }) {
   const { clock, money } = group
@@ -98,6 +99,7 @@ export default function Today({ user, group, members, groupIds, meta }) {
     act(async () => {
       const r = await checkInEverywhere(user, groupIds)
       report(r); setJustDone(true); navigator.vibrate?.(60)
+      markTogetherDone(user, groupIds, today) // Train together (phase 5.15)
     })
   }
 
@@ -167,7 +169,7 @@ export default function Today({ user, group, members, groupIds, meta }) {
       {camera && (
         <CameraCapture
           user={user} group={group} groupIds={groupIds} checkIn={camera === 'checkin'} session={camera === 'session' ? adding : null}
-          onUploaded={(r) => { report(r); if (camera === 'checkin') { setJustDone(true); navigator.vibrate?.(60) } if (camera === 'session') { setAdding(null); setNote(`Session added. That's a +${mySessionsToday} boost today.`) } }}
+          onUploaded={(r) => { report(r); if (camera === 'checkin') { setJustDone(true); navigator.vibrate?.(60); markTogetherDone(user, groupIds, today) } if (camera === 'session') { setAdding(null); setNote(`Session added. That's a +${mySessionsToday} boost today.`) } }}
           onClose={() => setCamera(null)}
         />
       )}

@@ -6,6 +6,10 @@ import { workoutSummary, daysContext, kindLines, prText, monthSummary } from '..
 import { drawCard, loadCardFonts, cardFile, STYLES } from '../lib/shareCard'
 import { prettyDay } from '../lib/dates'
 import { myToday } from '../lib/clock'
+import { sendCard } from '../lib/chat'
+import { RoutineShareSheet } from './RoutineShare'
+import { isCardio } from '../lib/training'
+import { useUserDoc, useGroupsMeta } from '../hooks'
 
 // Share your session (phase 5.14). After saving a workout (or from My
 // calendar for the month), FitPot draws a card on the phone: the gullak
@@ -15,7 +19,9 @@ import { myToday } from '../lib/clock'
 //
 // mode 'workout': workout = the saved workout (with id), prs = records it set
 // mode 'month':   workouts = all of yours
-export default function ShareSheet({ user, mode = 'workout', workout, workouts = [], prs = [], u, onClose }) {
+// postTo (phase 5.15): a group id; the sheet then offers "Post to this chat".
+// Otherwise it offers each of your crews.
+export default function ShareSheet({ user, mode = 'workout', workout, workouts = [], prs = [], u, onClose, postTo = null }) {
   const weights = useWeights(user.uid)
   const { days: liveDays } = useMyDays(user)
   const canvasRef = useRef(null)
@@ -27,6 +33,19 @@ export default function ShareSheet({ user, mode = 'workout', workout, workouts =
   const [fontsReady, setFontsReady] = useState(false)
   const [msg, setMsg] = useState('')
   useEffect(() => { loadCardFonts().then(() => setFontsReady(true)) }, [])
+  const profile = useUserDoc(user.uid)
+  const crewIds = postTo ? [postTo] : [...new Set([...(profile?.groupIds || []), profile?.groupId].filter(Boolean))].filter((id) => !(profile?.leftGroupIds || []).includes(id))
+  const crews = useGroupsMeta(crewIds)
+  const [posted, setPosted] = useState({})
+  const [asRoutine, setAsRoutine] = useState(false) // share this workout as a routine (phase 5.15)
+  async function post(gid) {
+    setMsg('')
+    try {
+      await sendCard(user, gid, { ...card, style, line: card.lines[lineIdx % card.lines.length] })
+      setPosted((p) => ({ ...p, [gid]: true }))
+      if (postTo) onClose()
+    } catch (e) { setMsg(e.message || String(e)) }
+  }
 
   const today = myToday()
   const weightKg = useMemo(() => [...(weights || [])].sort((a, b) => a.date.localeCompare(b.date)).pop()?.kg || null, [weights])
@@ -106,6 +125,8 @@ export default function ShareSheet({ user, mode = 'workout', workout, workouts =
     if (!f) setMsg('Saved. Find it in your downloads or gallery.')
   }
 
+  if (asRoutine && workout) return <RoutineShareSheet user={user} routine={routineFromWorkout(workout)} onClose={() => setAsRoutine(false)} />
+
   return (
     <div className="sheet share-sheet">
       <div className="sheet-head">
@@ -130,8 +151,18 @@ export default function ShareSheet({ user, mode = 'workout', workout, workouts =
           <label className="check small"><input type="checkbox" checked={showName} onChange={(e) => setShowName(e.target.checked)} /> Show my first name</label>
         </div>
       </div>
-      <button className="btn-primary wide" onClick={share}>Share</button>
+      {postTo ? (
+        <button className="btn-primary wide" onClick={() => post(postTo)}>Post to this chat</button>
+      ) : (
+        <>
+          <button className="btn-primary wide" onClick={share}>Share</button>
+          {crewIds.map((id) => (
+            <button key={id} className="btn-ghost wide" disabled={posted[id]} onClick={() => post(id)}>{posted[id] ? `Posted in ${crews[id]?.name || 'your crew'}` : `Post in ${crews[id]?.name || 'your crew'} chat`}</button>
+          ))}
+        </>
+      )}
       <button className="btn-ghost wide" onClick={() => save()}>Save to my phone</button>
+      {mode === 'workout' && !postTo && <button className="btn-ghost wide" onClick={() => setAsRoutine(true)}>Share as a routine</button>}
       {msg && <p className="muted small" role="status">{msg}</p>}
       <p className="muted small">See-through works as a sticker over your own photo in Stories. Nothing is posted anywhere unless you share it. Calories are an estimate.</p>
     </div>
@@ -144,4 +175,15 @@ const monthName = (d) => new Date(`${d.slice(0, 7)}-15T12:00:00Z`).toLocaleDateS
 function heatOf(list, from, to, per) {
   const by = setsByRegion(list, from, to)
   return Object.fromEntries(Object.entries(by).map(([k, n]) => [k, n >= 3 * per ? 3 : n >= 1.5 * per ? 2 : 1]))
+}
+
+/** A logged workout as a routine friends can save or try (phase 5.15): exercises, sets and reps, no weights. */
+export function routineFromWorkout(w) {
+  return {
+    name: w.title || 'My workout',
+    autoFill: true,
+    items: (w.exercises || []).map((ex) => (isCardio(ex)
+      ? { key: ex.key, name: ex.name, muscle: 'cardio', kind: 'cardio', ...(ex.metric ? { metric: ex.metric } : {}), ...(ex.cat ? { cat: ex.cat } : {}), min: Math.round((ex.sets || []).reduce((a, s) => a + (Number(s.min) || 0), 0)) || 20 }
+      : { key: ex.key, name: ex.name, muscle: ex.muscle, ...(ex.part ? { part: ex.part } : {}), ...(ex.also?.length ? { also: ex.also } : {}), sets: (ex.sets || []).length || 3, reps: Math.max(...(ex.sets || [{ reps: 10 }]).map((s) => Number(s.reps) || 0)) || 10 })),
+  }
 }

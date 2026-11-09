@@ -17,6 +17,8 @@ import SortableList, { rowId } from '../components/Sortable'
 import Icon from '../nav/Icon'
 import DraftNote from '../components/DraftNote'
 import ShareSheet from '../components/ShareSheet'
+import { RoutineShareSheet, takeTryRoutine } from '../components/RoutineShare'
+import { useLocation } from 'react-router-dom'
 import { useAutoDraft, newDraftId, getDraft } from '../lib/drafts'
 
 // Training's sections, shown as tabs at the top (phase 5.7.1: the plate dial
@@ -45,6 +47,18 @@ export default function Training({ user, section = 'log', onSection, draftId, on
   const [routineDraft, setRoutineDraft] = useState(null) // a routine draft to pick up
   const [sharing, setSharing] = useState(null) // { workout, prs } for its share card (phase 5.14)
 
+  // Try it now (phase 5.15): a routine a friend shared, as a one-time workout.
+  const tryParam = new URLSearchParams(useLocation().search).get('try')
+  useEffect(() => {
+    if (!tryParam || rawWorkouts === undefined) return
+    const r = takeTryRoutine()
+    if (r) {
+      const list = (rawWorkouts || []).map((w) => ({ ...w, createdMs: w.createdAt?.toMillis?.() || 0 }))
+      setEditor({ date: today, title: r.name, autoFill: r.autoFill !== false, exercises: r.items.map((it) => fromRoutine(it, list, r.autoFill !== false)) })
+    }
+    onDraftUsed?.()
+  }, [tryParam, rawWorkouts === undefined]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // Picking up a draft from My locker → Drafts (phase 5.12).
   useEffect(() => {
     if (!draftId) return
@@ -62,7 +76,7 @@ export default function Training({ user, section = 'log', onSection, draftId, on
   if ([training, settings, rawWorkouts, custom, routines].includes(undefined)) return <p className="muted">Loading...</p>
 
   const t = training || {}
-  const ctx = { uid, today, t, workouts, exercises, have, u, routines, start: setEditor, shareWorkout: setSharing, routineDraft, clearRoutineDraft: () => setRoutineDraft(null) }
+  const ctx = { uid, user, today, t, workouts, exercises, have, u, routines, start: setEditor, shareWorkout: setSharing, routineDraft, clearRoutineDraft: () => setRoutineDraft(null) }
 
   return (
     <>
@@ -362,8 +376,10 @@ function CardioRecord({ r, h, k, u, onBack }) {
 }
 
 // ---------------- Routines ----------------
-function RoutinesView({ uid, routines, exercises, have, workouts, start, today, routineDraft, clearRoutineDraft }) {
+function RoutinesView({ uid, user, routines, exercises, have, workouts, start, today, routineDraft, clearRoutineDraft }) {
   const [edit, setEdit] = useState(null)
+  const [sharing, setSharing] = useState(null) // a routine to share (phase 5.15)
+  if (sharing) return <RoutineShareSheet user={user} routine={sharing} onClose={() => setSharing(null)} />
   if (routineDraft) return <RoutineForm key={routineDraft.id} uid={uid} initial={routineDraft.initial} draft={routineDraft} exercises={exercises} have={have} onClose={clearRoutineDraft} />
   if (edit) return <RoutineForm uid={uid} initial={edit} exercises={exercises} have={have} onClose={() => setEdit(null)} />
   return (
@@ -375,9 +391,11 @@ function RoutinesView({ uid, routines, exercises, have, workouts, start, today, 
           <li key={r.id}>
             <button className="plain grow-col" onClick={() => setEdit(r)}>
               <strong>{r.name}</strong>
+              {r.curatedByName && r.curatedBy !== uid && <span className="muted small curated">Curated by {r.curatedByName}</span>}
               <span className="muted small">{r.items.map((it) => (isCardio(it) ? `${it.name} ${it.min} min` : `${it.name} ${it.sets}×${it.reps}`)).join(' · ')}</span>
             </button>
             <button className="btn-ghost" onClick={() => start({ date: today, title: r.name, autoFill: r.autoFill !== false, exercises: r.items.map((it) => fromRoutine(it, workouts, r.autoFill !== false)) })}>Start</button>
+            <button type="button" className="btn-ghost share-btn" aria-label={`Share ${r.name}`} onClick={() => setSharing(r)}><Icon name="share" size={18} /></button>
           </li>
         ))}
       </ul>
@@ -392,13 +410,14 @@ function RoutineForm({ uid, initial, draft, exercises, have, onClose }) {
   const [name, setName] = useState(draft?.state?.name ?? initial.name)
   const [items, setItems] = useState(() => draft?.state?.items || initial.items.map((it) => ({ ...it, rowId: rowId() })))
   const [autoFill, setAutoFill] = useState(draft?.state?.autoFill ?? initial.autoFill !== false) // phase 5.13
+  const curator = initial.curatedBy ? { curatedBy: initial.curatedBy, curatedByName: initial.curatedByName || '' } : {} // phase 5.15
   const [draftId] = useState(() => draft?.id || (initial.id ? `routine-${initial.id}` : newDraftId('routine')))
   const kept = useAutoDraft(uid, draftId, { name, items, autoFill }, (state) => ({
     kind: 'routine',
     title: state.name.trim() || (initial.id ? 'Edit routine' : 'New routine'),
     sub: `${state.items.length} exercise${state.items.length === 1 ? '' : 's'}`,
     to: `/locker?me=training&t=routines&draft=${draftId}`,
-    data: { initial: { id: initial.id || null, name: initial.name || '', items: initial.items || [], autoFill: initial.autoFill !== false }, state },
+    data: { initial: { id: initial.id || null, name: initial.name || '', items: initial.items || [], autoFill: initial.autoFill !== false, ...curator }, state },
   }))
   const [picking, setPicking] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -410,14 +429,14 @@ function RoutineForm({ uid, initial, draft, exercises, have, onClose }) {
   const setIt = (i, patch) => setItems((l) => l.map((x, j) => (j === i ? { ...x, ...patch } : x)))
   async function save() {
     setBusy(true)
-    try { await saveRoutine(uid, { id: initial.id || undefined, name: name.trim() || 'Routine', items: items.map(stripRow), autoFill }); kept.finish(); onClose() } finally { setBusy(false) }
+    try { await saveRoutine(uid, { id: initial.id || undefined, name: name.trim() || 'Routine', items: items.map(stripRow), autoFill, ...curator }); kept.finish(); onClose() } finally { setBusy(false) }
   }
   // A saved routine keeps its new order as soon as you let go (with any other
   // changes on screen). A new routine is saved with the button as usual.
   function reorder(next) {
     setItems(next)
     if (!initial.id) return
-    saveRoutine(uid, { id: initial.id, name: name.trim() || 'Routine', items: next.map(stripRow), autoFill })
+    saveRoutine(uid, { id: initial.id, name: name.trim() || 'Routine', items: next.map(stripRow), autoFill, ...curator })
       .then(() => { setOrderSaved(true); setTimeout(() => setOrderSaved(false), 1500) })
       .catch(() => {})
   }

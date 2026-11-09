@@ -30,7 +30,7 @@ export default function Me({ user }) {
     : TRAINING_SECTIONS.some((s) => s.key === lastSection) ? lastSection : 'log'
   const [, bump] = useState(0) // re-render once your email is confirmed
   const draftId = params.get('draft')
-  const dropDraftParam = () => { params.delete('draft'); navigate(`/locker?${params}`, { replace: true }) }
+  const dropDraftParam = () => { params.delete('draft'); params.delete('try'); navigate(`/locker?${params}`, { replace: true }) }
 
 
   const go = (me, t) => navigate(`/locker?me=${me}${me === 'training' ? `&t=${t || section}` : ''}`)
