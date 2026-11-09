@@ -203,7 +203,7 @@ function MusclesView({ today, workouts, u }) {
         <details className="card muscle-card" open={week.cardio.km > 0 || week.cardio.min > 0}>
           <summary>
             <strong className="grow">Cardio</strong>
-            {(week.cardio.km > 0 || week.cardio.prevKm > 0) && <span className="muted small">{u.toDist(week.cardio.km)} {u.dist} <span className={week.cardio.km >= week.cardio.prevKm ? 'lime' : 'orange'}>{pct(week.cardio.km, week.cardio.prevKm)}</span></span>}
+            {week.cardio.km > 0 && <span className="muted small">{u.toDist(week.cardio.km)} {u.dist} <span className={week.cardio.km >= week.cardio.prevKm ? 'lime' : 'orange'}>{pct(week.cardio.km, week.cardio.prevKm)}</span></span>}
             <span className="muted small"> · {Math.round(week.cardio.min)} min <span className={week.cardio.min >= week.cardio.prevMin ? 'lime' : 'orange'}>{pct(week.cardio.min, week.cardio.prevMin)}</span></span>
           </summary>
           <ul className="member-list">
