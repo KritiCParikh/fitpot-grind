@@ -8,7 +8,9 @@ import InstallCard from '../components/InstallCard'
 import RemindersCard from '../components/RemindersCard'
 import { TEXT_SIZES, getTextSize, applyTextSize } from '../nav/textSize'
 import UnitSwitch from '../components/UnitSwitch'
-import { useSettings, saveSettings } from '../lib/privateData'
+import { useSettings, saveSettings, useWeights, logWeight, LB_PER_KG } from '../lib/privateData'
+import { myToday } from '../lib/clock'
+import { ageOn } from '../lib/dates'
 
 // Account (gear icon, top right): name, sign-in methods, password, sign out, delete account.
 export default function Account({ user, groupIds, profile }) {
@@ -19,6 +21,7 @@ export default function Account({ user, groupIds, profile }) {
   return (
     <section>
       <h2>Account</h2>
+      <AboutMeCard user={user} />
       <div className="card">
         <p><strong>{user.displayName || 'No name yet'}</strong></p>
         <p className="muted small">{user.email}</p>
@@ -177,5 +180,83 @@ function UnitsCard({ user }) {
       </div>
       <p className="muted small">Used everywhere: weight log, workouts, targets. Everything you've logged is converted, nothing is lost.</p>
     </div>
+  )
+}
+
+// About me (phase 5.12, from the prototype): date of birth, sex, height and
+// weight, entered once. They fill the calorie calculator in Targets. Weight
+// shows your latest log; saving a new one adds it to your weight log. All
+// private to you (private/{uid}/settings/main.about and weights).
+function AboutMeCard({ user }) {
+  const settings = useSettings(user.uid)
+  const weights = useWeights(user.uid)
+  if (settings === undefined || weights === undefined) return null
+  return <AboutMeForm uid={user.uid} settings={settings || {}} weights={weights || []} />
+}
+
+function AboutMeForm({ uid, settings, weights }) {
+  const today = myToday()
+  const about = settings.about || {}
+  const calc = settings.calculator || {}
+  const unit = settings.weightUnit || 'kg'
+  const latest = [...weights].sort((a, b) => a.date.localeCompare(b.date)).pop()
+  const toUnit = (kg, u) => Math.round((u === 'lb' ? kg * LB_PER_KG : kg) * 10) / 10
+  const [dob, setDob] = useState(about.dob || '')
+  const [sex, setSex] = useState(about.sex || calc.sex || '')
+  const [cm, setCm] = useState(about.heightCm ?? calc.heightCm ?? '')
+  const [w, setW] = useState('') // typed weight, in `unit`; empty shows the latest log
+  const [busy, setBusy] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const shownW = w !== '' ? w : latest ? String(toUnit(latest.kg, unit)) : ''
+  const age = ageOn(dob, today)
+
+  function switchUnit(next) {
+    if (next === unit) return
+    if (w !== '' && Number(w)) setW(String(Math.round((next === 'lb' ? Number(w) * LB_PER_KG : Number(w) / LB_PER_KG) * 10) / 10))
+    saveSettings(uid, { weightUnit: next })
+  }
+
+  async function save(e) {
+    e.preventDefault()
+    setBusy(true)
+    try {
+      await saveSettings(uid, { about: { dob: dob || null, sex: sex || null, heightCm: Number(cm) ? Math.round(Number(cm)) : null } })
+      const typed = Number(w)
+      if (w !== '' && typed > 0) {
+        const kg = unit === 'lb' ? typed / LB_PER_KG : typed
+        if (!latest || Math.abs(kg - latest.kg) > 0.04) await logWeight(uid, today, kg)
+        setW('')
+      }
+      setSaved(true); setTimeout(() => setSaved(false), 1500)
+    } finally { setBusy(false) }
+  }
+
+  return (
+    <form className="card form about-me" onSubmit={save}>
+      <p><strong>About me</strong></p>
+      <label>Date of birth
+        <input className="text-input" type="date" max={today} value={dob} onChange={(e) => setDob(e.target.value)} />
+      </label>
+      {age != null && age < 18 && <p className="muted small">The calorie calculator is made for adults (18 and up), so it won't show numbers yet.</p>}
+      <div className="about-field">
+        <span className="about-label">Sex</span>
+        <div className="about-sex" role="group" aria-label="Sex">
+          {[['female', 'Female'], ['male', 'Male']].map(([v, l]) => (
+            <button key={v} type="button" className={sex === v ? 'on' : ''} aria-pressed={sex === v} onClick={() => setSex(v)}>{l}</button>
+          ))}
+        </div>
+      </div>
+      <div className="row">
+        <label className="grow">Height (cm)
+          <input className="text-input" type="number" inputMode="decimal" min="100" max="250" placeholder="170" value={cm} onChange={(e) => setCm(e.target.value)} />
+        </label>
+        <label className="grow">Weight ({unit})
+          <input className="text-input" type="number" inputMode="decimal" step="0.1" min="20" max="900" placeholder={unit === 'lb' ? '163' : '74'} value={shownW} onChange={(e) => setW(e.target.value)} />
+        </label>
+      </div>
+      <UnitSwitch label="Weight" value={unit} options={['kg', 'lb']} onChange={switchUnit} />
+      <button className="btn-primary" disabled={busy}>{busy ? 'Saving...' : saved ? 'Saved' : 'Save About me'}</button>
+      <p className="muted small">These fill your calorie calculator, so you only enter them once. Weight shows your latest log, and changing it here adds a new entry to your weight log. Private to you.</p>
+    </form>
   )
 }

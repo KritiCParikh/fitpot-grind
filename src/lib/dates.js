@@ -59,3 +59,11 @@ export function bestStreak(doneDays) {
 export function mondayOf(day) {
   return addDays(day, -((weekdayOf(day) + 6) % 7))
 }
+
+// Whole years between a date of birth and `today` (both YYYY-MM-DD).
+export function ageOn(dob, today) {
+  if (!dob || !today) return null
+  const [y, m, d] = dob.split('-').map(Number)
+  const [ty, tm, td] = today.split('-').map(Number)
+  return ty - y - (tm < m || (tm === m && td < d) ? 1 : 0)
+}

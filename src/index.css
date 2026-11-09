@@ -620,3 +620,32 @@ body { line-height: 1.45; }
 /* Account: units */
 .units-row { display: flex; flex-wrap: wrap; gap: 12px 20px; margin: 8px 0; }
 .units-card .unit-switch button { min-height: 40px; padding: 6px 16px; }
+
+/* Locker room menu as the prototype: four rows that open down (phase 5.12) */
+.room-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 4px 0 14px; border-bottom: 1px solid var(--border); }
+.room-title { display: flex; flex-direction: column; gap: 2px; }
+.room-title strong { font-family: 'Anton', 'Arial Black', sans-serif; font-weight: 400; font-size: 1.9rem; letter-spacing: 0.03em; color: var(--lime); }
+.room-title .muted { margin: 0; }
+.room-area { border-bottom: 1px solid var(--border); }
+.room-row { width: 100%; min-height: 64px; display: flex; align-items: center; gap: 14px; padding: 0 4px; background: none; border: 0; color: var(--text); font: inherit; font-size: 1.2rem; font-weight: 700; text-align: left; cursor: pointer; }
+.room-row.on { color: var(--lime); }
+.room-row .grow { flex: 1; }
+.room-soon { font-weight: 500; }
+.room-chev { color: var(--muted); display: inline-flex; transition: transform 160ms ease; }
+.room-chev.up { transform: rotate(180deg); }
+.room-sub { padding: 2px 0 8px; }
+.room-switch { padding: 6px 0 8px 42px; }
+.room-switch .group-switch { width: 100%; max-width: none; min-height: 44px; }
+.room-item { width: 100%; min-height: 52px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 8px 0 42px; background: none; border: 0; border-radius: 10px; color: var(--text); font: inherit; font-size: 1.05rem; text-align: left; cursor: pointer; }
+.room-item.on { color: var(--lime); background: var(--surface); }
+.room-item.soon { min-height: 44px; padding-left: 62px; font-size: 0.95rem; color: var(--muted); }
+@media (prefers-reduced-motion: reduce) { .room-chev { transition: none; } }
+
+/* Account: About me (phase 5.12) */
+.about-me > p { margin: 0; }
+.about-field { display: flex; flex-direction: column; gap: 6px; }
+.about-label { font-size: 0.85rem; color: var(--muted); }
+.about-sex { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.about-sex button { min-height: 52px; border-radius: 12px; border: 2px solid var(--border); background: var(--bg); color: var(--text); font: inherit; font-size: 1rem; cursor: pointer; }
+.about-sex button.on { border-color: var(--lime); color: var(--lime); }
+.about-me .unit-switch button { min-height: 40px; padding: 6px 16px; }

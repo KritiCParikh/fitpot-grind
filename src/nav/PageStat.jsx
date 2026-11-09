@@ -1,7 +1,7 @@
 // One live line per page for the menu, so nothing is hidden behind it:
 // "2 of 4 in", "5 day streak", "+$12 this month"... Each one is its own small
 // component and is only mounted while the menu is open.
-import { useDayDocs, useMyCheckins } from '../hooks'
+import { useDayDocs, useMyCheckins, useUserDoc, useMyCheckinsEverywhere } from '../hooks'
 import { useGroupCtx } from '../groupContext'
 import { useWorkouts, useMealsOn, useWeights, useSettings } from '../lib/privateData'
 import { useLedgerInputs, runLedger } from '../lib/useLedger'
@@ -94,13 +94,28 @@ function TrainingStat({ user }) {
   return last ? `Last: ${last.title || 'workout'}, ${new Date(last.date + 'T12:00:00Z').toLocaleDateString(undefined, { month: 'short', day: 'numeric', timeZone: 'UTC' })}` : 'Log your first workout'
 }
 
+// My calendar's line: the same days the calendar lights up (workouts plus
+// check ins in any group), so the card and the calendar always agree.
+function MyCalStat({ user }) {
+  const profile = useUserDoc(user.uid)
+  const workouts = useWorkouts(user.uid)
+  const checkins = useMyCheckinsEverywhere(profile?.groupIds, user.uid)
+  if (!workouts || profile === undefined) return '...'
+  const today = myToday()
+  const days = new Set([...workouts.map((w) => w.date), ...checkins.map((c) => c.date)].filter(Boolean))
+  const mon = mondayOf(today)
+  const week = [...days].filter((d) => d >= mon && d <= today).length
+  const s = currentStreak(days, today)
+  return `${week} day${week === 1 ? '' : 's'} this week${s > 1 ? ` · ${s} day streak` : ''}`
+}
+
 function DraftsStat({ user }) {
   const n = useDrafts(user.uid).length
   return n ? `${n} not saved yet` : 'Nothing unsaved'
 }
 
 const CREW = { today: TodayStat, wall: WallStat, calendar: CalendarStat, board: BoardStat, group: GroupStat }
-const YOU = { me: MeStat, mycal: MeStat, drafts: DraftsStat, food: FoodStat, progress: ProgressStat, targets: TargetsStat, training: TrainingStat }
+const YOU = { me: MeStat, mycal: MyCalStat, drafts: DraftsStat, food: FoodStat, progress: ProgressStat, targets: TargetsStat, training: TrainingStat }
 
 export default function PageStat({ pageKey, user }) {
   const { status } = useGroupCtx()

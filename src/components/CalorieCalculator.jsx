@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react'
 import { ACTIVITY, GOALS, calculate } from '../lib/calories'
 import { saveSettings, useWeights, LB_PER_KG, CM_PER_IN } from '../lib/privateData'
+import { ageOn } from '../lib/dates'
+import { myToday } from '../lib/clock'
 
 // Me > Targets > Calorie calculator (phase 5.11). Built in, nothing leaves the
 // phone except your saved details, which stay private like the rest of Me.
@@ -9,18 +11,23 @@ import { saveSettings, useWeights, LB_PER_KG, CM_PER_IN } from '../lib/privateDa
 export default function CalorieCalculator({ uid, settings }) {
   const weights = useWeights(uid)
   const saved = settings.calculator || {}
+  // About me (Account, phase 5.12) fills age, sex and height, so they're
+  // entered once. Anything typed here still works for this calculation.
+  const about = settings.about || {}
+  const fromAbout = Boolean(about.dob || about.sex || about.heightCm)
+  const startCm = about.heightCm ?? saved.heightCm
   const unit = settings.weightUnit || 'kg'
   const latestKg = useMemo(() => {
     const list = [...(weights || [])].sort((a, b) => a.date.localeCompare(b.date))
     return list.length ? list[list.length - 1].kg : null
   }, [weights])
 
-  const [age, setAge] = useState(saved.age ?? '')
-  const [sex, setSex] = useState(saved.sex ?? '')
+  const [age, setAge] = useState(about.dob ? ageOn(about.dob, myToday()) : saved.age ?? '')
+  const [sex, setSex] = useState(about.sex || saved.sex || '')
   const [hUnit, setHUnit] = useState(saved.heightUnit || 'cm')
-  const [cm, setCm] = useState(saved.heightCm ?? '')
-  const [ft, setFt] = useState(saved.heightCm ? Math.floor(saved.heightCm / CM_PER_IN / 12) : '')
-  const [inch, setInch] = useState(saved.heightCm ? Math.round((saved.heightCm / CM_PER_IN) % 12) : '')
+  const [cm, setCm] = useState(startCm ?? '')
+  const [ft, setFt] = useState(startCm ? Math.floor(startCm / CM_PER_IN / 12) : '')
+  const [inch, setInch] = useState(startCm ? Math.round((startCm / CM_PER_IN) % 12) : '')
   const [weight, setWeight] = useState('')
   const [activity, setActivity] = useState(saved.activity || 'moderate')
   const [goal, setGoal] = useState(saved.goal || 'maintain')
@@ -44,6 +51,7 @@ export default function CalorieCalculator({ uid, settings }) {
   return (
     <div className="card form calc">
       <p className="muted small">New to counting calories? This gives you a starting point. Adjust it after a few weeks based on how you feel and how your weight moves.</p>
+      {fromAbout && <p className="muted small">Age, sex and height come from About me in Account.</p>}
       <div className="row">
         <label className="grow">Age
           <input className="text-input" type="number" inputMode="numeric" min="18" max="100" value={age} onChange={(e) => setAge(e.target.value)} />
