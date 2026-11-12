@@ -9,9 +9,9 @@
 // It reads and writes Firestore as an admin, so it never goes in the app.
 
 import { initializeApp, cert } from 'firebase-admin/app'
-import { getFirestore, FieldValue } from 'firebase-admin/firestore'
+import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore'
 import { getMessaging } from 'firebase-admin/messaging'
-import { dueSlot, messageKind, dayIndex, localNow } from './plan.mjs'
+import { dueSlot, messageKind, dayIndex, localNow, chatQuiet, chatPreview } from './plan.mjs'
 import { pickMessage } from './messages.mjs'
 
 const raw = process.env.FIREBASE_SERVICE_ACCOUNT
@@ -88,4 +88,40 @@ for (const [uid, devs] of Object.entries(byUid)) {
     console.warn('skipped a user after an error:', e.message)
   }
 }
+// Crew chat (phase 5.16): a gentle note when your crew wrote, at most once an
+// hour (this job's pace), never 10 pm to 7 am your time. Your own messages
+// never notify you. Turn it off in Account, Reminders.
+let chatSent = 0
+for (const [uid, devs] of Object.entries(byUid)) {
+  try {
+    const ref = db.doc(`private/${uid}/settings/reminders`)
+    const settings = (await ref.get()).data()
+    if (!settings?.on || settings.chat === false || !settings.tz) continue
+    if (chatQuiet(localNow(now, settings.tz).minutes)) continue // waits for the morning, nothing lost
+    const since = Number(settings.lastChatMs) || now.getTime() - 60 * 60000
+    const user = (await db.doc(`users/${uid}`).get()).data() || {}
+    const ids = [...new Set([user.groupId, ...(user.groupIds || [])].filter(Boolean))]
+    for (const gid of ids) {
+      const me = await db.doc(`groups/${gid}/members/${uid}`).get()
+      if (!me.exists || me.data().leftAt) continue
+      const snap = await db.collection(`groups/${gid}/chat`).where('createdAt', '>', Timestamp.fromMillis(since)).orderBy('createdAt', 'desc').limit(20).get()
+      const msgs = snap.docs.map((d) => d.data()).filter((m) => m.uid !== uid)
+      if (!msgs.length) continue
+      const group = (await db.doc(`groups/${gid}`).get()).data() || {}
+      const body = chatPreview(msgs[0], uid) + (msgs.length > 1 ? ` (+${msgs.length - 1} more)` : '')
+      if (DRY) { console.log('chat', uid, gid, body); continue }
+      const res = await messaging.sendEach(devs.map((d) => ({
+        token: d.data().token,
+        data: { title: group.name || 'Your crew', body, url: `${APP_URL}#/chat`, tag: `fitpot-chat-${gid}` },
+        webpush: { headers: { Urgency: 'normal', TTL: String(6 * 3600) } },
+      })))
+      chatSent += res.responses.filter((r) => r.success).length
+    }
+    if (!DRY) await ref.set({ lastChatMs: now.getTime() }, { merge: true })
+  } catch (e) {
+    console.warn('chat: skipped a user after an error:', e.message)
+  }
+}
+console.log(`Crew chat notes: ${chatSent} sent.`)
+
 console.log(`Reminders: ${sent} sent, ${skipped} not needed (checked in or rest day), ${removed} old devices removed. Local check: ${JSON.stringify(localNow(now, 'America/New_York'))}`)

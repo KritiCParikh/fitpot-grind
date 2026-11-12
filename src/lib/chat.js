@@ -18,6 +18,7 @@ import { doc, collection, query, where, orderBy, limit, onSnapshot, setDoc, addD
 import { db } from '../firebase'
 import { addDays } from './dates'
 import { myToday } from './clock'
+import { local } from './device'
 
 export const CHEERS = ['Spotting you', 'Proud of you', 'Rest well', 'Same time tomorrow?', 'You showed up', 'Go gently']
 export const CHAT_DAYS = 14 // how far back the chat shows
@@ -184,4 +185,39 @@ export function parseRoutineLink(data) {
     if (o.v !== 1 || !Array.isArray(o.i)) return null
     return { name: String(o.n || 'Routine').slice(0, 40), autoFill: o.f !== 0, curatedByName: String(o.by || '').slice(0, 30), curatedBy: String(o.bu || ''), items: o.i.slice(0, 30).map((it) => shrink(it, LONG)) }
   } catch { return null }
+}
+
+// ---------- Unread (phase 5.16) ----------
+// When you last looked at a crew's chat, on this phone. New messages from
+// others after that show as a small count on the Crew tab and the Chat tile.
+const readKey = (uid, gid) => `fitpot-chat-read-${uid}-${gid}`
+const READ_EVT = 'fitpot-chat-read'
+export function markChatRead(uid, gid) {
+  local.set(readKey(uid, gid), String(Date.now()))
+  window.dispatchEvent(new Event(READ_EVT))
+}
+
+/** How many messages others sent since you last opened this chat (up to 20). Live. */
+export function useUnread(gid, uid) {
+  const [msgs, setMsgs] = useState([])
+  const [readAt, setReadAt] = useState(() => Number(local.get(readKey(uid, gid))) || 0)
+  useEffect(() => {
+    const up = () => setReadAt(Number(local.get(readKey(uid, gid))) || 0)
+    up()
+    window.addEventListener(READ_EVT, up)
+    return () => window.removeEventListener(READ_EVT, up)
+  }, [uid, gid])
+  useEffect(() => {
+    if (!gid || !uid) return
+    const q = query(chatCol(gid), orderBy('createdAt', 'desc'), limit(20))
+    return onSnapshot(q, (s) => setMsgs(s.docs.map((d) => d.data())), () => setMsgs([]))
+  }, [gid, uid])
+  // First visit ever: don't flag the whole history as new.
+  if (!readAt) return 0
+  return msgs.filter((m) => m.uid !== uid && (m.createdAt?.toMillis?.() || 0) > readAt).length
+}
+
+/** Tell the crew two people squared up (phase 5.16). Never shows the amount. */
+export function sendSettle(user, gid, { other, otherName, method }) {
+  return addDoc(chatCol(gid), { ...base(user, 'settle'), settle: { other, otherName: (otherName || '').split(' ')[0], method } })
 }

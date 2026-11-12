@@ -765,3 +765,18 @@ body { line-height: 1.45; }
 .ex-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .tick-all { color: var(--lime); text-decoration: none; font-weight: 700; min-height: 36px; }
 .tick-hint { text-align: center; margin: 12px 0 0; }
+
+/* Phase 5.16: settle up */
+.settle-btn { min-height: 40px; padding: 0 12px; flex: none; }
+.settle-lead { font-size: 1.1rem; font-weight: 700; margin: 4px 0; }
+.settle-methods { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.settle-method { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-height: 64px; padding: 12px 14px; border-radius: 14px; border: 2px solid var(--border); background: var(--surface); color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.settle-method .muted { margin: 0; }
+.settle-method.on { border-color: var(--lime); }
+.settle-method.letgo.on { border-color: var(--orange); }
+.settle-sheet .card.form { margin-top: 14px; }
+.settle-line { border-color: rgba(255, 122, 26, 0.45); background: rgba(255, 122, 26, 0.07); }
+.chat-tab-badge { position: absolute; top: 8px; left: 52%; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--orange); color: #0b0d0c; font-size: 0.7rem; font-weight: 800; line-height: 18px; text-align: center; }
+.tab-btn { position: relative; }
+.check.chat-notes { display: flex; align-items: flex-start; gap: 10px; }
+.check.chat-notes span .muted { display: block; }

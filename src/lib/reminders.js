@@ -82,3 +82,6 @@ export async function testReminder(name) {
     icon: 'icons/icon-192.png', badge: 'icons/badge-96.png', tag: 'fitpot-test',
   })
 }
+
+/** Crew chat notes on or off (phase 5.16). On unless you turn it off. */
+export const saveReminderChat = (uid, on) => setDoc(doc(db, 'private', uid, 'settings', 'reminders'), { chat: on }, { merge: true })

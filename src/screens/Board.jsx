@@ -7,6 +7,8 @@ import { settleUp } from '../lib/ledger'
 import { useLedgerInputs, runLedger } from '../lib/useLedger'
 import Avatar from '../components/Avatar'
 import Scoreboard from '../components/Scoreboard'
+import SettleSheet from '../components/SettleSheet'
+import { useSettlements, afterSettlements, undoSettlement, methodLabel } from '../lib/settle'
 
 function monthBounds(y, m) {
   const start = `${y}-${String(m + 1).padStart(2, '0')}-01`
@@ -28,6 +30,9 @@ export default function Board({ user, group, members }) {
   const monthLabel = d.toLocaleDateString(undefined, { month: 'long', year: 'numeric', timeZone: 'UTC' })
 
   const inputs = useLedgerInputs(group, start, end)
+  const month = start.slice(0, 7)
+  const settled = useSettlements(group.id, month) // squared up this month (phase 5.16)
+  const [settling, setSettling] = useState(null)
   // Streaks look back 60 days (keeps database reads low).
   const recent = useCheckins(group.id, addDays(today, -60), clock.latestDay())
 
@@ -40,7 +45,8 @@ export default function Board({ user, group, members }) {
     const ledger = hasDays ? runLedger(group, members, inputs, start, settledTo) : { days: [], weeks: [], totals: {} }
     const totals = Object.fromEntries(members.map((m) => [m.uid, ledger.totals[m.uid] || 0]))
     const ranked = [...members].sort((a, b) => totals[b.uid] - totals[a.uid])
-    const transfers = settleUp(totals)
+    // What's left after friends squared up (phase 5.16).
+    const transfers = settleUp(afterSettlements(totals, settled || []))
     const potTotal = ledger.days.reduce((s, x) => s + x.pot, 0)
     const restDays = ledger.days.filter((x) => x.rest).length
 
@@ -80,16 +86,34 @@ export default function Board({ user, group, members }) {
           <ul className="member-list">
             {transfers.map((t, i) => (
               <li key={i}>
-                <span className="grow"><strong>{name(t.from)}</strong> pays <strong>{name(t.to)}</strong></span>
+                <span className="grow"><strong>{t.from === user.uid ? 'You' : name(t.from)}</strong> {t.from === user.uid ? 'pay' : 'pays'} <strong>{t.to === user.uid ? 'you' : name(t.to)}</strong></span>
                 <span className="pill">{$(t.amount)}</span>
+                {(t.from === user.uid || t.to === user.uid) && <button type="button" className="btn-ghost settle-btn" onClick={() => setSettling(t)}>Settle up</button>}
               </li>
             ))}
           </ul>
         ) : (
           <div className="card"><p className="muted">All square. Nobody owes anything{hasDays ? '' : ' yet'}.</p></div>
         )}
+        {(settled || []).length > 0 && (
+          <>
+            <h3 className="section-title">Squared up</h3>
+            <ul className="member-list settled-list">
+              {settled.map((x) => (
+                <li key={x.id} className="in">
+                  <span className="grow">
+                    <strong>{x.from === user.uid ? 'You' : name(x.from)}</strong> and <strong>{x.to === user.uid ? 'you' : name(x.to)}</strong>
+                    <br /><span className="muted small">{methodLabel(x.method)}{x.note ? `: ${x.note}` : ''}</span>
+                  </span>
+                  <span className="pill">{fmt(x.amount, x.currency || cur)}</span>
+                  {x.by === user.uid && <button type="button" className="link-btn" onClick={() => confirm('Undo this? It goes back on the Board.') && undoSettlement(group.id, x.id)}>Undo</button>}
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
         <p className="muted small">
-          {offset === 0 ? `Settled through ${prettyDay(closed)}: a day settles once it has ended for everyone (weekly groups: Sunday). A week counts in the month it ends.` : 'Final for the month.'} Pay each other however you like; FitPot doesn't move money.
+          {offset === 0 ? `Settled through ${prettyDay(closed)}: a day settles once it has ended for everyone (weekly groups: Sunday). A week counts in the month it ends.` : 'Final for the month.'} Square up however you like: UPI, cash, Splitwise, a treat, or let it go. FitPot never moves money; Settle up just keeps the Board right.
         </p>
         {money.applied().length > 0 && (
           <p className="muted small">
@@ -133,6 +157,8 @@ export default function Board({ user, group, members }) {
 
   return (
     <section>
+      {settling && <SettleSheet user={user} group={group} transfer={settling} cur={cur} month={month} fmtMoney={(x) => $(x)}
+        names={Object.fromEntries(members.map((m) => [m.uid, m.name]))} onClose={() => setSettling(null)} />}
       <h2>Board</h2>
       <div className="cal-head">
         <button className="btn-ghost" onClick={() => setOffset((o) => o - 1)} aria-label="Previous month">‹</button>

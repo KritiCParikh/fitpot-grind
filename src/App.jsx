@@ -32,6 +32,7 @@ import MyCalendarPage from './screens/MyCalendarPage'
 import Drafts from './screens/Drafts'
 import Chat from './screens/Chat'
 import RoutineInvite from './screens/RoutineInvite'
+import { useUnread } from './lib/chat'
 
 function SetupNotice() {
   return (
@@ -132,6 +133,7 @@ function Shell({ user, profile }) {
   const loc = useLocation()
   const current = currentKey(loc.pathname, loc.search)
   const swipe = useSwipe(current)
+  const unread = useUnread(activeId, user.uid) // new chat messages (phase 5.16)
 
   return (
     <GroupProvider key={activeId || 'none'} user={user} groupId={activeId}>
@@ -168,7 +170,7 @@ function Shell({ user, profile }) {
         </div>
         {menu && <LockerMenu user={user} current={current} onClose={() => setMenu(false)}
           groupSwitch={<GroupSwitcher user={user} groupIds={groupIds} activeId={activeId} meta={meta} />} />}
-        <BottomTabs current={current} />
+        <BottomTabs current={current} badges={{ crew: current === 'chat' ? 0 : unread }} />
       </div>
     </GroupProvider>
   )

@@ -52,3 +52,23 @@ export function messageKind(slotKey, day) {
 
 /** Day number since 1970, to rotate messages. */
 export const dayIndex = (date) => Math.floor(Date.parse(`${date}T00:00:00Z`) / 86400000)
+
+// ---------- Crew chat (phase 5.16) ----------
+
+/** Quiet hours for chat notes: 10 pm to 7 am, your time. */
+export const chatQuiet = (minutes) => minutes >= 22 * 60 || minutes < 7 * 60
+
+/** One kind line for the newest message. Amounts are never in chat, so never here. */
+export function chatPreview(m, uid) {
+  const who = m.name || 'Someone'
+  const cut = (t, n = 80) => (t.length > n ? `${t.slice(0, n - 1)}...` : t)
+  switch (m.kind) {
+    case 'text': return `${who}: ${cut(m.text || '')}`
+    case 'cheer': return m.to === uid ? `${who} cheered you on: ${m.cheer}` : `${who}: ${m.cheer}`
+    case 'invite': return `${who} invited the crew to train together${m.invite?.part ? ` (${m.invite.part})` : ''}. Are you in?`
+    case 'card': return `${who} shared a workout. Send some love.`
+    case 'routine': return `${who} shared a routine: ${m.routine?.name || 'have a look'}`
+    case 'settle': return `${who} and ${m.settle?.other === uid ? 'you' : m.settle?.otherName || 'a friend'} are all square.`
+    default: return `${who} wrote in your crew chat`
+  }
+}

@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useReminders } from '../lib/privateData'
 import {
-  blocker, enableReminders, disableReminders, saveReminderSlots, refreshReminders, testReminder, DEFAULT_SLOTS,
-} from '../lib/reminders'
+  blocker, enableReminders, disableReminders, saveReminderSlots, refreshReminders, testReminder, DEFAULT_SLOTS, saveReminderChat } from '../lib/reminders'
 
 const SLOT_LABELS = [['morning', 'Morning'], ['afternoon', 'Afternoon'], ['evening', 'Evening']]
 
@@ -49,6 +48,10 @@ export default function RemindersCard({ user }) {
           </label>
           {on && (
             <>
+              <label className="check chat-notes">
+                <input type="checkbox" checked={settings?.chat !== false} onChange={(e) => saveReminderChat(user.uid, e.target.checked)} />
+                <span>Crew chat <span className="muted small">a gentle note when your crew writes, at most once an hour, never 10 pm to 7 am</span></span>
+              </label>
               <div className="slot-list">
                 {SLOT_LABELS.map(([key, label]) => (
                   <div key={key} className="slot-row">

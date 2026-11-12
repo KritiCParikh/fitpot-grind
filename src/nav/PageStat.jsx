@@ -3,7 +3,7 @@
 // component and is only mounted while the menu is open.
 import { useDayDocs, useMyCheckins } from '../hooks'
 import { useMyDays } from '../lib/myDays'
-import { useFloor } from '../lib/chat'
+import { useFloor, useUnread } from '../lib/chat'
 import { useGroupCtx } from '../groupContext'
 import { useWorkouts, useMealsOn, useWeights, useSettings } from '../lib/privateData'
 import { useLedgerInputs, runLedger } from '../lib/useLedger'
@@ -115,9 +115,11 @@ function DraftsStat({ user }) {
   return n ? `${n} not saved yet` : 'Nothing unsaved'
 }
 
-function ChatStat() {
+function ChatStat({ user }) {
   const { group } = useGroupCtx()
   const floor = useFloor(group.id)
+  const unread = useUnread(group.id, user.uid)
+  if (unread) return `${unread} new message${unread === 1 ? '' : 's'}`
   return floor.length ? `${floor.map((f) => f.name).slice(0, 2).join(' and ')}${floor.length > 2 ? ` +${floor.length - 2}` : ''} on the floor now` : 'Cheer your crew on'
 }
 

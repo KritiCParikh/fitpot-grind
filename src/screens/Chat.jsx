@@ -2,7 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import Avatar from '../components/Avatar'
 import ShareSheet from '../components/ShareSheet'
 import { RoutineCard } from '../components/RoutineShare'
-import { useChat, useCheers, useTogether, useFloor, sendText, sendCheer, toggleSpot, sendInvite, joinInvite, leaveInvite, sendRoutine, deleteMessage, markTogetherDone, CHEERS } from '../lib/chat'
+import { useChat, useCheers, useTogether, useFloor, sendText, sendCheer, toggleSpot, sendInvite, joinInvite, leaveInvite, sendRoutine, deleteMessage, markTogetherDone, markChatRead, CHEERS } from '../lib/chat'
+import { SETTLE_METHODS } from '../lib/settle'
 import { useRoutines, useWorkouts, useSettings } from '../lib/privateData'
 import { personalRecords, units } from '../lib/training'
 import { drawCard, loadCardFonts } from '../lib/shareCard'
@@ -30,6 +31,8 @@ export default function Chat({ user, group, members }) {
   const today = group.clock.today()
 
   useEffect(() => { endRef.current?.scrollIntoView?.({ block: 'end' }) }, [msgs?.length])
+  // Seen: clears the unread count on the Crew tab (phase 5.16).
+  useEffect(() => { markChatRead(user.uid, gid) }, [msgs?.length, gid, user.uid])
   // Worked out today and said I'm in to a Train together? Tick yourself off.
   const workedToday = days.has(today)
   useEffect(() => {
@@ -81,7 +84,11 @@ export default function Chat({ user, group, members }) {
           return (
             <div key={m.id}>
               {newDay && <p className="chat-day">{m.day === today ? 'Today' : m.day === addDays(today, -1) ? 'Yesterday' : prettyDay(m.day)}</p>}
-              {m.kind === 'cheer' ? (
+              {m.kind === 'settle' ? (
+                <p className="chat-cheer settle-line">
+                  <strong>{mine ? 'You' : m.name}</strong> and <strong>{m.settle?.other === user.uid ? 'you' : m.settle?.otherName || 'a friend'}</strong> are all square{settleWords(m.settle?.method)}.
+                </p>
+              ) : m.kind === 'cheer' ? (
                 <p className={`chat-cheer ${mine ? 'mine' : ''}`}>
                   <strong>{mine ? 'You' : m.name}</strong> <span className="cheer-text">{m.cheer}</span>{m.to && byUid[m.to] ? <> to <strong>{m.to === user.uid ? 'you' : byUid[m.to].name.split(' ')[0]}</strong></> : null}
                   {mine && <button type="button" className="link-btn" aria-label="Delete cheer" onClick={() => run(() => deleteMessage(gid, m.id))}>Undo</button>}
@@ -130,6 +137,11 @@ export default function Chat({ user, group, members }) {
       </div>
     </section>
   )
+}
+
+function settleWords(method) {
+  const w = SETTLE_METHODS.find((x) => x.key === method)?.chat
+  return w ? ` ${w}` : ''
 }
 
 function timeOf(m) {
