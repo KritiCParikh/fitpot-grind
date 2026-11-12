@@ -332,7 +332,7 @@ export function cardioHistory(workouts, key) {
     for (const ex of w.exercises || []) {
       if (ex.key !== key || !isCardio(ex)) continue
       const t = cardioTotals(ex)
-      if (t) out.push({ workoutId: w.id, date: w.date, ...t })
+      if (t) out.push({ workoutId: w.id, date: w.date, ...t, note: ex.note || '' })
     }
   }
   return out
@@ -365,7 +365,7 @@ export function historyOf(workouts, key) {
       const sets = realSets(ex)
       if (!sets.length) continue
       out.push({
-        workoutId: w.id, date: w.date, sets, best: bestSet(sets),
+        workoutId: w.id, date: w.date, sets, best: bestSet(sets), note: ex.note || '',
         maxKg: Math.max(...sets.map((s) => Number(s.kg) || 0)),
         maxReps: Math.max(...sets.map((s) => Number(s.reps) || 0)),
         volume: sets.reduce((v, s) => v + (Number(s.reps) || 0) * (Number(s.kg) || 0), 0),

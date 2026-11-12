@@ -175,7 +175,7 @@ function fromRoutine(it, workouts, autoFill = true) {
   // Cardio: one interval with the routine's target minutes.
   if (isCardio(it)) return { key: it.key, name: it.name, muscle: 'cardio', kind: 'cardio', ...(it.metric ? { metric: it.metric } : {}), ...(it.cat ? { cat: it.cat } : {}), sets: [{ min: it.min || 0 }] }
   // Strength: pre-fill each set with last time's weight for that exercise, else empty.
-  if (!autoFill) return { key: it.key, name: it.name, muscle: it.muscle, ...(it.part ? { part: it.part } : {}), ...(it.also?.length ? { also: it.also } : {}), sets: Array.from({ length: it.sets || 3 }, () => ({ reps: 0, kg: 0 })) }
+  if (!autoFill) return { key: it.key, name: it.name, muscle: it.muscle, ...(it.part ? { part: it.part } : {}), ...(it.also?.length ? { also: it.also } : {}), sets: Array.from({ length: Number(it.sets) || 1 }, () => ({ reps: 0, kg: 0 })) }
   const h = historyOf(workouts, it.key)
   const kg = h.length ? h[h.length - 1].best?.kg || 0 : 0
   return { key: it.key, name: it.name, muscle: it.muscle, ...(it.part ? { part: it.part } : {}), ...(it.also?.length ? { also: it.also } : {}), sets: Array.from({ length: it.sets || 3 }, () => ({ reps: it.reps || 0, kg })) }
@@ -306,7 +306,7 @@ function RecordsView({ workouts, u }) {
         <ul className="member-list">
           {[...h].reverse().map((s, i) => (
             <li key={i}>
-              <span className="grow">{short(s.date)}<br /><span className="muted small">{s.sets.map((x) => u.show(x.kg, x.reps)).join(', ')}</span></span>
+              <span className="grow">{short(s.date)}<br /><span className="muted small">{s.sets.map((x) => u.show(x.kg, x.reps)).join(', ')}</span>{s.note && <><br /><span className="ex-note-last">{s.note}</span></>}</span>
               {s.best?.e1rm > 0 && <span className="muted small">1RM≈{u.toDisp(s.best.e1rm)}</span>}
             </li>
           ))}
@@ -367,7 +367,7 @@ function CardioRecord({ r, h, k, u, onBack }) {
       <h3 className="section-title">Sessions · {h.length}</h3>
       <ul className="member-list">
         {[...h].reverse().map((s, i) => (
-          <li key={i}><span className="grow">{short(s.date)}<br /><span className="muted small">{u.showCardio(s, metric, lbl)}</span></span></li>
+          <li key={i}><span className="grow">{short(s.date)}<br /><span className="muted small">{u.showCardio(s, metric, lbl)}</span>{s.note && <><br /><span className="ex-note-last">{s.note}</span></>}</span></li>
         ))}
       </ul>
       {metric === 'distance' && <p className="muted small">Fastest pace counts sessions of at least {k === 'swim' ? `0.2 km` : `1 km`}, so a short burst doesn't count as a record.</p>}
@@ -392,7 +392,7 @@ function RoutinesView({ uid, user, routines, exercises, have, workouts, start, t
             <button className="plain grow-col" onClick={() => setEdit(r)}>
               <strong>{r.name}</strong>
               {r.curatedByName && r.curatedBy !== uid && <span className="muted small curated">Curated by {r.curatedByName}</span>}
-              <span className="muted small">{r.items.map((it) => (isCardio(it) ? `${it.name} ${it.min} min` : `${it.name} ${it.sets}×${it.reps}`)).join(' · ')}</span>
+              <span className="muted small">{r.items.map((it) => (isCardio(it) ? `${it.name}${it.min ? ` ${it.min} min` : ''}` : `${it.name}${it.sets && it.reps ? ` ${it.sets}×${it.reps}` : it.sets ? ` ${it.sets} sets` : ''}`)).join(' · ')}</span>
             </button>
             <button className="btn-ghost" onClick={() => start({ date: today, title: r.name, autoFill: r.autoFill !== false, exercises: r.items.map((it) => fromRoutine(it, workouts, r.autoFill !== false)) })}>Start</button>
             <button type="button" className="btn-ghost share-btn" aria-label={`Share ${r.name}`} onClick={() => setSharing(r)}><Icon name="share" size={18} /></button>
@@ -424,7 +424,7 @@ function RoutineForm({ uid, initial, draft, exercises, have, onClose }) {
   const [orderSaved, setOrderSaved] = useState(false)
   if (picking) {
     return <ExercisePicker uid={uid} exercises={exercises} have={have} title="Add to routine" onClose={() => setPicking(false)}
-      onPick={(ex) => { setPicking(false); setItems((l) => [...l, { rowId: rowId(), ...(isCardio(ex) ? { key: ex.key, name: ex.name, muscle: 'cardio', kind: 'cardio', metric: ex.metric || 'distance', ...(ex.cat ? { cat: ex.cat } : {}), min: ex.cat === 'sports' ? 60 : 20 } : { key: ex.key, name: ex.name, muscle: ex.muscle, ...(ex.part ? { part: ex.part } : {}), ...(ex.also?.length ? { also: ex.also } : {}), sets: 3, reps: 10 }) }]) }} />
+      onPick={(ex) => { setPicking(false); setItems((l) => [...l, { rowId: rowId(), ...(isCardio(ex) ? { key: ex.key, name: ex.name, muscle: 'cardio', kind: 'cardio', metric: ex.metric || 'distance', ...(ex.cat ? { cat: ex.cat } : {}), min: autoFill ? (ex.cat === 'sports' ? 60 : 20) : '' } : { key: ex.key, name: ex.name, muscle: ex.muscle, ...(ex.part ? { part: ex.part } : {}), ...(ex.also?.length ? { also: ex.also } : {}), sets: autoFill ? 3 : '', reps: autoFill ? 10 : '' }) }]) }} />
   }
   const setIt = (i, patch) => setItems((l) => l.map((x, j) => (j === i ? { ...x, ...patch } : x)))
   async function save() {
@@ -446,8 +446,16 @@ function RoutineForm({ uid, initial, draft, exercises, have, onClose }) {
         <input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Push day" maxLength={40} />
       </label>
       <label className="check auto-fill">
-        <input type="checkbox" checked={autoFill} onChange={(e) => setAutoFill(e.target.checked)} />
-        <span>Auto-suggestions <span className="muted small">{autoFill ? 'when you start it, weights fill in from last time' : 'off: sets start empty, you type your own numbers'}</span></span>
+        <input type="checkbox" checked={autoFill} onChange={(e) => {
+          const on = e.target.checked
+          setAutoFill(on)
+          // Off: take out the numbers FitPot suggested (3 x 10, 20 or 60 min); yours stay. On: suggest them again where it's empty.
+          setItems((l) => l.map((it) => (isCardio(it)
+            ? { ...it, min: on ? (it.min === '' ? (it.cat === 'sports' ? 60 : 20) : it.min) : ([20, 60].includes(Number(it.min)) ? '' : it.min) }
+            : on ? { ...it, sets: it.sets === '' ? 3 : it.sets, reps: it.reps === '' ? 10 : it.reps }
+              : { ...it, sets: Number(it.sets) === 3 && Number(it.reps) === 10 ? '' : it.sets, reps: Number(it.sets) === 3 && Number(it.reps) === 10 ? '' : it.reps })))
+        }} />
+        <span>Auto-suggestions <span className="muted small">{autoFill ? 'new exercises start at 3 x 10, and weights fill in from last time when you start it' : 'off: nothing is filled in, here or when you start it. Type your own numbers'}</span></span>
       </label>
       {items.length > 1 && <p className="muted small reorder-tip">{orderSaved ? <span className="lime">Order saved</span> : 'Hold the grip to drag an exercise into place, or use the arrows.'}</p>}
       <SortableList items={items} onChange={reorder}>{(it, i, controls) => (
@@ -460,14 +468,14 @@ function RoutineForm({ uid, initial, draft, exercises, have, onClose }) {
           <div className="routine-nums">
             {isCardio(it) ? (
               <>
-                <input className="text-input mini" type="number" min="1" max="300" value={it.min} aria-label={`${it.name} minutes`} onChange={(e) => setIt(i, { min: +e.target.value })} />
+                <input className="text-input mini" type="number" min="1" max="300" value={it.min} placeholder="-" aria-label={`${it.name} minutes`} onChange={(e) => setIt(i, { min: e.target.value === '' ? '' : +e.target.value })} />
                 <span className="muted small">min</span>
               </>
             ) : (
               <>
-                <input className="text-input mini" type="number" min="1" max="10" value={it.sets} aria-label={`${it.name} sets`} onChange={(e) => setIt(i, { sets: +e.target.value })} />
+                <input className="text-input mini" type="number" min="1" max="10" value={it.sets} placeholder="-" aria-label={`${it.name} sets`} onChange={(e) => setIt(i, { sets: e.target.value === '' ? '' : +e.target.value })} />
                 <span className="muted small">sets of</span>
-                <input className="text-input mini" type="number" min="1" max="50" value={it.reps} aria-label={`${it.name} reps`} onChange={(e) => setIt(i, { reps: +e.target.value })} />
+                <input className="text-input mini" type="number" min="1" max="50" value={it.reps} placeholder="-" aria-label={`${it.name} reps`} onChange={(e) => setIt(i, { reps: e.target.value === '' ? '' : +e.target.value })} />
                 <span className="muted small">reps</span>
               </>
             )}

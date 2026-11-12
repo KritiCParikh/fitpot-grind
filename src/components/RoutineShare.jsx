@@ -20,7 +20,7 @@ export function takeTryRoutine() {
   try { const v = sessionStorage.getItem(TRY_KEY); sessionStorage.removeItem(TRY_KEY); return v ? JSON.parse(v) : null } catch { return null }
 }
 
-const line = (it) => (isCardio(it) ? `${it.name} ${it.min || 20} min` : `${it.name} ${it.sets}×${it.reps}`)
+const line = (it) => (isCardio(it) ? `${it.name}${it.min ? ` ${it.min} min` : ''}` : `${it.name}${it.sets && it.reps ? ` ${it.sets}×${it.reps}` : it.sets ? ` ${it.sets} sets` : ''}`)
 
 /** A shared routine, in chat or from a link. */
 export function RoutineCard({ user, routine, standalone = false }) {

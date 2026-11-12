@@ -112,24 +112,36 @@ export default function WorkoutEditor({ uid, user, initial, draft, workouts, exe
     }
   }
 
+  // Tick every set of one exercise that has numbers in it (you choose to; nothing ticks on its own).
+  function tickAll(i) {
+    setItem(i, (y) => ({ ...y, sets: y.sets.map((s) => (hasNumbers(y, s) ? { ...s, done: true } : s)) }))
+  }
+
   function tick(i, k) {
     const x = items[i], s = x.sets[k]
     setSet(i, k, { done: !s.done })
     if (!x.cardio && !s.done && Number(s.reps) > 0 && restSec) setRest({ endAt: Date.now() + restSec * 1000, total: restSec })
   }
 
+  // Only ticked sets are recorded (phase 5.16). Nothing is ticked for you:
+  // a routine's 5 exercises stay in the draft until you tick what you did.
+  const doneSets = items.reduce((n, x) => n + x.sets.filter((s) => counted(x, s)).length, 0)
+  const waiting = items.reduce((n, x) => n + x.sets.filter((s) => hasNumbers(x, s) && !s.done).length, 0)
+
   async function save() {
+    if (!doneSets) return alert('Tick ✓ the sets you\'ve done to record them. Until then, everything stays in Drafts.')
+    if (waiting && !confirm(`${waiting} set${waiting === 1 ? ' isn\'t' : 's aren\'t'} ticked, so ${waiting === 1 ? 'it won\'t' : 'they won\'t'} be counted. Record the ${doneSets} ticked set${doneSets === 1 ? '' : 's'}?`)) return
     const clean = items.map((x) => (x.cardio
       ? {
-        key: x.key, name: x.name, muscle: 'cardio', kind: 'cardio', metric: x.metric, ...(x.cat ? { cat: x.cat } : {}),
-        sets: x.sets.filter((s) => Number(s.d) > 0 || Number(s.min) > 0).map((s) => ({
+        key: x.key, name: x.name, muscle: 'cardio', kind: 'cardio', metric: x.metric, ...(x.cat ? { cat: x.cat } : {}), ...noteOf(x),
+        sets: x.sets.filter((s) => counted(x, s)).map((s) => ({
           km: Math.round(u.toKm(s.d) * 1000) / 1000, min: Math.round((Number(s.min) || 0) * 10) / 10, count: Math.round(Number(s.count) || 0),
           ...(x.metric === 'effort' ? { effort: s.effort || 'moderate' } : {}),
         })),
       }
       : {
-        key: x.key, name: x.name, muscle: x.muscle, ...(x.part ? { part: x.part } : {}), ...(x.also?.length ? { also: x.also } : {}),
-        sets: x.sets.filter((s) => Number(s.reps) > 0).map((s) => ({ reps: Math.round(Number(s.reps)), kg: Math.round(u.toKg(s.w) * 100) / 100 })),
+        key: x.key, name: x.name, muscle: x.muscle, ...(x.part ? { part: x.part } : {}), ...(x.also?.length ? { also: x.also } : {}), ...noteOf(x),
+        sets: x.sets.filter((s) => counted(x, s)).map((s) => ({ reps: Math.round(Number(s.reps)), kg: Math.round(u.toKg(s.w) * 100) / 100 })),
       })).filter((x) => x.sets.length)
     if (!clean.length) return alert('Add at least one set with reps, or a distance or time for cardio.')
     setBusy(true)
@@ -223,18 +235,23 @@ export default function WorkoutEditor({ uid, user, initial, draft, workouts, exe
           onSet={(k, patch) => setSet(i, k, patch)} onTick={(k) => tick(i, k)}
           onRemoveSet={(k) => setItem(i, (y) => ({ ...y, sets: y.sets.filter((_, j) => j !== k) }))}
           onAddSet={() => setItem(i, (y) => ({ ...y, sets: [...y.sets, { d: '', min: '', count: '', done: false, ...(y.metric === 'effort' ? { effort: 'moderate' } : {}) }] }))}
+          onNote={(v) => setItem(i, (y) => ({ ...y, note: v }))} onTickAll={() => tickAll(i)}
           onRemove={() => setItems((l) => l.filter((_, j) => j !== i))} />
         : <StrengthCard x={x} u={u} others={others} date={date} stepKg={stepKg} controls={controls}
           onSet={(k, patch) => setSet(i, k, patch)} onTick={(k) => tick(i, k)}
           onRemoveSet={(k) => setItem(i, (y) => ({ ...y, sets: y.sets.filter((_, j) => j !== k) }))}
           onAddSet={() => setItem(i, (y) => ({ ...y, sets: [...y.sets, { ...(autoFill && y.sets[y.sets.length - 1] ? y.sets[y.sets.length - 1] : { w: '', reps: '' }), done: false }] }))}
+          onNote={(v) => setItem(i, (y) => ({ ...y, note: v }))} onTickAll={() => tickAll(i)}
           onRemove={() => setItems((l) => l.filter((_, j) => j !== i))} />)}</SortableList>
 
       <button className="btn-ghost wide" onClick={() => setPicking(true)}>+ Add exercise</button>
       <label className="form notes">Notes (how it felt, form cues, anything)
         <textarea className="text-input" rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="e.g. Shoulder felt tight on the last set" />
       </label>
-      <button className="btn-primary wide" onClick={save} disabled={busy || !items.length}>{busy ? 'Saving...' : 'Save workout'}</button>
+      {items.length > 0 && (waiting > 0 || !doneSets) && (
+        <p className="muted small tick-hint">{doneSets ? `${doneSets} set${doneSets === 1 ? '' : 's'} ticked. ` : ''}Only ticked ✓ sets are recorded. The rest stay in Drafts until you tick them.</p>
+      )}
+      <button className="btn-primary wide" onClick={save} disabled={busy || !items.length}>{busy ? 'Saving...' : doneSets ? `Save workout (${doneSets} set${doneSets === 1 ? '' : 's'} done)` : 'Tick sets to save'}</button>
       {initial.id && <button className="btn-ghost wide danger" onClick={remove}>Delete workout</button>}
       <DraftNote kept={kept.kept} onDiscard={() => { if (confirm('Discard this draft? What you typed here will be gone.')) { kept.finish(); onClose() } }} />
       <p className="muted small">Private to you. Bodyweight exercises: leave weight empty, or enter extra weight such as a dip belt.</p>
@@ -247,7 +264,7 @@ export default function WorkoutEditor({ uid, user, initial, draft, workouts, exe
 // Editor rows keep what you typed, in the units on screen.
 function toItem(ex, sets, u, done) {
   const also = alsoOf(ex)
-  const base = { rowId: rowId(), key: ex.key, name: ex.name, muscle: ex.muscle, ...(ex.part ? { part: ex.part } : {}), ...(also.length ? { also } : {}) }
+  const base = { rowId: rowId(), key: ex.key, name: ex.name, muscle: ex.muscle, ...(ex.part ? { part: ex.part } : {}), ...(also.length ? { also } : {}), note: done && ex.note ? ex.note : '' }
   if (isCardio(ex)) {
     const metric = cardioMetric(ex)
     return {
@@ -278,14 +295,14 @@ function CardHead({ x, onRemove, controls }) {
   )
 }
 
-function StrengthCard({ x, u, others, date, stepKg, controls, onSet, onTick, onRemoveSet, onAddSet, onRemove }) {
+function StrengthCard({ x, u, others, date, stepKg, controls, onSet, onTick, onRemoveSet, onAddSet, onRemove, onNote, onTickAll }) {
   const last = lastTime(others, x.key, { before: date })
   const goal = beatIt(last, { stepKg })
   return (
     <div className="card ex-card">
       <CardHead x={x} onRemove={onRemove} controls={controls} />
       {last
-        ? <p className="muted small">Last time ({shortDate(last.date)}): {last.sets.map((s) => u.show(s.kg, s.reps)).join(', ')}{goal && <>. <span className="lime">Beat it: {u.show(goal.kg, goal.reps)}</span></>}</p>
+        ? <p className="muted small">Last time ({shortDate(last.date)}): {last.sets.map((s) => u.show(s.kg, s.reps)).join(', ')}{goal && <>. <span className="lime">Beat it: {u.show(goal.kg, goal.reps)}</span></>}{last.note && <><br /><span className="ex-note-last">Your note: {last.note}</span></>}</p>
         : <p className="muted small">First time logging this. Today sets your baseline.</p>}
       <div className="set-grid">
         <span className="muted small">Set</span><span className="muted small">{u.unit}</span><span className="muted small">Reps</span><span /><span />
@@ -296,12 +313,16 @@ function StrengthCard({ x, u, others, date, stepKg, controls, onSet, onTick, onR
           </SetRow>
         ))}
       </div>
-      <button className="link-btn" onClick={onAddSet}>+ Add set</button>
+      <div className="ex-actions">
+        <button className="link-btn" onClick={onAddSet}>+ Add set</button>
+        <TickAll x={x} onTickAll={onTickAll} />
+      </div>
+      <ExNote x={x} onNote={onNote} />
     </div>
   )
 }
 
-function CardioCard({ x, u, others, date, controls, onSet, onTick, onRemoveSet, onAddSet, onRemove }) {
+function CardioCard({ x, u, others, date, controls, onSet, onTick, onRemoveSet, onAddSet, onRemove, onNote, onTickAll }) {
   const last = lastCardio(others, x.key, { before: date })
   const timeOnly = x.metric === 'time'
   const effort = x.metric === 'effort' // sports (phase 5.12.1): time and effort
@@ -311,7 +332,7 @@ function CardioCard({ x, u, others, date, controls, onSet, onTick, onRemoveSet, 
     <div className="card ex-card">
       <CardHead x={x} onRemove={onRemove} controls={controls} />
       {last
-        ? <p className="muted small">Last time ({shortDate(last.date)}): {u.showCardio(last, x.metric, x.countLabel)}. <span className="lime">{effort ? 'Enjoy the game' : timeOnly ? 'Go a little longer' : 'Go a little further or faster'}.</span></p>
+        ? <p className="muted small">Last time ({shortDate(last.date)}): {u.showCardio(last, x.metric, x.countLabel)}. <span className="lime">{effort ? 'Enjoy the game' : timeOnly ? 'Go a little longer' : 'Go a little further or faster'}.</span>{last.note && <><br /><span className="ex-note-last">Your note: {last.note}</span></>}</p>
         : <p className="muted small">First time logging this. Today sets your baseline.</p>}
       <div className="set-grid">
         <span className="muted small">#</span>
@@ -341,7 +362,11 @@ function CardioCard({ x, u, others, date, controls, onSet, onTick, onRemoveSet, 
         ))}
       </div>
       {!timeOnly && !effort && totalKm > 0 && totalMin > 0 && <p className="muted small">Pace {u.showPace(totalMin / totalKm)}</p>}
-      <button className="link-btn" onClick={onAddSet}>{effort ? '+ Add another session' : '+ Add interval'}</button>
+      <div className="ex-actions">
+        <button className="link-btn" onClick={onAddSet}>{effort ? '+ Add another session' : '+ Add interval'}</button>
+        <TickAll x={x} onTickAll={onTickAll} />
+      </div>
+      <ExNote x={x} onNote={onNote} />
     </div>
   )
 }
@@ -355,4 +380,38 @@ function SetRow({ n, done, onTick, onRemove, children }) {
       <button className="btn-ghost x" onClick={onRemove} aria-label={`Remove set ${n}`}>✕</button>
     </>
   )
+}
+
+// A short note for this exercise today (phase 5.16), e.g. "Dumbbells instead
+// of Smith machine". Saved with the workout and shown next time under Last time.
+const NOTE_MAX = 80
+function noteOf(x) {
+  const n = (x.note || '').trim().slice(0, NOTE_MAX)
+  return n ? { note: n } : {}
+}
+function ExNote({ x, onNote }) {
+  const [open, setOpen] = useState(Boolean(x.note))
+  if (!open) return <button type="button" className="link-btn ex-note-add" onClick={() => setOpen(true)}>+ Note</button>
+  return (
+    <label className="ex-note">
+      <span className="sr-only">Note for {x.name}</span>
+      <input className="text-input" value={x.note || ''} maxLength={NOTE_MAX} autoFocus={!x.note}
+        placeholder="e.g. Dumbbells instead of Smith machine" onChange={(e) => onNote(e.target.value)}
+        onBlur={(e) => { if (!e.target.value.trim()) setOpen(false) }} />
+    </label>
+  )
+}
+
+/** A set has something worth recording: reps, or distance / time for cardio. */
+function hasNumbers(x, s) {
+  return x.cardio ? Number(s.d) > 0 || Number(s.min) > 0 : Number(s.reps) > 0
+}
+/** Recorded only when you ticked it (phase 5.16). */
+function counted(x, s) {
+  return Boolean(s.done) && hasNumbers(x, s)
+}
+function TickAll({ x, onTickAll }) {
+  const left = x.sets.filter((s) => hasNumbers(x, s) && !s.done).length
+  if (!left) return null
+  return <button type="button" className="link-btn tick-all" onClick={onTickAll}>✓ Tick all {left}</button>
 }

@@ -755,3 +755,13 @@ body { line-height: 1.45; }
 .composer-row .btn-primary { min-height: 44px; }
 .composer-tools { display: flex; gap: 8px; flex-wrap: wrap; }
 .composer-tools .btn-ghost { min-height: 44px; }
+
+/* Phase 5.16: a short note per exercise */
+.ex-note-add { align-self: flex-start; margin-top: 2px; }
+.ex-note { display: block; margin-top: 8px; }
+.ex-note .text-input { width: 100%; min-height: 40px; font-size: 0.92rem; }
+.ex-note-last { color: var(--orange); font-size: 0.85rem; font-style: italic; }
+/* Phase 5.16: only ticked sets are recorded */
+.ex-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.tick-all { color: var(--lime); text-decoration: none; font-weight: 700; min-height: 36px; }
+.tick-hint { text-align: center; margin: 12px 0 0; }
