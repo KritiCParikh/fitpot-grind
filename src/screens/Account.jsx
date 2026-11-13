@@ -148,17 +148,23 @@ function DeleteCard({ user, groupIds }) {
 }
 
 // Bigger or smaller text across the whole app, saved on this phone.
+// Phase 5.16: 50% to 130%, so everyone can find what's comfortable.
 function TextSizeCard() {
   const [size, setSize] = useState(getTextSize)
+  const pick = (k) => { applyTextSize(k); setSize(k) }
+  const now = TEXT_SIZES.find((t) => t.key === size)
   return (
     <div className="card form">
-      <p className="muted small">Text size</p>
-      <div className="segmented text-size">
+      <p className="muted small">Text size <span className="text-size-now">{now?.pct}%{now?.label ? `, ${now.label}` : ''}</span></p>
+      <div className="text-size-grid" role="radiogroup" aria-label="Text size">
         {TEXT_SIZES.map((t) => (
-          <button key={t.key} type="button" className={size === t.key ? 'on' : ''} style={{ fontSize: `${t.px * 0.85}px` }}
-            onClick={() => { applyTextSize(t.key); setSize(t.key) }}>{t.label}</button>
+          <button key={t.key} type="button" role="radio" aria-checked={size === t.key} className={size === t.key ? 'on' : ''} onClick={() => pick(t.key)}>
+            <strong>{t.pct}%</strong>
+            {t.label && <span>{t.label}</span>}
+          </button>
         ))}
       </div>
+      <p className="muted small">Saved on this phone. Pick whatever feels comfortable; you can change it any time.</p>
     </div>
   )
 }

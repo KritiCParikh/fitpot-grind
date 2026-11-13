@@ -48,6 +48,7 @@ export default function LockerHome({ user }) {
       {!newbie && (
         <>
           <Safe pageKey="scan" onTap={() => setSafeNote('Plate scan is being built in Phase 6. We\'ll let you know as soon as it\'s ready.')} />
+          <Safe pageKey="recipes" onTap={() => setSafeNote('Recipe coach is being built in Phase 9. We\'ll let you know as soon as it\'s ready.')} />
           <Safe pageKey="plans" onTap={() => setSafeNote('My plan is being built in Phase 8. We\'ll let you know as soon as it\'s ready.')} />
           {safeNote && <p className="muted small" role="status">{safeNote}</p>}
         </>

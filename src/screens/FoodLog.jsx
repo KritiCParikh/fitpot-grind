@@ -8,6 +8,7 @@ import PortionPicker from '../components/PortionPicker'
 import { MyFoodForm, RecipeBuilder } from '../components/MyFoodForms'
 import FoodDoodle from '../components/FoodDoodle'
 import { getDraft, newDraftId } from '../lib/drafts'
+import Icon from '../nav/Icon'
 
 // Private, optional food diary. Nothing here affects check-ins or the pot.
 export default function FoodLog({ user, draftId, onDraftUsed }) {
@@ -19,6 +20,7 @@ export default function FoodLog({ user, draftId, onDraftUsed }) {
   const myFoods = useMyFoods(uid)
   const [view, setView] = useState({ name: 'log' })
   const [doodle, setDoodle] = useState(null) // foods to sketch after logging (phase 5.11)
+  const [recipeNote, setRecipeNote] = useState(false) // Recipe coach safe (phase 9)
 
   // Picking up a draft from My locker → Drafts (phase 5.12).
   useEffect(() => {
@@ -97,6 +99,10 @@ export default function FoodLog({ user, draftId, onDraftUsed }) {
   return (
     <>
       {doodle && <FoodDoodle foods={doodle} onDone={() => setDoodle(null)} />}
+      <button type="button" className="plan-safe" aria-expanded={recipeNote} onClick={() => setRecipeNote((x) => !x)}>
+        <Icon name="lock" size={14} /> Recipe coach <span className="muted">· coming soon</span>
+      </button>
+      {recipeNote && <p className="muted small plan-note">Recipe coach is being built (Phase 9): tell it what's in your kitchen, like dal, paneer and spinach, and it suggests a recipe that fits your targets. FitPot's own model, nothing sent to other AI.</p>}
       <div className="cal-head">
         <button className="btn-ghost" onClick={() => setDay((d) => addDays(d, -1))} aria-label="Previous day">‹</button>
         <strong>{day === today ? 'Today' : prettyDay(day)}</strong>

@@ -9,6 +9,7 @@ export default function Coach() {
       <p className="muted">Your own FitPot coach, built in house. Each of these also sits under its home in My locker or Crew.</p>
       <div className="safes">
         <Safe pageKey="scan" showWhat />
+        <Safe pageKey="recipes" showWhat />
         <Safe pageKey="plans" showWhat />
         <Safe pageKey="nudges" showWhat />
       </div>

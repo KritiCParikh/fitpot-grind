@@ -9,7 +9,7 @@ export const TOUR_STEPS = [
   { sel: '.tiles', title: 'Your locker', text: 'Food, Training, Progress and Targets. All private to you.' },
   { sel: '.quick-check', title: 'Check in', text: 'Worked out? Tap here. Your crew sees it, and that\'s what the pot counts.' },
   { sel: '.bottom-tabs .tab-btn:nth-child(2)', title: 'Crew', text: 'Your group: today, calendar, photo wall and the board. Show up or pay up.' },
-  { sel: '.bottom-tabs .tab-btn:nth-child(3)', title: 'Coach', text: 'FitPot\'s own coach, being built. Plate scan, training plans and kind nudges.' },
+  { sel: '.bottom-tabs .tab-btn:nth-child(3)', title: 'Coach', text: 'FitPot\'s own coach, being built. Plate scan, recipes, training plans and kind nudges.' },
   { sel: '.bottom-tabs .tab-btn:nth-child(4)', title: 'Account', text: 'About me, units (kg or lb), reminders and text size.' },
   { sel: '.menu-btn', title: 'Locker room', text: 'Every page in one menu, any time.' },
 ]

@@ -31,6 +31,7 @@ export const PAGES = [
   // Being built. Each shows as a safe in its own area until it's ready.
   { key: 'scan', label: 'Food safe: Plate scan', section: 'you', icon: 'scan', note: 'Phase 6', what: 'Snap your plate, see what\'s on it' },
   { key: 'plans', label: 'Training safe: My plan', section: 'you', icon: 'plan', note: 'Phase 8', what: 'A plan to help you beat your records' },
+  { key: 'recipes', label: 'Food safe: Recipe coach', section: 'you', icon: 'food', note: 'Phase 9', what: 'Recipes from what\'s in your kitchen, to fit your targets' },
   { key: 'nudges', label: 'Crew safe: AI nudges', section: 'crew', icon: 'spark', note: 'Phase 7', what: 'Friendly nudges for your crew' },
 ]
 

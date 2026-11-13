@@ -63,7 +63,7 @@ export default function LockerMenu({ user, current, onClose, groupSwitch }) {
                     <div key={p.key}>
                       <button type="button" className={`room-item ${current === p.key ? 'on' : ''}`}
                         aria-current={current === p.key ? 'page' : undefined} onClick={() => go(p.to)}>{p.label}</button>
-                      {SOON[p.key] && <SoonRow pageKey={SOON[p.key]} onTap={() => go('/coach')} />}
+                      {(SOON[p.key] || []).map((k) => <SoonRow key={k} pageKey={k} onTap={() => go('/coach')} />)}
                     </div>
                   ))}
                   {s.key === 'crew' && (
@@ -83,8 +83,8 @@ export default function LockerMenu({ user, current, onClose, groupSwitch }) {
 }
 
 // What's being built, under the page it belongs to.
-const SOON = { food: 'scan', training: 'plans' }
-const SHORT = { scan: 'Plate scan', plans: 'My plan', nudges: 'AI nudges' }
+const SOON = { food: ['scan', 'recipes'], training: ['plans'] }
+const SHORT = { scan: 'Plate scan', recipes: 'Recipe coach', plans: 'My plan', nudges: 'AI nudges' }
 
 function SoonRow({ pageKey, onTap }) {
   const p = PAGES.find((x) => x.key === pageKey)

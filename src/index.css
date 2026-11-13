@@ -346,7 +346,7 @@ button.plain.grow-col { display: flex; flex-direction: column; align-items: flex
 .activity-chips { justify-content: center; margin: 8px 0 0; }
 
 /* ---------- Phase 5.7: bigger text, new navigation ---------- */
-html { font-size: 17px; }
+html { font-size: 16px; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 body { line-height: 1.45; }
 .member-list li { min-height: 52px; }
 .chip { min-height: 38px; font-size: 0.88rem; }
@@ -416,7 +416,7 @@ body { line-height: 1.45; }
 .section-switch::-webkit-scrollbar { display: none; }
 .section-switch button { flex: 1 1 0; text-align: center; padding: 8px 2px; border: 0; border-radius: 999px; background: none; color: var(--muted); font: inherit; font-weight: 700; font-size: 0.85rem; cursor: pointer; white-space: nowrap; min-height: 40px; }
 .section-switch button.on { background: var(--lime); color: #0b0d0c; }
-.section-switch button { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.section-switch button { min-width: 0; }
 @media (max-width: 380px) { .section-switch button { font-size: 0.78rem; } }
 .plan-safe { display: inline-flex; align-items: center; gap: 6px; margin: 0 0 12px; padding: 6px 12px; border: 1px dashed var(--border); border-radius: 999px; background: none; color: var(--text); font: inherit; font-size: 0.8rem; font-weight: 600; cursor: pointer; }
 .plan-note { margin: -6px 4px 12px; }
@@ -780,3 +780,21 @@ body { line-height: 1.45; }
 .tab-btn { position: relative; }
 .check.chat-notes { display: flex; align-items: flex-start; gap: 10px; }
 .check.chat-notes span .muted { display: block; }
+
+/* ---------- Phase 5.16: keep everything inside the screen ---------- */
+body { overflow-wrap: break-word; }
+img, svg, video, canvas { max-width: 100%; }
+.card, .tile, .stat, .sheet, li { min-width: 0; }
+.section-switch button { flex: 1 0 auto; padding: 8px 10px; }
+.body-map { max-width: 100%; }
+.body-view { flex: 1 1 0; min-width: 0; }
+.body-view svg { width: 100%; height: auto; }
+/* Text size, 50% to 130% (phase 5.16). Sized in px so the picker itself
+   stays the same size while you try sizes. */
+.text-size-now { color: var(--text); font-weight: 700; margin-left: 6px; }
+.text-size-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.text-size-grid button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 56px; padding: 6px 4px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); color: var(--text); font-family: inherit; font-size: 15px; cursor: pointer; min-width: 0; }
+.text-size-grid button span { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.text-size-grid button.on { background: var(--lime); color: #0b0d0c; border-color: var(--lime); }
+.text-size-grid button.on span { color: #0b0d0c; }
+@media (max-width: 340px) { .stat { padding: 10px; } .stats-row .stat .stat-num { font-size: 1.4rem; } }
